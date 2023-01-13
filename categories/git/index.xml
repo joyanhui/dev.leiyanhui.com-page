@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>git on 小类随手记</title><link>https://dev.leiyanhui.com/categories/git/</link><description>Recent content in git on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 29 Nov 2022 07:20:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/git/index.xml" rel="self" type="application/rss+xml"/><item><title>docker部署vscode和golang git</title><link>https://dev.leiyanhui.com/docker/debian-go-codeserver-git/</link><pubDate>Tue, 29 Nov 2022 07:20:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-go-codeserver-git/</guid><description>&lt;p>新版codeserver 依赖glibc已经不支持 在alpine上安装，尝试过用官网docker来处理 发现不符合我要求，而且存在权限问题。所以还是自己新建一个基本系统来处理。&lt;/p>
+&lt;h3 id="docker-配置一个支持sshd的debian">docker 配置一个支持sshd的debian&lt;/h3>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/docker/debian-sshd" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/docker/debian-sshd&lt;/a>&lt;br>
+因为这个docker还要迁移，所以我这里不打算映射任何目录 端口也固定分配&lt;/p>
+&lt;pre>&lt;code>cat debian11-for-sshd.tar.gz | docker import - debian11:sshd-autoboot.sh2222
+docker run -itd --name debian-go-codeserver-git --privileged=true \
+-p 59010:2222 -p 59011-59019:59011-59019 \
+debian11:sshd-autoboot.sh2222 sh /autoboot.sh
+&lt;/code>&lt;/pre>
+&lt;h4 id="ssh登录到59010端口-挂一下学习工具">ssh登录到59010端口 挂一下学习工具&lt;/h4>
+&lt;pre>&lt;code>export http_proxy=&amp;quot;10.0.0.1:20172&amp;quot;
+export https_proxy=&amp;quot;10.0.0.1:20172&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;h4 id="安装">安装&lt;/h4>
+&lt;pre>&lt;code>apt install curl
+curl -fsSL https://code-server.dev/install.sh | sh
+&lt;/code>&lt;/pre>
+&lt;h3 id="启动">启动&lt;/h3>
+&lt;pre>&lt;code>code-server
+&lt;/code>&lt;/pre>
+&lt;h3 id="修改密码和端口">修改密码和端口&lt;/h3>
+&lt;pre>&lt;code>nano ~/.config/code-server/config.yaml
+&lt;/code>&lt;/pre>
+&lt;p>内容&lt;/p>
+&lt;pre>&lt;code>bind-addr: 0.0.0.0:59011
+auth: password
+password: cd89d839912d5d87cd7db6c7
+cert: false
+&lt;/code>&lt;/pre>
+&lt;p>注意 每个冒号后面都有空格&lt;/p>
+&lt;h3 id="自动启动">自动启动&lt;/h3>
+&lt;pre>&lt;code>nano /autoboot.sh
+&lt;/code>&lt;/pre>
+&lt;p>内容&lt;/p>
+&lt;pre>&lt;code>/etc/init.d/ssh start
+/usr/bin/code-server &amp;amp;
+tail -f /dev/null
+&lt;/code>&lt;/pre>
+&lt;h3 id="最后">最后。。&lt;/h3>
+&lt;p>codesever 新版 依赖 glibc 已经无法安装，会麻烦很多。基础镜像还是建议用&lt;/p></description></item></channel></rss>

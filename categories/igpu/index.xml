@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>igpu on 小类随手记</title><link>https://dev.leiyanhui.com/categories/igpu/</link><description>Recent content in igpu on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 24 Dec 2022 23:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/igpu/index.xml" rel="self" type="application/rss+xml"/><item><title>pve 7.3开启核显/独显直通pic设备直通简易教程</title><link>https://dev.leiyanhui.com/pve/igpu-pass/</link><pubDate>Sat, 24 Dec 2022 23:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/igpu-pass/</guid><description>&lt;h2 id="grub处理">grub处理&lt;/h2>
+&lt;p>&lt;code>nano /etc/default/grub&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">#GRUB_CMDLINE_LINUX_DEFAULT=&amp;#34;quiet&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">GRUB_CMDLINE_LINUX_DEFAULT=&amp;#34;quiet intel_iommu=on video=efifb:off&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>有可能还需要&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">GRUB_CMDLINE_LINUX_DEFAULT=&amp;#34;quiet intel_iommu=on video=efifb:off&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>intel_iommu=on 是开启分组&lt;br>
+video=efifb:off 是关闭pve的显示&lt;br>
+vesafb:off 禁用legacy启动的显示设备 非必须&lt;br>
+更新grub后重启&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">update-grub
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>ventoy的pve 还需要处理一下 再重启&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd /root/vtoyboot-1.0.25/ &amp;amp;&amp;amp; sh vtoyboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="开启vfio模块">开启vfio模块&lt;/h2>
+&lt;p>&lt;code>nano /etc/modules&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">vfio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_iommu_type1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_pci
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_virqfd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="创建黑名单">创建黑名单&lt;/h2>
+&lt;p>&lt;code>nano /etc/modprobe.d/pve-blacklist.conf&lt;/code> 屏蔽常见设备和核显等&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">blacklist i915
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist snd_hda_intel
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist snd_hda_codec_hdmi
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>其他的显卡 自己按需要屏蔽&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># block AMD driver
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist radeon
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist amdgpu
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># block NVIDIA driver
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist nouveau
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist nvidia
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist nvidiafb
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="避免-无限重启">避免 无限重启&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;options kvm ignore_msrs=1&amp;#34; &amp;gt; /etc/modprobe.d/kvm.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="允许不安全的中断">允许不安全的中断&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;options vfio_iommu_type1 allow_unsafe_interrupts=1&amp;#34; &amp;gt; /etc/modprobe.d/iommu_unsafe_interrupts.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="查看要屏蔽的设备的id">查看要屏蔽的设备的id，&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">lspci -nn | grep UHD
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">---------
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">00:02.0 VGA compatible controller [0300]: Intel Corporation CoffeeLake-H GT2 [UHD Graphics 630] [8086:3e9b]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>记住前面和最后的地址 &lt;code>00:02&lt;/code> 和 &lt;code>8086:3e9b&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;options vfio-pci ids=8086:3e9b&amp;#34; &amp;gt; /etc/modprobe.d/vfio.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>ps：执行此操作后可能无法输出到外接显示器，若出现此情况，请撤回该步骤.另外有一个 参数 disable_vga=1 也可能会影响&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;options vfio-pci ids=8086:3e9b disable_vga=1&amp;#34; &amp;gt; /etc/modprobe.d/vfio.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="更新initramfs">更新initramfs&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">update-initramfs -u
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># ventoy启动的pve.vhd 还需要处理一下vtoyboot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd /root/vtoyboot-1.0.25/ &amp;amp;&amp;amp; sh vtoyboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>再重启&lt;/p>
+&lt;h2 id="检查">检查&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">root@pve ~# lsmod | grep vfio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">------------------------------------------
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_pci 16384 0
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_pci_core 73728 1 vfio_pci
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_virqfd 16384 1 vfio_pci_core
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">irqbypass 16384 16 vfio_pci_core,kvm
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_iommu_type1 40960 0
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio 45056 2 vfio_pci_core,vfio_iommu_type1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>完毕
+其他问题 参考以前的记录 ：&lt;a class="link" href="https://dev.leiyanhui.com/pve/win-gpu/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/win-gpu/&lt;/a>&lt;/p></description></item></channel></rss>

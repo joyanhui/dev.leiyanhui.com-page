@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>linux on 小类随手记</title><link>https://dev.leiyanhui.com/categories/linux/</link><description>Recent content in linux on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 23 Dec 2022 01:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/linux/index.xml" rel="self" type="application/rss+xml"/><item><title>windows 使用btrfs分区</title><link>https://dev.leiyanhui.com/win/winbtrfs/</link><pubDate>Fri, 23 Dec 2022 01:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/win/winbtrfs/</guid><description>&lt;p>btrfs 大有替代 ext4的趋势，支持压缩 支持快照 简直爽的不要不要的&lt;/p>
+&lt;p>win10下启用btrfs 经过长时间使用发现winbtrfs这个项目算是相对不错 且稳定的
+&lt;a class="link" href="https://github.com/maharmstone/btrfs" target="_blank" rel="noopener"
+>https://github.com/maharmstone/btrfs&lt;/a>&lt;/p>
+&lt;p>安装方法&lt;/p>
+&lt;p>下载，https://github.com/maharmstone/btrfs/releases/download/v1.8.1/btrfs-1.8.1.zip 解压，注意 是 &lt;code>btrfs-XX.zip&lt;/code> 不是debug和pdb那两个&lt;/p>
+&lt;p>右键 btrfs.inf ,安装，不用重启即可使用&lt;/p>
+&lt;p>测试 大文件可以全速读写 4k 未测试。&lt;/p>
+&lt;h2 id="后记">后记&lt;/h2>
+&lt;h3 id="winpe下">winpe下&lt;/h3>
+&lt;p>测试winpe 为 firpe v1.8.1 ，也支持。 winpe下不需要重启即可使用&lt;/p>
+&lt;h3 id="不建议主力">不建议主力&lt;/h3>
+&lt;p>win下使用linux原生分区格式，建议还是应急为主。&lt;br>
+如果你的系统以win为主，建议还是exfat 兼容性处理起来更简单 也更稳。&lt;br>
+如果是linux为主的话，那么 上btrfs 吧！不会后悔&lt;/p></description></item><item><title>btrfs 文件系统 简要说明</title><link>https://dev.leiyanhui.com/linux/btrfs/</link><pubDate>Wed, 21 Dec 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/linux/btrfs/</guid><description>&lt;h2 id="格式化">格式化&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkfs.btrfs /dev/nvme0n1p4
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkfs.btrfs -f /dev/nvme0n1p4 #强制
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">lsblk
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="压缩">压缩&lt;/h2>
+&lt;h3 id="挂载时候全盘启用压缩">挂载时候全盘启用压缩&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mount -o compress=lzo /dev/nvme0n1p4 /mnt
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mount -o compress=zstd /dev/sdx /mnt
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>自动挂载fstab&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">/dev/nvme0n1p4 / btrfs defaults,compress-force=lzo,subvol=snapshot 0 1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>lzo&lt;/code>是压缩算法，目前btrfs支持lzo zlib ZSTD三种算法,旧版只支持lzo zlib ，默认压缩方式是 zlib 压缩等级是3&lt;/p>
+&lt;h3 id="单文件或者路径压缩">单文件或者路径压缩&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">chattr +c file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">btrfs property set file compression zstd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="关于写复制">关于写复制&lt;/h2>
+&lt;p>改动频繁的文件，务必 使用chattr命令给文件或目录添加C属性&lt;/p>
+&lt;p>windows下可以全速读写btrfs分区：&lt;a class="link" href="https://dev.leiyanhui.com/win/winbtrfs/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/win/winbtrfs/&lt;/a>&lt;/p>
+&lt;p>参考： &lt;a class="link" href="https://btrfs.readthedocs.io/en/latest/btrfs-man5.html#how-to-enable-compression" target="_blank" rel="noopener"
+>https://btrfs.readthedocs.io/en/latest/btrfs-man5.html#how-to-enable-compression&lt;/a>&lt;/p>
+&lt;h2 id="后记">后记&lt;/h2>
+&lt;h3 id="winpe-支持">winpe 支持&lt;/h3>
+&lt;p>测试winpe 为 firpe v1.8.1&lt;/p>
+&lt;h3 id="其他">其他&lt;/h3>
+&lt;p>真的不建议再用exfat了，
+macos的话，也可以用虚拟机映射分区的方法访问，然后sftp或者其他方式再挂载出来。
+另外爱折腾我们最爱的ventoy 尚不支持 btrfs&lt;/p></description></item><item><title>linux下git备份home目录到远程仓库</title><link>https://dev.leiyanhui.com/arch/git-backup-userdir/</link><pubDate>Sun, 11 Dec 2022 07:25:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/git-backup-userdir/</guid><description>&lt;p>在/home/用户名 这个目录下存放着我们的大量配置文件。尤其是系统的一些配置i，还有一些个别软件的配置。&lt;/p>
+&lt;h2 id="先创建远程私有库和token-key">先创建远程私有库和token key&lt;/h2>
+&lt;p>过程略&lt;/p>
+&lt;h2 id="配置过滤文件-gitignore">配置过滤文件 .gitignore&lt;/h2>
+&lt;p>.gitignore&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># 修改后需要执行下面命令清理缓存
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># git rm -r --cached .
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.cache
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/Downloads
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/下载
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.mozilla
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.config/electronic-wechat
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.config/icalingua
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.config/QQ
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.local/share/logs
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/golang/webdavgo/.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/golang/webdavgo/bin
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.gocache
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/golang/ole/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.local/share/code-server/logs
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vscode.lock
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">code-server-stdout.log
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/.local/share/fish/fish_history
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="处理git-这样嗯里-gitsh">处理git 这样嗯里 git.sh&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 定义源 git remote set-url origin https://joyanhui:XXX@github.com/joyanhui/XXXX.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 修改 .gitignore 后需要清理缓存
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#git init
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#git rm -r --cached .
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git add .
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git commit -m &amp;#34;sh git.sh 自动 $(date &amp;#34;+%Y-%m-%d %H:%M:%S&amp;#34;) -$RANDOM&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 挂代理
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">export http_proxy=&amp;#34;10.0.0.1:20172&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">export https_proxy=&amp;#34;10.0.0.1:20172&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># git remote add origin https://joyanhui:XXX@github.com/joyanhui/XXXX.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># git remote set-url origin https://joyanhui:XXX@github.com/joyanhui/XXXX.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># git pull --rebase origin master
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 强制覆盖 git push -f origin master
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git push -u origin master
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>再见宝塔，关于宝塔的17个替代品</title><link>https://dev.leiyanhui.com/linux/other-bt/</link><pubDate>Wed, 07 Dec 2022 09:58:20 +0800</pubDate><guid>https://dev.leiyanhui.com/linux/other-bt/</guid><description>&lt;p>宝塔经历过几次严重漏洞，加上最近小bug不断，甚至有的bug反反复复，如同月经一样，每个月出现一次（宝塔周更）&lt;/p>
+&lt;p>还有之前直播间的事故，强制绑定手机号等等&amp;hellip;.官网bug论坛的机器人一样的回复：我没有bug，你更新一下&lt;/p>
+&lt;p>反正就是死不承认，然后一直到反馈的人多了，甚至过去数周才去修复，然后过几周可能又复现&lt;/p>
+&lt;p>这个曾经优秀的国产软件，也可能是因为用户群太多，也可能是内部管理真的是混乱不堪。频繁爆出bug 还有 安全问题。&lt;/p>
+&lt;p>去年开始，新机器上就避免再使用宝塔。&lt;/p>
+&lt;p>这次宝塔的操作 也非常惊人，宝塔官方自己的demo都被黑掉，依旧不承认有漏洞，然后在论坛开始疯狂删反馈贴！&lt;/p>
+&lt;p>搞笑的是，宝塔自己的demo 迟迟都没有处理掉，第二天早上直接挂403了。 真的是。。。&lt;/p>
+&lt;p>首先说，还是推荐尽量手搓的方式来管理生产服务器，真的不建议再用宝塔这种鬼东西。&lt;/p>
+&lt;p>如果实在是需要图形界面 或者一键环境 可以看一下相关替代产品&lt;/p>
+&lt;h3 id="替代品">替代品&lt;/h3>
+&lt;p>1、https://cockpit-project.org/&lt;/p>
+&lt;p>Cockpit 是由 Red Hat 开发的使得管理服务器变得轻松简单的自由开源软件。它非常适合于进行简单的系统管理任务和新手系统管理员。&lt;/p>
+&lt;p>2、https://github.com/midoks/mdserver-web
+UI跟宝塔差不多，但个人试用了一下发现占用资源挺高的。&lt;/p>
+&lt;p>3、https://hestiacp.com/
+太简单，功能不足&lt;/p>
+&lt;p>4、https://oneinstack.com/
+类lnmp，无web UI&lt;/p>
+&lt;p>5、https://cyberpanel.net/
+太简单，功能不足&lt;/p>
+&lt;p>6、https://lnmp.org/
+无web UI&lt;/p>
+&lt;p>7、https://github.com/DevHaoZi/Panel
+耗子面板，仅支持redhat系列&lt;/p>
+&lt;p>8、http://amh.sh/
+amh面板&lt;/p>
+&lt;p>9、https://www.appnode.com/&lt;/p>
+&lt;p>10、https://vestacp.com/&lt;/p>
+&lt;p>11、https://fastpanel.direct/&lt;/p>
+&lt;p>12、https://www.urlos.com/&lt;/p>
+&lt;p>13、https://www.hws.com/&lt;/p>
+&lt;p>14、https://www.digitalocean.com/community/tools/nginx?global.app.lang=zhCN&lt;/p>
+&lt;p>15、 Nginx Proxy Manager
+&lt;a class="link" href="https://nginxproxymanager.com/" target="_blank" rel="noopener"
+>https://nginxproxymanager.com/&lt;/a> 纯nginx反代 和 le证书管理工具&lt;/p>
+&lt;p>16、 纯证书管理
+&lt;a class="link" href="https://github.com/acmesh-official/acme.sh" target="_blank" rel="noopener"
+>https://github.com/acmesh-official/acme.sh&lt;/a>&lt;/p>
+&lt;p>17、超过25年的老古董Webmin/Virtualmin&lt;/p></description></item></channel></rss>

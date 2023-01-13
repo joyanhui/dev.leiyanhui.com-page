@@ -1,0 +1,183 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="现在完成了一个 macos+ win10的双系统 vm https://dev.leiyanhui.com/kvm/macos_add_win10/
+并且 整理了一个可以基本启动的macos 和 win的脚本 start_bash_macos_win.sh
+arch+kvm的安装 看文末链接
+usb 和蓝牙的直通 usb直通 是最简单的，所以先处理usb的直通
+SPICE 可以把控制机的usb通过网络穿透给受控虚拟机，这个可以看arch的wike 这里主要是宿主机的直通
+需要用 lsusb命令
+1 sudo pacman -S usbutils 运行 lsusb
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub Bus 001 Device 006: ID 05ac:821f Apple, Inc. Built-in Bluetooth 2.0+EDR HCI Bus 001 Device 003: ID 0a5c:4500 Broadcom Corp. BCM2046B1 USB 2.0 Hub (part of BCM2046 Bluetooth) Bus 001 Device 002: ID 093a:2510 Pixart Imaging, Inc."><title>kvm硬件直通 核显 蓝牙 usb 板载声卡</title><link rel=canonical href=https://dev.leiyanhui.com/kvm/pci-usb/><link rel=stylesheet href=/scss/style.min.8191399262444ab68b72a18c97392f5349be20a1615d77445be51e974c144cff.css><meta property="og:title" content="kvm硬件直通 核显 蓝牙 usb 板载声卡"><meta property="og:description" content="现在完成了一个 macos+ win10的双系统 vm https://dev.leiyanhui.com/kvm/macos_add_win10/
+并且 整理了一个可以基本启动的macos 和 win的脚本 start_bash_macos_win.sh
+arch+kvm的安装 看文末链接
+usb 和蓝牙的直通 usb直通 是最简单的，所以先处理usb的直通
+SPICE 可以把控制机的usb通过网络穿透给受控虚拟机，这个可以看arch的wike 这里主要是宿主机的直通
+需要用 lsusb命令
+1 sudo pacman -S usbutils 运行 lsusb
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub Bus 001 Device 006: ID 05ac:821f Apple, Inc. Built-in Bluetooth 2.0+EDR HCI Bus 001 Device 003: ID 0a5c:4500 Broadcom Corp. BCM2046B1 USB 2.0 Hub (part of BCM2046 Bluetooth) Bus 001 Device 002: ID 093a:2510 Pixart Imaging, Inc."><meta property="og:url" content="https://dev.leiyanhui.com/kvm/pci-usb/"><meta property="og:site_name" content="小类随手记"><meta property="og:type" content="article"><meta property="article:section" content="Kvm"><meta property="article:published_time" content="2022-11-01T03:50:20+08:00"><meta property="article:modified_time" content="2022-11-01T03:50:20+08:00"><meta name=twitter:title content="kvm硬件直通 核显 蓝牙 usb 板载声卡"><meta name=twitter:description content="现在完成了一个 macos+ win10的双系统 vm https://dev.leiyanhui.com/kvm/macos_add_win10/
+并且 整理了一个可以基本启动的macos 和 win的脚本 start_bash_macos_win.sh
+arch+kvm的安装 看文末链接
+usb 和蓝牙的直通 usb直通 是最简单的，所以先处理usb的直通
+SPICE 可以把控制机的usb通过网络穿透给受控虚拟机，这个可以看arch的wike 这里主要是宿主机的直通
+需要用 lsusb命令
+1 sudo pacman -S usbutils 运行 lsusb
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub Bus 001 Device 006: ID 05ac:821f Apple, Inc. Built-in Bluetooth 2.0+EDR HCI Bus 001 Device 003: ID 0a5c:4500 Broadcom Corp. BCM2046B1 USB 2.0 Hub (part of BCM2046 Bluetooth) Bus 001 Device 002: ID 093a:2510 Pixart Imaging, Inc."></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_huc576795bd0b236a89cc0b965a29f05fa_109254_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar></a>
+<span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=social-menu><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg><span>Home</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg><span>Archives</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg><span>Search</span></a></li><li><a href=/links/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg><span>Links</span></a></li><div class=menu-bottom-section><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg><span>暗色模式</span></li></div></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#usb-和蓝牙的直通>usb 和蓝牙的直通</a></li><li><a href=#核显-独显和其他pice设备的直通>核显 独显和其他pice设备的直通</a><ol><li><a href=#启用iommu>启用IOMMU</a></li><li><a href=#查看pice情况>查看pice情况</a></li><li><a href=#隔离设备>隔离设备</a><ol><li><a href=#通过设备id绑定vfio-pci>通过设备ID绑定vfio-pci</a></li><li><a href=#可能还需要-提前加载vfio-pci>可能还需要 提前加载vfio-pci</a></li><li><a href=#mkinitcpio>mkinitcpio</a></li><li><a href=#黑名单>黑名单</a></li><li><a href=#booster>booster</a></li><li><a href=#dracut>dracut</a></li><li><a href=#防止部分游戏蓝屏以及macos无限重启>防止部分游戏蓝屏，以及macos无限重启</a></li></ol></li><li><a href=#重启后检查>重启后检查</a></li><li><a href=#尝试直通-核显>尝试直通 核显</a><ol><li></li><li><a href=#添加直通wifi>添加直通wifi</a></li></ol></li><li><a href=#声卡直通>声卡直通</a></li></ol></li><li><a href=#直通了-核显--wifi-usb-蓝牙-的一个win虚拟机启动脚本>直通了 核显 wifi usb 蓝牙 的一个win虚拟机启动脚本</a><ol><li><a href=#另外一个解决了vnc鼠标问题的脚本>另外一个解决了vnc鼠标问题的脚本</a></li><li><a href=#macos-efi>macos efi</a></li><li><a href=#kvm-进阶和相关小问题处理>kvm 进阶和相关小问题处理</a></li><li><a href=#我的kvm脚本参考>我的kvm脚本参考</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><div class=article-title-wrapper><h2 class=article-title><a href=/kvm/pci-usb/>kvm硬件直通 核显 蓝牙 usb 板载声卡</a></h2></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg><time class=article-time--published>2022-11-01</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg><time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>现在完成了一个 macos+ win10的双系统 vm <a class=link href=https://dev.leiyanhui.com/kvm/macos_add_win10/ target=_blank rel=noopener>https://dev.leiyanhui.com/kvm/macos_add_win10/</a><br>并且 整理了一个可以基本启动的macos 和 win的脚本 <a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/start_bash_macos_win.sh target=_blank rel=noopener>start_bash_macos_win.sh</a></p><p>arch+kvm的安装 看文末链接</p><h2 id=usb-和蓝牙的直通>usb 和蓝牙的直通</h2><p>usb直通 是最简单的，所以先处理usb的直通</p><blockquote><p>SPICE 可以把控制机的usb通过网络穿透给受控虚拟机，这个可以看<a class=link href=https://wiki.archlinux.org/title/QEMU_%28%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87%29#%E4%BD%BF%E7%94%A8SPICE%E8%BF%9B%E8%A1%8CUSB%E9%87%8D%E5%AE%9A%E5%90%91 target=_blank rel=noopener>arch的wike</a>
+这里主要是宿主机的直通</p></blockquote><p>需要用 lsusb命令</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo pacman -S usbutils 
+</span></span></code></pre></td></tr></table></div></div><p>运行 lsusb</p><pre><code>Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 001 Device 006: ID 05ac:821f Apple, Inc. Built-in Bluetooth 2.0+EDR HCI
+Bus 001 Device 003: ID 0a5c:4500 Broadcom Corp. BCM2046B1 USB 2.0 Hub (part of BCM2046 Bluetooth)
+Bus 001 Device 002: ID 093a:2510 Pixart Imaging, Inc. Optical Mouse
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+</code></pre><p>数字分别对应 标识“ host_bus host_addr vendor_id product_id”。<br>直通蓝牙 和 Mouse 给虚拟机，有两种方式，第一种是 按照设备id 第二种是直接把usb指定的接口直通给虚拟机。 建议用接口方式。这样指定的接口还可以热拔插<br>例如 usb 鼠标 是hostbus1 hostaddr：002 蓝牙是 hostbus1 hostaddr：006
+编辑脚本</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>cp base-win.sh  base-win-usb.sh &amp;&amp; nano base-win-usb.sh
+</span></span></code></pre></td></tr></table></div></div><p>在 <code>-device usb-ehci,id=ehci</code> 后添加行 <code>id=qxhci</code> 这个名字不能有重复的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>-device qemu-xhci,id=qxhci -device usb-host,bus=qxhci.0,hostdevice=/dev/bus/usb/001/002 \
+</span></span></code></pre></td></tr></table></div></div><p>这样，无论当前插鼠标的usb接口插入什么设备 都会直通给虚拟机（注意 usb2 和 usb3 对应的host_addr 是不同的，如果分别插入分别获取一次host_addr都直通进去才可以同一个接口 同时支持usb2和usb3）
+操作的时候 会有权限问题，可能需要 <code>sudo sh base-win-usb.sh</code> 不是很安全，如果要解决这个问题，可以<a class=link href=https://wiki.archlinux.org/title/Udev#About_udev_rules target=_blank rel=noopener>查看arch关于udev的wiki</a></p><p>鼠标测试成功，用同样的方法添加的时候，我发现<code>ID 05ac:821f Apple, Inc. Built-in Bluetooth 2.0+EDR HCI</code> 这个设备的Device id/host_addr会变化 所以直接用设备的id</p><p>添加 <code>port=XXX</code> 参数，鼠标口直接绑定，蓝牙用vendorid 和 productid绑定</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>-device qemu-xhci,id=qxhci -device usb-host,port=1,bus=qxhci.0,hostdevice=/dev/bus/usb/001/002 \
+</span></span><span class=line><span class=cl>-device usb-host,port=2,bus=qxhci.0,vendorid=0x0a5c,productid=0x4500 \
+</span></span><span class=line><span class=cl>-device usb-host,port=3,bus=qxhci.0,vendorid=0x05ac,productid=0x821f \
+</span></span></code></pre></td></tr></table></div></div><p>最终完整文件 <a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/base-win-usb-bluetooth.sh target=_blank rel=noopener>https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/base-win-usb-bluetooth.sh</a></p><blockquote><p>因为是已经安装好的 win，所以一直动他主板设备，可能会遇到蓝屏问题。这个是win的问题，不用管他，正常启动过一次 以后不改这些参数 就不会有问题</p></blockquote><h2 id=核显-独显和其他pice设备的直通>核显 独显和其他pice设备的直通</h2><h3 id=启用iommu>启用IOMMU</h3><p>确认宿主机BIOS里面打开了VT-d/VT-x/VT-i等所有硬件虚拟化支持开关
+打开Linux操作系统的iommu开关，在grub启动命令行里面配置，Intel CPU和AMD CPU配置参数有区别：Intel CPU: intel_iommu=on；AMD CPU: amd_iommu=on
+重启服务器，检查iommu配置是否生效（dmesg | grep -i iommu，输出“Intel-IOMMU: enabled”表示生效）</p><p><code>sudo nano /etc/default/grub</code> 编辑<code>GRUB_CMDLINE_LINUX_DEFAULT="... intel_iommu=on ..."</code></p><p>另外一个参数 <code>iommu=pt</code>，这将防止Linux试图接触(touching)无法直通的设备。 不确定是否是必须的</p><p>更新一下 grub，</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo grub-install /dev/nvme0n1    #(注意，不是efi分区，而且是整个磁盘)
+</span></span><span class=line><span class=cl>sudo grub-mkconfig -o /boot/grub/grub.cfg
+</span></span><span class=line><span class=cl>sudo reboot
+</span></span></code></pre></td></tr></table></div></div><p>重启 后检查一下,如果没有下面的分组，信息，那就是 bios的 vt-d 没打开，去打开</p><pre><code>cat /etc/default/grub
+
+sudo dmesg | grep -i iommu
+[    0.000000] Command line: BOOT_IMAGE=/boot/vmlinuz-linux root=UUID=7ecb4d27-3d12-9d47-ab75-ba39b6fbe737 rw loglevel=3 quiet intel_iommu=on
+[    0.038327] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-linux root=UUID=7ecb4d27-3d12-9d47-ab75-ba39b6fbe737 rw loglevel=3 quiet intel_iommu=on
+[    0.038385] DMAR: IOMMU enabled
+[    0.092270] DMAR-IR: IOAPIC id 2 under DRHD base  0xfed91000 IOMMU 1
+[    0.292307] iommu: Default domain type: Translated
+[    0.292309] iommu: DMA domain TLB invalidation policy: lazy mode
+[    0.320110] DMAR: IOMMU feature fl1gp_support inconsistent
+[    0.320111] DMAR: IOMMU feature pgsel_inv inconsistent
+[    0.320112] DMAR: IOMMU feature nwfs inconsistent
+[    0.320113] DMAR: IOMMU feature pasid inconsistent
+[    0.320114] DMAR: IOMMU feature eafs inconsistent
+[    0.320114] DMAR: IOMMU feature prs inconsistent
+[    0.320115] DMAR: IOMMU feature nest inconsistent
+[    0.320116] DMAR: IOMMU feature mts inconsistent
+[    0.320116] DMAR: IOMMU feature sc_support inconsistent
+[    0.320117] DMAR: IOMMU feature dev_iotlb_support inconsistent
+[    0.320347] pci 0000:00:00.0: Adding to iommu group 0
+[    0.320357] pci 0000:00:02.0: Adding to iommu group 1
+[    0.320367] pci 0000:00:14.0: Adding to iommu group 2
+[    0.320373] pci 0000:00:17.0: Adding to iommu group 3
+[    0.320384] pci 0000:00:1c.0: Adding to iommu group 4
+[    0.320392] pci 0000:00:1c.5: Adding to iommu group 5
+[    0.320400] pci 0000:00:1c.6: Adding to iommu group 6
+[    0.320408] pci 0000:00:1c.7: Adding to iommu group 7
+[    0.320416] pci 0000:00:1d.0: Adding to iommu group 8
+[    0.320431] pci 0000:00:1f.0: Adding to iommu group 9
+[    0.320437] pci 0000:00:1f.2: Adding to iommu group 9
+[    0.320444] pci 0000:00:1f.3: Adding to iommu group 9
+[    0.320451] pci 0000:00:1f.4: Adding to iommu group 9
+[    0.320460] pci 0000:01:00.0: Adding to iommu group 10
+[    0.320468] pci 0000:02:00.0: Adding to iommu group 11
+[    0.320476] pci 0000:05:00.0: Adding to iommu group 12
+[    0.378552] AMD-Vi: AMD IOMMUv2 functionality not available on this system - This is not a bug.
+[    2.573917] pci 0000:00:1f.1: Adding to iommu group 13
+[    2.574294] pci 0000:00:1f.1: Removing from iommu group 13
+</code></pre><h3 id=查看pice情况>查看pice情况</h3><p><code>sudo nano /mnt/ssd/print_IOMMU.sh</code> 内容</p><pre><code>#!/bin/bash
+shopt -s nullglob
+for d in /sys/kernel/iommu_groups/*/devices/*; do 
+    n=${d#*/iommu_groups/*}; n=${n%%/*}
+    printf 'IOMMU Group %s ' &quot;$n&quot;
+    lspci -nns &quot;${d##*/}&quot;
+done;
+</code></pre><p><code>sudo sh print_IOMMU.sh</code> 查看所有pice设备</p><pre><code>IOMMU Group 0 00:00.0 Host bridge [0600]: Intel Corporation 8th Gen Core Processor Host Bridge/DRAM Registers [8086:3ec4] (rev 07)
+IOMMU Group 1 00:02.0 VGA compatible controller [0300]: Intel Corporation CoffeeLake-H GT2 [UHD Graphics 630] [8086:3e9b]
+IOMMU Group 10 01:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller [10ec:8168] (rev 0c)
+IOMMU Group 11 02:00.0 Network controller [0280]: Broadcom Inc. and subsidiaries BCM43224 802.11a/b/g/n [14e4:4353] (rev 01)
+IOMMU Group 12 05:00.0 Non-Volatile memory controller [0108]: KIOXIA Corporation NVMe SSD [1e0f:0009] (rev 01)
+IOMMU Group 2 00:14.0 USB controller [0c03]: Intel Corporation 100 Series/C230 Series Chipset Family USB 3.0 xHCI Controller [8086:a12f] (rev 31)
+IOMMU Group 3 00:17.0 SATA controller [0106]: Intel Corporation Q170/Q150/B150/H170/H110/Z170/CM236 Chipset SATA Controller [AHCI Mode] [8086:a102] (rev 31)
+IOMMU Group 4 00:1c.0 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #5 [8086:a114] (rev f1)
+IOMMU Group 5 00:1c.5 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #6 [8086:a115] (rev f1)
+IOMMU Group 6 00:1c.6 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #7 [8086:a116] (rev f1)
+IOMMU Group 7 00:1c.7 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #8 [8086:a117] (rev f1)
+IOMMU Group 8 00:1d.0 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #9 [8086:a118] (rev f1)
+IOMMU Group 9 00:1f.0 ISA bridge [0601]: Intel Corporation B150 Chipset LPC/eSPI Controller [8086:a148] (rev 31)
+IOMMU Group 9 00:1f.2 Memory controller [0580]: Intel Corporation 100 Series/C230 Series Chipset Family Power Management Controller [8086:a121] (rev 31)
+IOMMU Group 9 00:1f.3 Audio device [0403]: Intel Corporation 100 Series/C230 Series Chipset Family HD Audio Controller [8086:a170] (rev 31)
+IOMMU Group 9 00:1f.4 SMBus [0c05]: Intel Corporation 100 Series/C230 Series Chipset Family SMBus [8086:a123] (rev 31)
+</code></pre><blockquote><p>我这里需要直通 核显 <code>[UHD Graphics 630] [8086:3e9b]</code> wifi <code>BCM43224 802.11a/b/g/n [14e4:4353]</code> 声卡 <code>HD Audio Controller [8086:a170]</code></p></blockquote><h3 id=隔离设备>隔离设备</h3><blockquote><p>为了将设备分配给虚拟机，直通的设备和同在一个IOMMU组的所有设备必须将驱动程序更换为 stub 或是 vfio ，以防止宿主机尝试与其交互。对于大多数设备，在虚拟机启动时就可以完成这项工作。 但是核显不行，独显也不行，所以需要隔离掉。</p></blockquote><h4 id=通过设备id绑定vfio-pci>通过设备ID绑定vfio-pci</h4><blockquote><p>如果是独显可能需要同时绑定独显上的HDMI声卡和gpu ，但是我没有独显，也没有支持HDMI音频的显示器，所以我这里只绑定核显<code>[8086:3e9b]</code></p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo nano /etc/modprobe.d/vfio.conf
+</span></span><span class=line><span class=cl>#============
+</span></span><span class=line><span class=cl>options vfio-pci ids=8086:3e9b
+</span></span></code></pre></td></tr></table></div></div><p>如果还要直通wifi，声卡不打算直通，改为穿透</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>options vfio-pci ids=8086:3e9b,14e4:4353
+</span></span></code></pre></td></tr></table></div></div><p>重新生成initramfs <code>sudo mkinitcpio -P</code></p><h4 id=可能还需要-提前加载vfio-pci>可能还需要 提前加载vfio-pci</h4><blockquote><p>因为Arch的linux内核将vfio-pci作为一个模块，我们需要强迫vfio-pci在显卡驱动抢占硬件之前加载。为了达成这一目的，我们向mkinitcpio中添加 vfio_pci, vfio, vfio_iommu_type1, vfio_virqfd：
+这步 和 pve的黑名单差不多 意思</p></blockquote><h4 id=mkinitcpio>mkinitcpio</h4><p><code>sudo nano /etc/mkinitcpio.conf</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>MODULES=(... vfio_pci vfio vfio_iommu_type1 vfio_virqfd ...)
+</span></span></code></pre></td></tr></table></div></div><h4 id=黑名单>黑名单</h4><pre><code>sudo nano /etc/modprobe.d/blacklist.conf
+</code></pre><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>blacklist i915
+</span></span><span class=line><span class=cl>blacklist snd_hda_intel
+</span></span><span class=line><span class=cl>blacklist snd_hda_codec_hdmi
+</span></span></code></pre></td></tr></table></div></div><p>snd_hda_intel 是声卡，如果不要直通这个地方 不要添加，snd_hda_codec_hdmi是核显的hdmi声卡</p><h4 id=booster>booster</h4><pre><code>sudo nano /etc/booster.yaml
+
+modules_force_load: vfio_pci,vfio,vfio_iommu_type1,vfio_virqfd
+</code></pre><h4 id=dracut>dracut</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo mkdir /etc/dracut.conf.d
+</span></span><span class=line><span class=cl>sudo nano  /etc/dracut.conf.d/10-vfio.conf
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>force_drivers+=&#34; vfio_pci vfio vfio_iommu_type1 vfio_virqfd &#34;
+</span></span></code></pre></td></tr></table></div></div><h4 id=防止部分游戏蓝屏以及macos无限重启>防止部分游戏蓝屏，以及macos无限重启</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo nano  /etc/modprobe.d/kvm.conf
+</span></span><span class=line><span class=cl>-------
+</span></span><span class=line><span class=cl>options kvm ignore_msrs=Y
+</span></span></code></pre></td></tr></table></div></div><p>重新生成initramfs <code>sudo mkinitcpio -P</code> 提示几个 <code>WARNING: Possibly missing firmware for module</code> 不用管他，大致是物理机器缺少驱动的问题</p><p>然后重启</p><h3 id=重启后检查>重启后检查</h3><p>重启后屏幕 过了grub后，显示startging versinon XXX.X-X-arch 后 屏幕就不再有输出，有时候 还可能会黑屏或者提示没信号，这是正常的,因为 我们没让arch接触显卡了</p><p>重启后重新检查
+<code>sudo dmesg | grep -i iommu</code></p><p>应该有 IOMMU enabled</p><p><code>sudo dmesg | grep -i vfio</code></p><pre><code>[    1.324935] VFIO - User Level meta-driver version: 0.3
+[    1.344914] vfio-pci 0000:00:02.0: vgaarb: deactivate vga console
+[    1.344917] vfio-pci 0000:00:02.0: vgaarb: changed VGA decodes: olddecodes=io+mem,decodes=io+mem:owns=io+mem
+[    1.345002] vfio_pci: add [8086:3e9b[ffffffff:ffffffff]] class 0x000000/00000000
+[    1.345117] vfio_pci: add [14e4:4353[ffffffff:ffffffff]] class 0x000000/00000000
+</code></pre><p><code>lspci -k</code> 检查一下 或者 <code>lspci -k | grep -i -e Intel -A 3</code> <code>lspci -k | grep -i -e Audio -A 3</code></p><p><code>lspci -nnk -d 8086:3e9b</code></p><pre><code>00:02.0 VGA compatible controller [0300]: Intel Corporation CoffeeLake-H GT2 [UHD Graphics 630] [8086:3e9b]
+DeviceName:  Onboard IGD
+Subsystem: Gigabyte Technology Co., Ltd Device [1458:d000]
+Kernel driver in use: vfio-pci
+Kernel modules: i915
+</code></pre><h3 id=尝试直通-核显>尝试直通 核显</h3><pre><code>cd  /mnt/ssd/vm-shell/
+
+cp base-win-usb.sh gpu-win-usb.sh &amp;&amp; nano gpu-win-usb.sh
+</code></pre><p>添加行<code>-device vfio-pci,host=0000:00:02.0,addr=0x02,x-igd-opregion=on \</code>
+屏幕有反应，但是一会还是无信号，不确定是否需要vbios先登录到win，用系统更新自动安装驱动试试看看，驱动装完后 依旧黑屏。</p><p>去弄vbois文件，因为我这个uhd630 很常见，有人弄好了，之前在kvm和unraid 都测试过没问题，所以直接拿来用</p><pre><code>cd  /mnt/ssd/
+wget https://file.leiyanhui.com/pve-unraid-kvm/vbios_gvt_uefi.rom
+</code></pre><p>修改上面的参数，同时发现 插槽01 和02 01被VMware显卡用 02被网卡用了 所以把 网卡的改到04 显卡继续用02 02这个位置 就是多数电脑的核显的固定位置</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>-device vfio-pci,host=0000:00:02.0,addr=0x02,x-igd-opregion=on,romfile=/mnt/ssd/vbios_gvt_uefi.rom \
+</span></span></code></pre></td></tr></table></div></div><p>顺利点亮，qemu有提示 &ldquo;IGD device 0000:00:02.0 cannot support legacy mode due to existing devices at address 1f.0&rdquo; 说明是用了UPT 直通模式而不是Legacy</p><p>主机类型用pc 也就是 pc-i440fx-7.1 然后vnc那个设置为none 就没有这个提示，可以用Legacy 模式输出 ，但是物理显示屏也是没法显示出来 用户登录之前的画面。</p><p>但是我看了<a class=link href=https://github.com/qemu/qemu/blob/master/docs/igd-assign.txt#L91 target=_blank rel=noopener>qemu的源码</a> 好像 是q35禁用了Legacy 模式</p><p>vnc/spice 在登录的时候黑屏，但登录后，两个屏幕都可以显示。 但是因为前面加了鼠标穿透，导致vnc的屏幕鼠标 穿透到物理屏幕导致 vnc屏幕只能观看 无法用控制机的鼠标操作。这个问题后来发现可以通过调整设备的顺序解决 实例代码：<a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-spice-smb-no-sound.sh target=_blank rel=noopener>查看我的</a></p><h5 id=核显和其他pci直通的另外一个写法>核显和其他pci直通的另外一个写法</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>-device pcie-root-port,bus=pcie.0,multifunction=on,port=1,chassis=1,id=port.1 \
+</span></span><span class=line><span class=cl>-device vfio-pci,host=0000:00:02.0,bus=port.1,addr=0x02,x-igd-opregion=on,x-igd-gms=1,romfile=/mnt/ssd/vbios_gvt_uefi.rom \
+</span></span><span class=line><span class=cl>-device vfio-pci,host=0000:02:00.0,bus=port.1 \
+</span></span></code></pre></td></tr></table></div></div><h4 id=添加直通wifi>添加直通wifi</h4><p>这个很简单，前面vfio之后这里添加一行 就可以了</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>-device vfio-pci,host=02:00.0 \
+</span></span></code></pre></td></tr></table></div></div><h3 id=声卡直通>声卡直通</h3><p>声卡和其他一堆设备在一个组里面 还是比较麻烦的。单独记录
+查看这里：<a class=link href=https://dev.leiyanhui.com/kvm/sound-pass/ target=_blank rel=noopener>https://dev.leiyanhui.com/kvm/sound-pass/</a></p><h2 id=直通了-核显--wifi-usb-蓝牙-的一个win虚拟机启动脚本>直通了 核显 wifi usb 蓝牙 的一个win虚拟机启动脚本</h2><p>注意 smb功能需要宿主机安装samba <code>sudo pacman -S samba</code>
+<a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-no-sound.md target=_blank rel=noopener>https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-no-sound.md</a></p><p>存在的问题</p><ul><li>vnc显卡的鼠标不可以用，会穿透到物理屏幕。键盘也穿透过去了。因为vnc屏幕定位还是调试用，后期也尝试macos所以 此问题可能以后才会去研究（已经解决看后面的脚本）</li><li>物理屏幕不会显示kvm的bois引导界面，要等到Windows登录界面之前 才会点亮。</li><li>Q35 机型会提醒IGD核显不能用传统模式 换到pc-i440fx-7.1 模式，vnc 设置none 没有提醒。物理屏依旧不会显示kvm的启动信息，所以没啥区别。</li><li>声卡直通和映射有坑没解决，没有pve下那么容易，远程用的话 Windows 下 rdp协议可以直接把声音传递到控制机。 macos下还没研究xrdp和其他协议。</li></ul><h3 id=另外一个解决了vnc鼠标问题的脚本>另外一个解决了vnc鼠标问题的脚本</h3><p><a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-spice-smb-no-sound.sh target=_blank rel=noopener>https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-spice-smb-no-sound.sh</a></p><h3 id=macos-efi>macos efi</h3><ul><li>蓝牙可用</li><li>鼠标键盘 usb 也可以用</li><li>以太网可用</li><li>smb 到宿主机 可用</li><li>但是有别的一点问题 需要自定义oc的efi</li><li>spice 声卡不可用</li><li>没有直通核显</li></ul><p>留个坑，慢慢填</p><p>本文参考：https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)
+<a class=link href=https://github.com/patmagauran/i915ovmfPkg/issues/8 target=_blank rel=noopener>https://github.com/patmagauran/i915ovmfPkg/issues/8</a></p><h3 id=kvm-进阶和相关小问题处理>kvm 进阶和相关小问题处理</h3><p>查看这里 <a class=link href=https://dev.leiyanhui.com/kvm/all_list/ target=_blank rel=noopener>https://dev.leiyanhui.com/kvm/all_list/</a></p><h3 id=我的kvm脚本参考>我的kvm脚本参考</h3><p><a class=link href=https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm target=_blank rel=noopener>https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm</a></p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg><span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><div class=disqus-container><div id=disqus_thread></div><script type=application/javascript>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2023 小类随手记</section><section class=powerby>Built with <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a><br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.16.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)"></button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script>
+<script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

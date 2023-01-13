@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>debian on 小类随手记</title><link>https://dev.leiyanhui.com/categories/debian/</link><description>Recent content in debian on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 29 Nov 2022 07:20:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/debian/index.xml" rel="self" type="application/rss+xml"/><item><title>docker 配置一个支持sshd的debian</title><link>https://dev.leiyanhui.com/docker/debian-sshd/</link><pubDate>Tue, 29 Nov 2022 07:20:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-sshd/</guid><description>&lt;p>参考 &lt;a class="link" href="https://dev.leiyanhui.com/docker/alpine-sshd/" target="_blank" rel="noopener"
+>docker中制作alpine+sshd的基础镜像&lt;/a>&lt;/p>
+&lt;h2 id="选择基础系统镜像">选择基础系统镜像&lt;/h2>
+&lt;p>还是考虑用debian系列，docker pull debian:bullseye-slim&lt;/p>
+&lt;pre>&lt;code>docker run -itd --name debian-for-sshd -p 59010:2222 -p 59011:22 --privileged=true debian:bullseye-slim /bin/bash
+docker exec -it debian-for-sshd /bin/bash
+&lt;/code>&lt;/pre>
+&lt;h2 id="安装sshd">安装sshd&lt;/h2>
+&lt;h3 id="国内源更新安装sshd-nano-tzdata">国内源/更新/安装sshd nano tzdata&lt;/h3>
+&lt;pre>&lt;code>sudo sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list
+apt update
+apt install openssh-server nano tzdata
+cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+&lt;/code>&lt;/pre>
+&lt;h3 id="配置登录信息">配置登录信息&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sed -i &amp;#34;s/#PermitRootLogin.*/PermitRootLogin yes/g&amp;#34; /etc/ssh/sshd_config &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t dsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_dsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t rsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_rsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ecdsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ecdsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ed25519 -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ed25519_key
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;root:root&amp;#34; | chpasswd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="打开sftp">打开sftp&lt;/h3>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/pve/open-sftp/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/open-sftp/&lt;/a>&lt;/p>
+&lt;h3 id="修改端口-为2222">修改端口 为2222&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/ssh/sshd_config
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/etc/init.d/ssh restart
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="测试登录">测试登录&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">ssh root@10.0.0.9 -p 59010
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置脚本自动启动">配置脚本自动启动&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;/etc/init.d/ssh start&amp;#34; &amp;gt; /autoboot.sh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;tail -f /dev/null&amp;#34; &amp;gt;&amp;gt; /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>最后这行是防止退出的&lt;/p>
+&lt;h3 id="清理">清理&lt;/h3>
+&lt;pre>&lt;code>apt clean
+apt autoclean
+&lt;/code>&lt;/pre>
+&lt;h3 id="备份容器">备份容器&lt;/h3>
+&lt;p>在宿主机运行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker stop debian-for-sshd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker export debian-for-sshd &amp;gt; debian11-for-sshd.tar
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 打包压缩
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">gzip debian11-for-sshd.tar
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#备份
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp debian11-for-sshd.tar.gz /mnt/smb/docker
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 删除旧的容器
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker rm debian-for-sshd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="创建新容器">创建新容器&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cat debian11-for-sshd.tar.gz | docker import - debian11:sshd-autoboot.sh2222
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker run -itd --name debian-go-codeserver-git --privileged=true \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-p 59010:2222 -p 59011-59019:59011-59019 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">debian11:sshd-autoboot.sh2222 sh /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>可以直接用我放在阿里云上的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd --name debian-go-codeserver-git --privileged=true \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-p 59010:2222 -p 59011-59019:59011-59019 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">registry.cn-qingdao.aliyuncs.com/joyanhui/base-sh-debian:debian11-sshd-autoboot.sh2222 sh /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="搞其他的">搞其他的&lt;/h3>
+&lt;p>ssh 连接上随便玩起来，如果要添加跟随容器启动的程序 就编辑 /autoboot.sh&lt;/p></description></item><item><title>pve/debian11 开启smb和 虚拟机以及局域网其他设备共享</title><link>https://dev.leiyanhui.com/pve/open-smb/</link><pubDate>Tue, 29 Nov 2022 00:40:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/open-smb/</guid><description>&lt;blockquote>
+&lt;p>win8以后的win系统默认不支持smb1，记得添加smb1的支持后方可&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="更新源到国内">更新源到国内&lt;/h3>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/pve/guonei/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/guonei/&lt;/a>&lt;/p>
+&lt;h3 id="安装smb">安装smb&lt;/h3>
+&lt;pre>&lt;code>apt-get install samba
+&lt;/code>&lt;/pre>
+&lt;h3 id="启动">启动&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">systemctl enable smbd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl start smbd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl restart smbd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="root直接使用">root直接使用&lt;/h3>
+&lt;blockquote>
+&lt;p>自己用的话，直接用root用户 就好了
+设置root用户的 smb的密码 &lt;code>smbpasswd -a root &lt;/code> 这个密码和root的管理密码无关&lt;/p>
+&lt;/blockquote>
+&lt;pre>&lt;code>nano /etc/samba/smb.conf
+&lt;/code>&lt;/pre>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">[nvme]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> comment = Share-rw
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> path = /nvme
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> available = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> browsable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> public = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> writable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> valid users = root
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置账号">配置账号&lt;/h3>
+&lt;pre>&lt;code>smbpasswd -a 【用户名】
+&lt;/code>&lt;/pre>
+&lt;p>需要提前新建用户&lt;/p>
+&lt;pre>&lt;code>addgroup wheel
+useradd -m -G wheel -s /bin/bash 【用户名】
+passwd 【用户名】
+#最好顺带配置一下sudo https://dev.leiyanhui.com/arch/base-install/#%E6%B7%BB%E5%8A%A0%E7%94%A8%E6%88%B7
+# 或者干脆 groupadd test -g 6000&amp;amp; useradd test -u 6000 -g 6000 -s /sbin/nologin -d /dev/null
+&lt;/code>&lt;/pre>
+&lt;h3 id="配置共享">配置共享&lt;/h3>
+&lt;pre>&lt;code>nano /etc/samba/smb.conf
+&lt;/code>&lt;/pre>
+&lt;p>添加内容&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">[shareMNT]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> comment = Share-rw
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ;共享目录全路径
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> path = /mnt
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> available = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> browsable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">;写入权限
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> public = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> writable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">;可访问的用户
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> valid users = yourUserName
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="可能还需要配置权限">可能还需要配置权限&lt;/h3>
+&lt;pre>&lt;code>chmod -R 777 /mnt #简单一点
+&lt;/code>&lt;/pre>
+&lt;h3 id="关闭默认主目录">关闭默认主目录&lt;/h3>
+&lt;p>把 homes 哪段删掉就好&lt;/p>
+&lt;h3 id="其他命令">其他命令&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">smbpasswd -d 冻结用户，就是这个用户不能在登录了
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">smbpasswd -e 恢复用户，解冻用户，让冻结的用户可以在使用
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">smbpasswd -n 把用户的密码设置成空.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 要在global中写入 null passwords -true
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl status nmbd // 查询SMB状态
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl status smbd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl enable smbd // 允许SMB开机启动
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>pve 打开sftp 直接上传文件 debian centos arch 同理</title><link>https://dev.leiyanhui.com/pve/open-sftp/</link><pubDate>Sun, 27 Nov 2022 00:40:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/open-sftp/</guid><description>&lt;p>客户端 可以用 winscp MobaXterm 或者 其他 支持 sftp的软件，直接上传文件。。这对 新手（老手也是） 来说更方便&lt;/p>
+&lt;p>但是pve 默认是关闭 sftp的，打开方法也很简单。&lt;/p>
+&lt;p>用 vim 或者 nano 编辑sshd配置文件，我这里用nano&lt;/p>
+&lt;pre>&lt;code>apt install nano
+nano /etc/ssh/sshd_config
+&lt;/code>&lt;/pre>
+&lt;p>往下翻，找到&lt;code>Subsystem sftp /usr/lib/openssh/sftp-server&lt;/code> 这行，注释掉，然后添加一行&lt;code>Subsystem sftp internal-sftp&lt;/code>&lt;/p>
+&lt;pre>&lt;code>#Subsystem sftp /usr/lib/openssh/sftp-server
+Subsystem sftp internal-sftp
+&lt;/code>&lt;/pre>
+&lt;p>重启ssh&lt;/p>
+&lt;pre>&lt;code>/etc/init.d/ssh restart
+&lt;/code>&lt;/pre>
+&lt;p>使用支持sftp的客户端 重新登录ssh&lt;/p>
+&lt;p>搞定&lt;/p></description></item><item><title>纯docker无盘打造个人媒体中心</title><link>https://dev.leiyanhui.com/docker/mediavodcenter/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/mediavodcenter/</guid><description>&lt;h2 id="目标和环境">目标和环境&lt;/h2>
+&lt;h3 id="环境">环境&lt;/h3>
+&lt;p>在一个弱鸡电脑上（N2600+4G+32G）用纯docker搭建个人媒体中心&lt;/p>
+&lt;p>并配合 阿里云盘 或者本地硬盘 实现大容量储存，&lt;/p>
+&lt;h3 id="目标">目标&lt;/h3>
+&lt;p>自动搜索下载自己在豆瓣或者微信标注的影片，并存储到阿里云盘，可以用emby或者阿里云盘客户端app播放。
+进阶目标：自动清理删除许久为观看的电影 节省阿里云盘空间。我只有4T啊。。&lt;/p>
+&lt;h2 id="前置准备工作">前置准备工作&lt;/h2>
+&lt;p>docker 环境 【&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/openwrt-plus/" target="_blank" rel="noopener"
+>openwrt下docker的和其他插件的安装&lt;/a>和&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/docker-cant-network/" target="_blank" rel="noopener"
+>网络异常处理&lt;/a>】&lt;br>
+豆瓣账号&lt;br>
+我这里docker 就是路由器系统是openwrt,其他linux 操作一样。&lt;/p>
+&lt;h2 id="准备储存">准备储存&lt;/h2>
+&lt;p>我这里没有额外的多余硬盘做这个工作，所以直接使用阿里云盘了。&lt;br>
+先把阿里云盘挂载到本地。具体方法查看： &lt;a class="link" href="https://dev.leiyanhui.com//openwrt/rclone/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com//openwrt/rclone/&lt;/a>&lt;br>
+如果你有其他硬盘 最好格式好后自行挂载到宿主机。
+我这里单独挂载一个 阿里云盘的目录 空白目录MediaVodCenter 到 &lt;code>/mnt/MediaVodCenter&lt;/code> 稍后会从云盘里面 移动之前的硬盘过来，也会测试下载功能，之所以单独创建一个目录，是为了避免误操作丢失文件&lt;/p>
+&lt;blockquote>
+&lt;p>使用阿里云盘 就要忍受 刷新延迟带来的麻烦哈。肯定没有本地磁盘来的反应速度快，这个是无论如何也解决不聊的。只能忍受了哦&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="安装配置nastools-媒体中心">安装配置Nastools 媒体中心&lt;/h2>
+&lt;h3 id="docker安装nastools">docker安装Nastools&lt;/h3>
+&lt;p>我这里是openwrt 直接用root用户，如果你用其他用户管理，自行查看Nastools文档 &lt;a class="link" href="https://github.com/jxxghp/nas-tools" target="_blank" rel="noopener"
+>https://github.com/jxxghp/nas-tools&lt;/a>
+Nastools 的配置项众多，而且可能会出现依赖变动无法更新的情况，所以单独创建一个目录储存系统配置&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir /mnt/config_MediaVodCenter
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name nas-tools \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --hostname nas-tools \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 50300:3000 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /mnt/MediaVodCenter:/MediaVodCenter \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /mnt/config_MediaVodCenter:/config \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e PUID=0 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e PGID=0 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e UMASK=000 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e REPO_URL=https://ghproxy.com/https://github.com/jxxghp/nas-tools.git \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e NASTOOL_AUTO_UPDATE=true \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> jxxghp/nas-tools
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>http://IP:50300/ 去登录，这个docker启动略微慢，稍微等待 默认用户密码：admin/password&lt;/p>
+&lt;h3 id="初步配置nastools">初步配置Nastools&lt;/h3>
+&lt;p>修改账户名密码，配置。系统提示还要配置&lt;code>TMDB API Key &lt;/code> 下一步去申请&lt;/p>
+&lt;h4 id="注册申请tmdb">注册申请TMDB&lt;/h4>
+&lt;p>网址 ： &lt;a class="link" href="https://www.themoviedb.org/signup" target="_blank" rel="noopener"
+>https://www.themoviedb.org/signup&lt;/a> 网站虽然是中文的，但是在境外，可能会打不开，挂科研软件或者修改hosts&lt;br>
+注册完成以后登录TMDB，点击首页右上角的头像→帐户设置。&lt;br>
+点击左侧列表的API，然后点击请求API秘钥下面的 click here 再点击 开发者（developer） 同意协议后，继续填写&lt;/p>
+&lt;p>简介的地方填写选择 个人 名称“家用” 地址，写一个内网地址，&lt;code>10.0.0.1&lt;/code> 简介&lt;code>Meet personalized needs, enrich website interfaces and functions&lt;/code>&lt;/p>
+&lt;p>会马上生气申请成功，&lt;code>API 密钥 (v3 auth)&lt;/code> 里面的内容就是我们需要的&lt;code>TMDB API Key &lt;/code>&lt;/p>
+&lt;h4 id="继续配置媒体部分设置">继续配置媒体部分设置&lt;/h4>
+&lt;p>输入上面获取到&lt;code>TMDB API Key &lt;/code> TMDB域名 选择你不挂梯子能打开的 ， 默认文件转移方式 我这里是rclone挂载的阿里云盘 就选择 rclone移动，如你的是物理硬盘或者 nas 自行选择其他方法。&lt;/p>
+&lt;h4 id="准备和配置豆瓣">准备和配置豆瓣&lt;/h4>
+&lt;h5 id="豆瓣id">豆瓣id&lt;/h5>
+&lt;p>暂时先只配置豆瓣id ，注册一个豆瓣账号，点个人中心 个人主页 地址栏地址 类似 &lt;code>https://www.douban.com/people/88888/?_i=99999 &lt;/code> 其中888 就是我们的豆瓣id&lt;/p>
+&lt;h5 id="都把cookies">都把cookies&lt;/h5>
+&lt;p>随便打开一个豆瓣内容页 例如&lt;code>https://movie.douban.com/subject/35197639/&lt;/code> 按F12键(chrome类浏览器)，弹出如图所示的开发页面。点击Network&lt;/p>
+&lt;p>首先点击左上角一个灰色的圈圈，把下面东西的清除一下&lt;/p>
+&lt;p>刷新这个页面，你可以点刷新按钮或者F5键&lt;/p>
+&lt;p>Network页面开始弹出一些东西，不要怕，向上划找到 “35197639/”这一个 然后看右侧的 cookies，找到你的dbcl2，这是根据分号（;）分割的，你把dbcl2:xxx复制下来。（不要把分号复制进来）例：&lt;code>dbcl2=&amp;quot;8888888:AAAAAA&amp;quot;&lt;/code>&lt;/p>
+&lt;h6 id="配置nastools中的豆瓣id和cookies">配置Nastools中的豆瓣id和cookies&lt;/h6>
+&lt;p>打开nastools ，左侧 设置 豆瓣，分别输入对应的id 数字 和上面的 &lt;code>dbcl2=&amp;quot;8888888:AAAAAA&amp;quot;&lt;/code> 其他也根据需要设置一下&lt;/p>
+&lt;h3 id="安装下载工具qbittorrent">安装下载工具qBittorrent&lt;/h3>
+&lt;p>我这里用qBittorrent ,并省略了config目录的映射&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name=bt \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e WEBUI_PORT=50808 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 9821:6881 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 9821:6881/udp \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 50808:50808 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /mnt/MediaVodCenter:/downloads \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --restart unless-stopped \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> linuxserver/qbittorrent
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置qbittorrent">配置qBittorrent&lt;/h3>
+&lt;p>访问&lt;code>http://10.0.0.1:50808/&lt;/code> webUI 账户：admin 密码：adminadmin&lt;br>
+点 Tools -&amp;gt; options 打开设置窗口 选择 webui 设置用户名 密码 还有 语言简体&lt;/p>
+&lt;h3 id="配置nastools的下载工具">配置Nastools的下载工具&lt;/h3>
+&lt;p>http://10.0.0.1:50300/ 设置 下载器 选择 qBittorrent 地址输入 宿主地址 10.0.0.1 端口 上面的WEBUI_PORT 50808 输入上面设置的用户密码，测试成功&lt;/p>
+&lt;h3 id="安装媒体中心jellyfin">安装媒体中心jellyfin&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name=jellyfin \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 50096:8096 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 7359:7359/udp \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 1900:1900/udp \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /mnt/jellyfin_config:/config \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /mnt/MediaVodCenter:/data \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --restart unless-stopped \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> linuxserver/jellyfin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这个地方 需要注意 /config 目录会吃硬盘空间，某些情况下可能会高达几十个G 注意经常检查,这个是无法避免的&lt;/p>
+&lt;blockquote>
+&lt;p>硬解问题，稍后晚点配置.我的显示是N2600带的核显GMA3600，上古设备，那时候intel并未开源驱动，所以也就无法硬解。硬解问题，之后会挪到另外一台主机上进行处理。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="配置-jellyfin">配置 jellyfin&lt;/h3>
+&lt;p>打开 &lt;code>http://10.0.0.1:50096/&lt;/code> 按照提示设置，注意创建文件夹的时候 选择/data&lt;/p>
+&lt;p>然后 点左侧 三个点 打开设置 控制台 高级 api 生成 记住这个 api&lt;/p>
+&lt;h3 id="再nastools-配置jellyfin">再Nastools 配置jellyfin&lt;/h3>
+&lt;p>http://10.0.0.1:50300/ 设置 媒体服务器 选择jellyfin 地址输入上面 &lt;code>http://10.0.0.1:50096/&lt;/code> apikey 输入刚刚的生成的&lt;/p>
+&lt;h3 id="收工">收工！&lt;/h3>
+&lt;h3 id="结尾的话">结尾的话&lt;/h3>
+&lt;p>N2600 性能堪忧，我最终 还是切换到了 i7 8代主机上&lt;/p></description></item></channel></rss>

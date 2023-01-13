@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>rclone on 小类随手记</title><link>https://dev.leiyanhui.com/categories/rclone/</link><description>Recent content in rclone on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 25 Nov 2022 04:40:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/rclone/index.xml" rel="self" type="application/rss+xml"/><item><title>openwrt /linux下 使用rclone挂载 网络磁盘到本地：阿里云盘为例</title><link>https://dev.leiyanhui.com/openwrt/rclone/</link><pubDate>Fri, 25 Nov 2022 04:40:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/rclone/</guid><description>&lt;p>要想挂载阿里云盘，需要先把阿里云盘挂载到webdav&lt;/p>
+&lt;h2 id="阿里云盘的处理">阿里云盘的处理&lt;/h2>
+&lt;h3 id="先挂载阿里云盘到webdav">先挂载阿里云盘到webdav&lt;/h3>
+&lt;h4 id="openwrt-插件方法">openwrt 插件方法&lt;/h4>
+&lt;blockquote>
+&lt;p>虽然实际很稳定，但是不建议，能docker的不要做插件&lt;/p>
+&lt;/blockquote>
+&lt;p>插件方式 参考 &lt;a class="link" href="https://dev.leiyanhui.com/openwrt/openwrt-plus/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/openwrt/openwrt-plus/&lt;/a>&lt;/p>
+&lt;h4 id="docker方法">docker方法&lt;/h4>
+&lt;pre>&lt;code>docker run -d --name=aliyundrive-webdav --restart=unless-stopped -p 50082:8080 \
+-e REFRESH_TOKEN='48e136dc87ce4d44bf1af9ef8ff3987d' \
+-e WEBDAV_AUTH_USER=77777 \
+-e WEBDAV_AUTH_PASSWORD=88888888 \
+messense/aliyundrive-webdav
+&lt;/code>&lt;/pre>
+&lt;p>docker的网络问题处理，请查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/openwrt/docker-cant-network" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/openwrt/docker-cant-network&lt;/a>&lt;/p>
+&lt;h2 id="rclone安装和使用">rclone安装和使用&lt;/h2>
+&lt;h3 id="插件或者直接安装方式">插件或者直接安装方式&lt;/h3>
+&lt;p>插件安装方式 参考 &lt;a class="link" href="https://dev.leiyanhui.com/openwrt/openwrt-plus/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/openwrt/openwrt-plus/&lt;/a>&lt;/p>
+&lt;h3 id="配置">配置&lt;/h3>
+&lt;p>运行&lt;code>rcone config&lt;/code> 按照提示先创建一个挂载配置，选择&lt;code>webdav&lt;/code>，然后 输入webdav的用户名密码，使用 &lt;code>Nextcloud WebDAV&lt;/code> 模式，&lt;/p>
+&lt;p>最后放到openwrt的计划任务里面，写到启动命令里面 ，有时候 无效&lt;/p>
+&lt;p>&lt;code>/mnt/aliyunpan&lt;/code> 是要挂载到本地的目录，提前&lt;code>mkdir /mnt/aliyunpan&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">*/1 * * * * rclone mount aliyunpan:/ /mnt/aliyunpan --cache-dir /tmp --allow-other --vfs-cache-mode writes --allow-non-empty --no-update-modtime
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="docker方式">docker方式。&lt;/h3>
+&lt;p>说实话 有点复制，因为要操作宿主机，还要配置。但是不是不可以实现。官网的解决方法 是宿主机配置config文件后映射进去 (问号脸，，宿主机不安装rclone怎么弄他配置文件嘛。。。)
+另外还有权限问题 需要处理 要用用户信息 还有fuse的处理，&lt;/p>
+&lt;p>如果你要弄的话，不在宿主机安装rclone 就需要docker运行多次后重新打包镜像。
+我这里就不折腾rclone docker化了。
+shell如下，官网说明 &lt;a class="link" href="https://rclone.org/install/" target="_blank" rel="noopener"
+>https://rclone.org/install/&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir -p ~/data/mount
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker run --rm \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --volume ~/.config/rclone:/config/rclone \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --volume ~/data:/data:shared \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --user $(id -u):$(id -g) \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --volume /etc/passwd:/etc/passwd:ro --volume /etc/group:/etc/group:ro \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rclone/rclone \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> mount dropbox:Photos /data/mount &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ls ~/data/mount
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">kill %1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="挂载其他网盘">挂载其他网盘&lt;/h2>
+&lt;p>如果是 google 或者 OneDrive国外版，需要全局科学上网。 其他都没啥问题，不用多说。&lt;/p></description></item><item><title>rclone 挂载webdav</title><link>https://dev.leiyanhui.com/webdav/rclone/</link><pubDate>Sun, 20 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/webdav/rclone/</guid><description>&lt;blockquote>
+&lt;p>Linux下可以用davfs2 挂载webdav，但是 rclone 还支持别的网盘协议，并且跨平台，所以我选用rclone&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="安装rclone">安装rclone&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir /mnt/aliyunpan
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S rclone
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="配置">配置&lt;/h2>
+&lt;p>&lt;code>sudo rclone config&lt;/code>
+记得用sudo 因为 我们最后需要做自动挂载
+这里用 Nextcloud WebDAV 的模式挂载 阿里云盘的webdav 名称为&lt;code>aliyunpan&lt;/code>&lt;/p>
+&lt;h2 id="挂载">挂载&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo rclone mount aliyunpan:/ /mnt/aliyunpan --cache-dir /tmp --allow-other --vfs-cache-mode writes --allow-non-empty --no-update-modtime
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>测试完成后 把上面代码 写到开机自动启动脚本里面&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sleep 180
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo rclone mount aliyunpan:/ /mnt/aliyunpan --cache-dir /tmp --allow-other --vfs-cache-mode writes --allow-non-empty --no-update-modtime &amp;amp;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

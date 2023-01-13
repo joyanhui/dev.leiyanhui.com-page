@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>nginx on 小类随手记</title><link>https://dev.leiyanhui.com/categories/nginx/</link><description>Recent content in nginx on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 07 Jan 2023 08:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/nginx/index.xml" rel="self" type="application/rss+xml"/><item><title>docker运行nginx 并反代内网的一些服务2(nginxwebui)，</title><link>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</link><pubDate>Sat, 07 Jan 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</guid><description>&lt;p>家里路由器是openwrt x86，内外有跑一些服务。这里用路由器上配置nginx+ssl，然后内网的所有web服务都经过nginx到公网，因为家用宽带不只&lt;/p>
+&lt;p>nginxwebui是国产基于java的开源nginx配置文件生成器，用于替代死板的nginx-proxy-manage 。&lt;/p>
+&lt;p>优点是 更加灵活 强大 支持中文，几乎支持所有的nginx功能的可视化配置。&lt;/p>
+&lt;p>缺点是 略微繁琐，尤其是不能自动载入配置文件，创建项目后，要手动在webui里面，点替换和重载。&lt;/p>
+&lt;h2 id="docker安装">docker安装&lt;/h2>
+&lt;p>nginxwebui 官网docker实例是用的host模式运行，不建议。还是自定义端口映射。&lt;/p>
+&lt;p>我这里需要3个端口 nginxwebui管理端口50088，http 端口50081 https 端口50443&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd --restart=always --name=nginxwebui --hostname nginxwebui -e BOOT_OPTIONS=&amp;#34;--server.port=50088&amp;#34; -p 50081:50081 -p 50088:50088 -p 50443:50443 --privileged=true cym1102/nginxwebui:latest
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>而后在 nginxwebui 内部 再反代 管理端口出来 套上ssl 即可从外网ssl访问。&lt;/p>
+&lt;p>为了方便备份，我这里没有映射目录出来。记得自行定时清理日志：&lt;code>/home/nginxWebUI/log/nginxWebUI.log&lt;/code>&lt;/p>
+&lt;p>注意： http://10.0.0.1:50088/ web界面 打开可能会空白，这个&amp;hellip;.大概是因为java启动慢的原因，等一会 刷新一下就好了。&lt;/p>
+&lt;h2 id="一个典型的反代配置">一个典型的反代配置&lt;/h2>
+&lt;p>包括http自动跳转ssl&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">转发类型 http
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">监听端口：这个如果要开启ssl的话要输入ssl端口 50443
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">选择密码文件：这个是base的密码
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">开机ssl：是
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">选择内置证书：（提前配置）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">开启https：是
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssl协议版本：全部勾选
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">http跳转https：是
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">从该端口跳转：第一个留空 第二个输入ssl的端口后 50081
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这样就可以实现，访问http的时候自动跳转到ssl &lt;br>
+最终配置文件大概如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">server {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name 域名;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50443 ssl http2;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/fullchain.cer;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate_key /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/jia.leiyanhui.com.key;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50081;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ($scheme = http) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return 301 https://$host:50443$request_uri;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # 自己;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://10.0.0.1:50088;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Host $host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-Host $http_host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-Port $server_port;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-Proto $scheme;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Upgrade $http_upgrade;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Connection &amp;#34;upgrade&amp;#34;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_redirect http:// https://;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>nginx 非标端口 http强制跳转https</title><link>https://dev.leiyanhui.com/web/nginx-http-https-no443/</link><pubDate>Fri, 06 Jan 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/nginx-http-https-no443/</guid><description>&lt;p>nginx标准端口下，我们常用rewrite把80端口强制调整到https，那么在非标准端口下，应该如何处理？&lt;/p>
+&lt;p>其实也很简单&lt;/p>
+&lt;p>修改站点配置文件 大概内容如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">server
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # http端口
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 8880;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # https端口
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 8443 ssl http2;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name 你的域名;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> index index.php index.html index.htm default.php default.htm default.html;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> root /www/wwwroot/Sites/site-vod;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #SSL-START SSL相关配置，请勿删除或修改下一行带注释的404规则
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #error_page 404/404.html;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #HTTP_TO_HTTPS_START
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ($server_port !~ 8443){
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rewrite ^(/.*)$ https://$host:8443$1 permanent;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #HTTP_TO_HTTPS_END
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>Nginx Proxy Manager 或者其他nginx包括宝塔ssl嵌套coderserver都1006错误</title><link>https://dev.leiyanhui.com/codeserver/nginx-proxy-err-1006/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://dev.leiyanhui.com/codeserver/nginx-proxy-err-1006/</guid><description>&lt;p>搭建coderserver 用于golang的开发环境&lt;/p>
+&lt;p>内网直接 http://10.0.0.100:8080 访问，外网套ssl&lt;/p>
+&lt;p>套ssl是由路由器上运行的 &lt;code>Nginx Proxy Manager&lt;/code>（NPM）统一管理， 基于nginx&lt;/p>
+&lt;p>nmp上创建站点配置ssl后，直接访问会提示 WebSocket close with status code 1006&lt;/p>
+&lt;p>edit这个站点，点击 Advanced 输入&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">location /
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://10.0.0.100:8080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_redirect off;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Host https://code.leiyanhui.com;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header REMOTE-HOST $remote_addr;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Upgrade $http_upgrade;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Connection &amp;#34;Upgrade&amp;#34;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_connect_timeout 60;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_send_timeout 90;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_read_timeout 90;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_buffer_size 4k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_buffers 4 32k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_busy_buffers_size 64k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_temp_file_write_size 64k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> add_header X-Cache $upstream_cache_status;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #Set Nginx Cache
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> add_header Cache-Control no-cache;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>完毕&lt;/p>
+&lt;p>宝塔 或者 其他nginx环境一样配置&lt;/p></description></item></channel></rss>

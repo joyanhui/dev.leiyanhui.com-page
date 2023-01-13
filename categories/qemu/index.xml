@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>qemu on 小类随手记</title><link>https://dev.leiyanhui.com/categories/qemu/</link><description>Recent content in qemu on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 28 Dec 2022 14:00:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/qemu/index.xml" rel="self" type="application/rss+xml"/><item><title>archlinux运行kvm all in one主机，包括核显和pci直通 保姆级教程 新版</title><link>https://dev.leiyanhui.com/arch/install-kvm/</link><pubDate>Wed, 28 Dec 2022 14:00:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/install-kvm/</guid><description>&lt;p>本文旧版：https://dev.leiyanhui.com/kvm/archlinux-kvm/&lt;/p>
+&lt;h3 id="配置基本的宿主系统">配置基本的宿主系统&lt;/h3>
+&lt;p>手动安装arch &lt;a class="link" href="https://dev.leiyanhui.com/arch/base-install/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/arch/base-install/&lt;/a>&lt;/p>
+&lt;h4 id="可选操作">可选操作&lt;/h4>
+&lt;p>最小化安装gnome &lt;a class="link" href="https://dev.leiyanhui.com/arch/arch-linux-install-gnome-desktop/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/arch/arch-linux-install-gnome-desktop/&lt;/a>
+gnome 的远程桌面 好像有一些问题 基于安全还需要配置 证书之类的麻烦。。而且xrdp性能比rdp差太多了。
+我这里用rustdesk
+安装rustdesk远程控制 &lt;a class="link" href="https://dev.leiyanhui.com/arch/rustdesk/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/arch/rustdesk/&lt;/a>&lt;/p>
+&lt;p>禁用wayland（安装rustdesk 只支持xorg）：https://rustdesk.com/docs/en/manual/linux/#login-screen
+或者 不要桌面，直接用x11转发 &lt;a class="link" href="https://dev.leiyanhui.com/arch/x11-forwarding/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/arch/x11-forwarding/&lt;/a>&lt;/p>
+&lt;h3 id="配置kvm">配置kvm&lt;/h3>
+&lt;h4 id="qemu-base">qemu-base&lt;/h4>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S qemu-base
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>现在kvm 已经可以用了，但是&amp;hellip;只能用命令行，而且还有一些权限问题需要处理。 我这里打算直接用图形界面，所以继续处理。&lt;/p>
+&lt;/blockquote>
+&lt;h4 id="其他支持">其他支持&lt;/h4>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S samba dnsmasq dmidecode
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S iptables-nft bridge-utils openbsd-netcat
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="客户端选择">客户端选择&lt;/h4>
+&lt;p>aqemu 有一点问题，我这里选 libvirt + virt-manager&lt;/p>
+&lt;h5 id="libvirt">libvirt&lt;/h5>
+&lt;blockquote>
+&lt;p>virsh 是用于管理和配置域（虚拟机）的命令行程序。 就是支持 xml管理kvm虚拟机了一个基本程序&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S libvirt
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>处理权限相关&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo groupadd libvirt
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo usermod -a -G libvirt $USER
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配置 &lt;code>sudo nano /etc/libvirt/libvirtd.conf&lt;/code>
+找到&lt;code>#unix_sock_group = &amp;quot;libvirt&amp;quot;&lt;/code> 取消注册&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo systemctl enable libvirtd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo systemctl start libvirtd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo systemctl status libvirtd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="ui-客户端">ui 客户端&lt;/h4>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S virt-manager
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>virt-manager 是一个功能强大virsh的ui客户端&lt;/p>
+&lt;p>virt-manager 链接的时候 记得选择 用户级的 qemu:///session&lt;/p>
+&lt;h2 id="其他软件">其他软件&lt;/h2>
+&lt;p>安装浏览器 和文件管理工具&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S firefox wqy-zenhei
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S thunar
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>建议用appimage&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S fuse #AppImage 依赖
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S dbus-glib # 火狐依赖
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget https://apprepo.de/appimage/download/firefox --output-document=Firefox.AppImage
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chmod +x ./*.AppImage
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">./Firefox.AppImage
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

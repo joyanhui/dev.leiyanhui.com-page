@@ -1,0 +1,174 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="硬盘安装了ventoy，ventoy 使用了两个分区，一个是ventoy分区 大小几百M-几G 一个是 ventoyefi分区32M，后面的分区是保留分区。
+先用ventoy 启动硬盘保留分区的一个 win11.vhd 或者其他系统都可。
+安装 virtualbox 创建一个虚拟机debian11，挂pve7.2.iso 不创建硬盘
+系统设置里面 打开 efi，创建一个虚拟硬盘 固定大小的。virtualbox现在升级到6.1-7 按钮位置发生了变化注意一一点。 网络选择桥接
+这里注意三个点:
+必须打开efi 这是 ventoy 启动的要求 虚拟硬盘需要固定大小 虚拟硬盘尺寸不能太小，因为pve除了自己占用的3-4G空间之外，还有node需要保留一些空间。我粗略测试 12G不可以，20G可以。懒得继续测试，直接用20G的vhd固定大小安装 要在virtualbox这个虚拟机设置里面打开虚拟化嵌套的，不然装不上 安装完成后，虚拟机挂载 plugin_vtoyboot 的iso https://github.com/ventoy/vtoyboot/releases
+在pve里面 mount上，然后cp 里面的tar.gz 到 ~ tar解压 ，cd 进去 sh vtoyboot.sh
+在这之前，最好把pve的 debian源和pve源换到国内，然后更新一下pve系统，
+反正关机之前，要 sh vtoyboot.sh一下，以后系统升级后也执行一次。
+关机后，复制vhd文件出来，后缀修改 vhd.vtoy
+然后 用ventoy 自带的工具，创建一个 link到 ventoy分区，倒计时启动等，最重要的 是，要打开 VTOY_LINUX_REMOUNT 参考
+用用ventoy启动后，用root登录，然后修改网络配置 主要是修改ip 还有更换网卡，因为在虚拟机里面安装的虚拟网卡，在物理机没有这个网卡，
+注意 pve 是用vmbr0 这个网卡来转发实际网卡的数据的，不要把virtualbox的虚拟网卡和vmbr0搞混概念
+1 2 3 4 5 6 7 8 查看网卡设备，有线网卡一般是enXxx ip link show # 修改配置文件，把网卡改成新的名字 我的就是 enp0s3修改为 enp1s0 nano /etc/network/interfaces # 重启网络应用改动 systemctl restart networking 这是我修改前的"><title>pve安装到硬盘的一个虚拟文件然后物理机启动的几个注意点</title><link rel=canonical href=https://dev.leiyanhui.com/linux/pve-vdisk/><link rel=stylesheet href=/scss/style.min.8191399262444ab68b72a18c97392f5349be20a1615d77445be51e974c144cff.css><meta property="og:title" content="pve安装到硬盘的一个虚拟文件然后物理机启动的几个注意点"><meta property="og:description" content="硬盘安装了ventoy，ventoy 使用了两个分区，一个是ventoy分区 大小几百M-几G 一个是 ventoyefi分区32M，后面的分区是保留分区。
+先用ventoy 启动硬盘保留分区的一个 win11.vhd 或者其他系统都可。
+安装 virtualbox 创建一个虚拟机debian11，挂pve7.2.iso 不创建硬盘
+系统设置里面 打开 efi，创建一个虚拟硬盘 固定大小的。virtualbox现在升级到6.1-7 按钮位置发生了变化注意一一点。 网络选择桥接
+这里注意三个点:
+必须打开efi 这是 ventoy 启动的要求 虚拟硬盘需要固定大小 虚拟硬盘尺寸不能太小，因为pve除了自己占用的3-4G空间之外，还有node需要保留一些空间。我粗略测试 12G不可以，20G可以。懒得继续测试，直接用20G的vhd固定大小安装 要在virtualbox这个虚拟机设置里面打开虚拟化嵌套的，不然装不上 安装完成后，虚拟机挂载 plugin_vtoyboot 的iso https://github.com/ventoy/vtoyboot/releases
+在pve里面 mount上，然后cp 里面的tar.gz 到 ~ tar解压 ，cd 进去 sh vtoyboot.sh
+在这之前，最好把pve的 debian源和pve源换到国内，然后更新一下pve系统，
+反正关机之前，要 sh vtoyboot.sh一下，以后系统升级后也执行一次。
+关机后，复制vhd文件出来，后缀修改 vhd.vtoy
+然后 用ventoy 自带的工具，创建一个 link到 ventoy分区，倒计时启动等，最重要的 是，要打开 VTOY_LINUX_REMOUNT 参考
+用用ventoy启动后，用root登录，然后修改网络配置 主要是修改ip 还有更换网卡，因为在虚拟机里面安装的虚拟网卡，在物理机没有这个网卡，
+注意 pve 是用vmbr0 这个网卡来转发实际网卡的数据的，不要把virtualbox的虚拟网卡和vmbr0搞混概念
+1 2 3 4 5 6 7 8 查看网卡设备，有线网卡一般是enXxx ip link show # 修改配置文件，把网卡改成新的名字 我的就是 enp0s3修改为 enp1s0 nano /etc/network/interfaces # 重启网络应用改动 systemctl restart networking 这是我修改前的"><meta property="og:url" content="https://dev.leiyanhui.com/linux/pve-vdisk/"><meta property="og:site_name" content="小类随手记"><meta property="og:type" content="article"><meta property="article:section" content="Linux"><meta property="article:published_time" content="2022-10-25T00:00:00+00:00"><meta property="article:modified_time" content="2022-10-25T00:00:00+00:00"><meta name=twitter:title content="pve安装到硬盘的一个虚拟文件然后物理机启动的几个注意点"><meta name=twitter:description content="硬盘安装了ventoy，ventoy 使用了两个分区，一个是ventoy分区 大小几百M-几G 一个是 ventoyefi分区32M，后面的分区是保留分区。
+先用ventoy 启动硬盘保留分区的一个 win11.vhd 或者其他系统都可。
+安装 virtualbox 创建一个虚拟机debian11，挂pve7.2.iso 不创建硬盘
+系统设置里面 打开 efi，创建一个虚拟硬盘 固定大小的。virtualbox现在升级到6.1-7 按钮位置发生了变化注意一一点。 网络选择桥接
+这里注意三个点:
+必须打开efi 这是 ventoy 启动的要求 虚拟硬盘需要固定大小 虚拟硬盘尺寸不能太小，因为pve除了自己占用的3-4G空间之外，还有node需要保留一些空间。我粗略测试 12G不可以，20G可以。懒得继续测试，直接用20G的vhd固定大小安装 要在virtualbox这个虚拟机设置里面打开虚拟化嵌套的，不然装不上 安装完成后，虚拟机挂载 plugin_vtoyboot 的iso https://github.com/ventoy/vtoyboot/releases
+在pve里面 mount上，然后cp 里面的tar.gz 到 ~ tar解压 ，cd 进去 sh vtoyboot.sh
+在这之前，最好把pve的 debian源和pve源换到国内，然后更新一下pve系统，
+反正关机之前，要 sh vtoyboot.sh一下，以后系统升级后也执行一次。
+关机后，复制vhd文件出来，后缀修改 vhd.vtoy
+然后 用ventoy 自带的工具，创建一个 link到 ventoy分区，倒计时启动等，最重要的 是，要打开 VTOY_LINUX_REMOUNT 参考
+用用ventoy启动后，用root登录，然后修改网络配置 主要是修改ip 还有更换网卡，因为在虚拟机里面安装的虚拟网卡，在物理机没有这个网卡，
+注意 pve 是用vmbr0 这个网卡来转发实际网卡的数据的，不要把virtualbox的虚拟网卡和vmbr0搞混概念
+1 2 3 4 5 6 7 8 查看网卡设备，有线网卡一般是enXxx ip link show # 修改配置文件，把网卡改成新的名字 我的就是 enp0s3修改为 enp1s0 nano /etc/network/interfaces # 重启网络应用改动 systemctl restart networking 这是我修改前的"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_huc576795bd0b236a89cc0b965a29f05fa_109254_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar></a>
+<span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=social-menu><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg><span>Home</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg><span>Archives</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg><span>Search</span></a></li><li><a href=/links/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg><span>Links</span></a></li><div class=menu-bottom-section><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg><span>暗色模式</span></li></div></ol></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><div class=article-title-wrapper><h2 class=article-title><a href=/linux/pve-vdisk/>pve安装到硬盘的一个虚拟文件然后物理机启动的几个注意点</a></h2></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg><time class=article-time--published>2022-10-25</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg><time class=article-time--reading>阅读时长: 2 分钟</time></div></footer></div></header><section class=article-content><p>硬盘安装了ventoy，ventoy 使用了两个分区，一个是ventoy分区 大小几百M-几G 一个是 ventoyefi分区32M，后面的分区是保留分区。</p><p>先用ventoy 启动硬盘保留分区的一个 win11.vhd 或者其他系统都可。</p><p>安装 virtualbox 创建一个虚拟机debian11，挂pve7.2.iso 不创建硬盘</p><p>系统设置里面 打开 efi，创建一个虚拟硬盘 固定大小的。virtualbox现在升级到6.1-7 按钮位置发生了变化注意一一点。
+网络选择桥接</p><p>这里注意三个点:</p><ul><li>必须打开efi 这是 ventoy 启动的要求</li><li>虚拟硬盘需要固定大小</li><li>虚拟硬盘尺寸不能太小，因为pve除了自己占用的3-4G空间之外，还有node需要保留一些空间。我粗略测试 12G不可以，20G可以。懒得继续测试，直接用20G的vhd固定大小安装</li><li>要在virtualbox这个虚拟机设置里面打开虚拟化嵌套的，不然装不上</li></ul><p>安装完成后，虚拟机挂载 plugin_vtoyboot 的iso <a class=link href=https://github.com/ventoy/vtoyboot/releases target=_blank rel=noopener>https://github.com/ventoy/vtoyboot/releases</a></p><p>在pve里面 mount上，然后cp 里面的tar.gz 到 ~ tar解压 ，cd 进去 sh vtoyboot.sh</p><p>在这之前，最好把pve的 debian源和pve源换到国内，然后更新一下pve系统，</p><p>反正关机之前，要 sh vtoyboot.sh一下，以后系统升级后也执行一次。</p><p>关机后，复制vhd文件出来，后缀修改 vhd.vtoy</p><p>然后 用ventoy 自带的工具，创建一个 link到 ventoy分区，倒计时启动等，最重要的 是，要打开 VTOY_LINUX_REMOUNT <a class=link href=https://www.ventoy.net/cn/plugin_control.html target=_blank rel=noopener>参考</a></p><p>用用ventoy启动后，用root登录，然后修改网络配置 主要是修改ip 还有更换网卡，因为在虚拟机里面安装的虚拟网卡，在物理机没有这个网卡，</p><blockquote><p>注意 pve 是用vmbr0 这个网卡来转发实际网卡的数据的，不要把virtualbox的虚拟网卡和vmbr0搞混概念</p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl> 查看网卡设备，有线网卡一般是enXxx
+</span></span><span class=line><span class=cl>ip link show
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># 修改配置文件，把网卡改成新的名字  我的就是 enp0s3修改为 enp1s0
+</span></span><span class=line><span class=cl>nano /etc/network/interfaces
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># 重启网络应用改动
+</span></span><span class=line><span class=cl>systemctl restart networking
+</span></span></code></pre></td></tr></table></div></div><p>这是我修改前的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl> cat /etc/network/interfaces-bak
+</span></span><span class=line><span class=cl>auto lo
+</span></span><span class=line><span class=cl>iface lo inet loopback
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>iface enp0s3 inet manual
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>auto vmbr0
+</span></span><span class=line><span class=cl>iface vmbr0 inet static
+</span></span><span class=line><span class=cl>        address 10.0.0.128/24
+</span></span><span class=line><span class=cl>        gateway 10.0.0.1
+</span></span><span class=line><span class=cl>        bridge-ports enp0s3
+</span></span><span class=line><span class=cl>        bridge-stp off
+</span></span><span class=line><span class=cl>        bridge-fd 0
+</span></span></code></pre></td></tr></table></div></div><p>修改后的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl> cat /etc/network/interfaces
+</span></span><span class=line><span class=cl>auto lo
+</span></span><span class=line><span class=cl>iface lo inet loopback
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>iface enp1s0 inet manual
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>auto vmbr0
+</span></span><span class=line><span class=cl>iface vmbr0 inet static
+</span></span><span class=line><span class=cl>        address 10.0.0.99/24
+</span></span><span class=line><span class=cl>        gateway 10.0.0.1
+</span></span><span class=line><span class=cl>        bridge-ports enp1s0
+</span></span><span class=line><span class=cl>        bridge-stp off
+</span></span><span class=line><span class=cl>        bridge-fd 0
+</span></span></code></pre></td></tr></table></div></div><p>另外 /etc/issue 和 /etc/hosts 可以顺带修改一下，不修改也不影响</p><p>网络正常后 处理自动挂载</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>blkid
+</span></span><span class=line><span class=cl>----
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>/dev/nvme0n1p1: LABEL_FATBOOT=&#34;EFI2&#34; LABEL=&#34;EFI2&#34; UUID=&#34;729A-FE81&#34; BLOCK_SIZE=&#34;512&#34; TYPE=&#34;vfat&#34; PARTUUID=&#34;7adb76ae-01&#34;
+</span></span><span class=line><span class=cl>/dev/nvme0n1p2: SEC_TYPE=&#34;msdos&#34; LABEL_FATBOOT=&#34;VTOYEFI&#34; LABEL=&#34;VTOYEFI&#34; UUID=&#34;ADC2-5F11&#34; BLOCK_SIZE=&#34;512&#34; TYPE=&#34;vfat&#34; PARTUUID=&#34;7adb76ae-02&#34;
+</span></span><span class=line><span class=cl>/dev/nvme0n1p3: LABEL=&#34;Exfat&#34; UUID=&#34;7F17-3D02&#34; BLOCK_SIZE=&#34;512&#34; TYPE=&#34;exfat&#34; PARTUUID=&#34;7adb76ae-03&#34;
+</span></span><span class=line><span class=cl>/dev/sda1: LABEL=&#34;HHD&#34; UUID=&#34;9D09-82A9&#34; BLOCK_SIZE=&#34;512&#34; TYPE=&#34;exfat&#34; PARTUUID=&#34;b1fb145f-01&#34;
+</span></span><span class=line><span class=cl>/dev/mapper/ventoy2: UUID=&#34;FF54-9C3A&#34; BLOCK_SIZE=&#34;512&#34; TYPE=&#34;vfat&#34;
+</span></span><span class=line><span class=cl>/dev/mapper/ventoy3: UUID=&#34;AGKBNe-Bw8e-Rg2H-YLtd-XCjp-x8SO-Yo52AW&#34; TYPE=&#34;LVM2_member&#34;
+</span></span><span class=line><span class=cl>/dev/mapper/pve-swap: UUID=&#34;b50aa774-310e-43af-87d2-4ef40e033910&#34; TYPE=&#34;swap&#34;
+</span></span><span class=line><span class=cl>/dev/mapper/pve-root: UUID=&#34;1637dd63-6dc3-4957-934a-2ff8c41f8f10&#34; BLOCK_SIZE=&#34;4096&#34; TYPE=&#34;ext4&#34;
+</span></span><span class=line><span class=cl>/dev/mapper/ventoy: PTUUID=&#34;00a161a2-67c0-4d79-815a-c7d23b5d727c&#34; PTTYPE=&#34;gpt&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>nano /etc/fstab
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>----
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># &lt;file system&gt; &lt;mount point&gt; &lt;type&gt; &lt;options&gt; &lt;dump&gt; &lt;pass&gt;
+</span></span><span class=line><span class=cl>/dev/pve/root / ext4 errors=remount-ro 0 1
+</span></span><span class=line><span class=cl>UUID=FF54-9C3A /boot/efi vfat defaults 0 1
+</span></span><span class=line><span class=cl>/dev/pve/swap none swap sw 0 0
+</span></span><span class=line><span class=cl>proc /proc proc defaults 0 0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>UUID=729A-FE81 /mnt/efi2 vfat defaults 0 2
+</span></span><span class=line><span class=cl>UUID=7F17-3D02 /mnt/exfat exfat defaults 0 2
+</span></span><span class=line><span class=cl>UUID=9D09-82A9 /mnt/hdd exfat defaults 0 2
+</span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg><span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><div class=disqus-container><div id=disqus_thread></div><script type=application/javascript>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2023 小类随手记</section><section class=powerby>Built with <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a><br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.16.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)"></button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script>
+<script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>alpine on 小类随手记</title><link>https://dev.leiyanhui.com/categories/alpine/</link><description>Recent content in alpine on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 22 Nov 2022 19:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/alpine/index.xml" rel="self" type="application/rss+xml"/><item><title>docker的alpine中使用ssh的docker</title><link>https://dev.leiyanhui.com/docker/alpine-sshd/</link><pubDate>Tue, 22 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/alpine-sshd/</guid><description>&lt;h2 id="创建一个容器">创建一个容器&lt;/h2>
+&lt;p>在爱快中添加一个 容器 &amp;lsquo;alpine-docker-cli-1&amp;rsquo; 使用镜像 alpine:latest
+高级设置挂载目录 &lt;code>/var/run/docker.sock&lt;/code> 到容器的&lt;code>/var/run/docker.sock&lt;/code>&lt;/p>
+&lt;h2 id="配置容器">配置容器&lt;/h2>
+&lt;p>打开容器控制台&lt;/p>
+&lt;h3 id="修改源更新安装ssh-密钥-启动文件等">修改源更新安装ssh 密钥 启动文件等&lt;/h3>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/main&amp;#34; &amp;gt; /etc/apk/repositories &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/community&amp;#34; &amp;gt;&amp;gt; /etc/apk/repositories &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk update &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk add --no-cache openssh tzdata &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sed -i &amp;#34;s/#PermitRootLogin.*/PermitRootLogin yes/g&amp;#34; /etc/ssh/sshd_config &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t dsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_dsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t rsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_rsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ecdsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ecdsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ed25519 -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ed25519_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;root:admin&amp;#34; | chpasswd &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;/usr/sbin/sshd -D&amp;#34; &amp;gt; /autoboot.sh &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;tail -f /dev/null&amp;#34; &amp;gt; /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>上面的命令 是让我们能创建一个支持ssh的docker，但是还不是我们想要的&lt;/p>
+&lt;h2 id="进阶用docker里面的cli-操作宿主的docker">进阶，用docker里面的cli 操作宿主的docker&lt;/h2>
+&lt;p>也就是 添加一行apk add &amp;ndash;no-cache docker-cli&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/main&amp;#34; &amp;gt; /etc/apk/repositories &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/community&amp;#34; &amp;gt;&amp;gt; /etc/apk/repositories &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk update &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk add --no-cache docker-cli &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk add --no-cache openssh tzdata &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sed -i &amp;#34;s/#PermitRootLogin.*/PermitRootLogin yes/g&amp;#34; /etc/ssh/sshd_config &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t dsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_dsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t rsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_rsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ecdsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ecdsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ed25519 -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ed25519_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;root:admin&amp;#34; | chpasswd &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;/usr/sbin/sshd -D&amp;#34; &amp;gt; /autoboot.sh &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;tail -f /dev/null&amp;#34; &amp;gt;&amp;gt; /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="我打包了一个基础的docker镜像">我打包了一个基础的docker镜像&lt;/h2>
+&lt;p>只安装了 openssh tzdata 时区 nano
+默认用户名 root 密码 root ssh端口2222
+tar.gz格式的，你可以自己导入到镜像
+使用命令参考&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cat alpine-sshd2222.tar.gz | docker import - alpine:sshd-autoboot.sh2222
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -i -t -d --name alpine-mengzhong --network host --privileged=true --restart=always alpine:sshd-autoboot.sh2222 sh /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>下载地址： &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/raw/main/pve-unraid-kvm/alpine-sshd2222.tar.gz" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/raw/main/pve-unraid-kvm/alpine-sshd2222.tar.gz&lt;/a>&lt;/p>
+&lt;p>以后可能也会打包一个debian的镜像，不过体积就比较大，可能会放到云盘&lt;/p>
+&lt;p>本文参考 &lt;a class="link" href="https://cloud.tencent.com/developer/article/1683604" target="_blank" rel="noopener"
+>https://cloud.tencent.com/developer/article/1683604&lt;/a>&lt;/p></description></item><item><title>爱快没有完整的shell无法正常使用docker的解决方法 docker嵌套</title><link>https://dev.leiyanhui.com/docker/ikuai-docker-shell/</link><pubDate>Tue, 22 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/ikuai-docker-shell/</guid><description>&lt;p>爱快比较稳定，分流功能方便一些，安装也解决，所以我主路由n2600是用的爱快。&lt;/p>
+&lt;p>但是爱快的扩展性 相对比较差，最新版虽然支持docker了，但是因为没有shell，只能从网页简单配置，很多参数加不上，还是比较麻烦。
+我先是尝试&lt;a class="link" href="https://dev.leiyanhui.com/docker/alpine-sshd/" target="_blank" rel="noopener"
+>使用 /var/run/docker.sock 的方法操作爱快的docker&lt;/a> 发现找不到这个文件，而现在路由在使用中，不知道具体路径是哪里&lt;/p>
+&lt;p>实在是懒得继续折腾，找到一个就路由器，配置好以后，先临时上网&lt;/p>
+&lt;p>还是刷 openwrt&lt;/p></description></item><item><title>在docker中运行一个完整的docker并再套娃docker</title><link>https://dev.leiyanhui.com/docker/docker-run-on-docker/</link><pubDate>Tue, 22 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/docker-run-on-docker/</guid><description>&lt;blockquote>
+&lt;p>之所以有这个奇葩的需求 是因为一个软路由 安装的是爱快系统，而考虑到不折腾的原则，没有去更换系统。
+但是爱快的docker 因为没有完整的shell权限使用起来很奇葩.&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="先在爱快docker运行一个alpine">先在爱快docker运行一个alpine&lt;/h2>
+&lt;p>修改密码 passwd 然后 修改源&lt;/p>
+&lt;pre>&lt;code>etc/apk/repositorie
+----
+https://mirrors.ustc.edu.cn/alpine/latest-stable/main
+https://mirrors.ustc.edu.cn/alpine/latest-stable/community
+apk update
+&lt;/code>&lt;/pre>
+&lt;h2 id="安装配置sshd">安装配置sshd&lt;/h2>
+&lt;pre>&lt;code>apk add --no-cache openssh tzdata
+cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+sed -i &amp;quot;s/#PermitRootLogin.*/PermitRootLogin yes/g&amp;quot; /etc/ssh/sshd_config
+ssh-keygen -t dsa -P &amp;quot;&amp;quot; -f /etc/ssh/ssh_host_dsa_key
+ssh-keygen -t rsa -P &amp;quot;&amp;quot; -f /etc/ssh/ssh_host_rsa_key
+ssh-keygen -t ecdsa -P &amp;quot;&amp;quot; -f /etc/ssh/ssh_host_ecdsa_key
+ssh-keygen -t ed25519 -P &amp;quot;&amp;quot; -f /etc/ssh/ssh_host_ed25519_key
+&lt;/code>&lt;/pre>
+&lt;h2 id="手动启动sshd">手动启动sshd&lt;/h2>
+&lt;pre>&lt;code>/usr/sbin/sshd -D
+&lt;/code>&lt;/pre>
+&lt;h3 id="安装docker">安装docker&lt;/h3>
+&lt;pre>&lt;code>apk add docker
+&lt;/code>&lt;/pre>
+&lt;h2 id="配置自动启动">配置自动启动&lt;/h2>
+&lt;p>试了 openrc 和 busybox 都没弄好。。。。。。因为爱快 没有安装的shell 也就无法自己定义sh 。。。所以。。。直接换一个docker吧&lt;/p>
+&lt;p>然后测试了一圈。。直接用openwrt的docker算了。。。 &lt;code>openwrtorg/rootfs:x86_64-openwrt-22.03&lt;/code>&lt;/p>
+&lt;h2 id="docker版本openwrt简单使用">docker版本openwrt简单使用&lt;/h2>
+&lt;p>我主要是套docker用，ssh登录到docker opwnwrt&lt;/p>
+&lt;h3 id="国内源">国内源&lt;/h3>
+&lt;p>cp /etc/opkg/distfeeds.conf /etc/opkg/distfeeds.conf-bak
+vi /etc/opkg/distfeeds.conf #把里面的&lt;code>/etc/opkg/distfeeds.conf-bak&lt;/code>替换为&lt;code>mirrors.aliyun.com/openwrt&lt;/code>
+opkg update&lt;/p>
+&lt;h3 id="安装docker-1">安装docker&lt;/h3>
+&lt;pre>&lt;code>opkg install docker
+opkg install dockerd
+/etc/init.d/dockerd start
+ln -s /etc/init.d/dockerd /etc/rc.d/S100docker
+&lt;/code>&lt;/pre>
+&lt;h3 id="测试一个docker">测试一个docker&lt;/h3>
+&lt;p>docker run -d &amp;ndash;restart=always &amp;ndash;privileged &lt;br>
+-p 2017:2017 -p 20170-20173:20170-20173 &lt;br>
+&amp;ndash;name v2raya &lt;br>
+mzz2017/v2raya&lt;/p></description></item><item><title>alpine 运行几个常用的docker</title><link>https://dev.leiyanhui.com/alpine/docker-s/</link><pubDate>Sun, 20 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/alpine/docker-s/</guid><description>&lt;p>alpine 不单适合作为docker的基础包，也挺适合在部分场景下，作为docker的宿主系统、原因无它，体积小维护简单。&lt;/p>
+&lt;p>当然 alpine最大的问题 依旧是 mult的兼容性，所以说 alpine 只适合部分场景下。&lt;/p>
+&lt;p>我这里 用kvm运行了一个单独的虚拟机只用来在不污染宿主机的情况下折腾docker，所以宿主机很适合用alpine&lt;/p>
+&lt;h2 id="安装docker">安装docker&lt;/h2>
+&lt;p>ssh 到alpine&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add nano
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano /etc/apk/repositories
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>把 community 的那行注释去掉&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add docker
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add docker boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service docker start
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="v2ray">v2ray&lt;/h2>
+&lt;blockquote>
+&lt;p>nano /mnt/hdd/kvm-bak/alpine-docker/start_nogpu.sh&lt;/p>
+&lt;blockquote>
+&lt;p>编辑 -netdev 这行，添加需要端口 2017(web管理界面) 20170（sockes） 20171（http不分流） 20172（分流） 20173（备用）&lt;/p>
+&lt;/blockquote>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">hostfwd=tcp::2017-:2017,hostfwd=tcp::20170-:20170,hostfwd=tcp::20171-:20171,hostfwd=tcp::20172-:20172,hostfwd=tcp::20173-:20173
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d --restart=always --privileged \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name v2raya -p 2017:2017 -p 20170-20173:20170-20173 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> mzz2017/v2raya
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配置访问 ： http://10.0.0.8:2017
+打开 透明代理 ip转发 端口分享&lt;/p>
+&lt;h3 id="阿里云盘-webdav">阿里云盘 webdav&lt;/h3>
+&lt;p>用 messense/aliyundriver-webdav 这个镜像吧 10k star，教程很多，也比较简单，主要是获取refreshToken 就好了&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d --name=aliyunpan --restart=always -p 8080:8080 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e REFRESH_TOKEN=&amp;#39;your refresh token&amp;#39; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e WEBDAV_AUTH_USER=admin \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e WEBDAV_AUTH_PASSWORD=admin \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> messense/aliyundrive-webdav
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="nginx-主要用于处理https代理">nginx 主要用于处理https代理&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d -p 8081:80 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 8443:443 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name nginxweb \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --link answer-server:answerserver \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /usr/local/docker/nginx/html:/usr/share/nginx/html \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /usr/local/docker/nginx/conf/nginx.conf:/etc/nginx/nginx.conf \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /usr/local/docker/nginx/conf/conf.d:/etc/nginx/conf.d \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /usr/local/docker/nginx/logs:/var/log/nginx \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> nginx
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="mysql-redis">mysql redis&lt;/h2>
+&lt;p>略，可以 docker 直接泡一个宝塔&lt;/p></description></item><item><title>在kvm主机上运行一个alpine，单独运行docker</title><link>https://dev.leiyanhui.com/kvm/install-alpine/</link><pubDate>Sun, 20 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/install-alpine/</guid><description>&lt;blockquote>
+&lt;p>一台all in one 主机，宿主机运行的 archlinux+ kvm qemu，部分硬件直通。 只占用2G左右硬盘。其他分区均为ext4 格式
+宿主机也可以直接docker，但是感觉不是很方便，所以单独做一个vm 之用来运行docker&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="获取安装影像">获取安装影像&lt;/h2>
+&lt;blockquote>
+&lt;p>选这个虚拟机版本 就好了&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd /mnt/hdd/iso/linux/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-virt-3.16.3-x86_64.iso
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="创建虚拟机主机">创建虚拟机主机&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir -p /mnt/ssd/alpinx-kvm/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd /mnt/ssd/alpinx-kvm/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">qemu-img create -f qcow2 alpine-sys.qcow2 50G
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="启动参数">启动参数&lt;/h3>
+&lt;pre>&lt;code>nano startalpine.sh
+&lt;/code>&lt;/pre>
+&lt;p>内容&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">MY_OPTIONS=&amp;#34;+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ALLOCATED_RAM=&amp;#34;1G&amp;#34; # MiB
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">CPU_SOCKETS=&amp;#34;1&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">CPU_CORES=&amp;#34;6&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">CPU_THREADS=&amp;#34;12&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">args=(
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -name &amp;#34;macos&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -enable-kvm -m &amp;#34;$ALLOCATED_RAM&amp;#34; -cpu host,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,&amp;#34;$MY_OPTIONS&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -machine q35
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -usb -device usb-kbd -device usb-tablet # 鼠标穿透 mac 和win linux 都适用 键盘鼠标正常
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -smp &amp;#34;$CPU_THREADS&amp;#34;,cores=&amp;#34;$CPU_CORES&amp;#34;,sockets=&amp;#34;$CPU_SOCKETS&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -smbios type=2
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -device ich9-intel-hda -device hda-duplex
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -device ich9-ahci,id=sata
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #qemu-img create -f qcow2 alpine-sys.qcow2 50G
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -cdrom /mnt/hdd/iso/linux/alpine-virt-3.16.3-x86_64.iso
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -drive index=0,media=disk,format=qcow2,if=virtio,file=/mnt/ssd/alpinx-kvm/alpine-sys.qcow2
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -netdev user,id=net0,smb=/mnt,hostfwd=tcp::8006-:3306,hostfwd=tcp::8222-:22
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -device virtio-net-pci,addr=0x10,netdev=net0,id=net0,mac=52:54:00:c9:18:27
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -monitor stdio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -vga virtio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -display none
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -vnc 0.0.0.0:8 -k en-us
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">qemu-system-x86_64 &amp;#34;${args[@]}&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="安装">安装&lt;/h2>
+&lt;p>&lt;code>setup-alpine&lt;/code> 用安装助手安装 30秒就可以装完了&lt;/p>
+&lt;h2 id="安装docker">安装docker&lt;/h2>
+&lt;p>ssh用上面的端口8222登录到alpine&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add nano
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano /etc/apk/repositories
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>把 community 的那行注释去掉&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add docker
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add docker boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service docker start
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="安装fish-和-neofetch">安装fish 和 neofetch&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add fish neofetch
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="完毕-关机备份">完毕 关机备份&lt;/h2>
+&lt;p>alpine 默认是用 poweroff 关机的，但是。。我习惯性 还是用 shutdown&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir -p /mnt/hdd/kvm-bak/alpine-docker
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp alpine-sys.qcow2 /mnt/hdd/kvm-bak/alpine-docker/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp start_nogpu.sh /mnt/hdd/kvm-bak/alpine-docker/
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="docker-几个常用镜像">docker 几个常用镜像&lt;/h2>
+&lt;p>v2ray aliyunpanwebdav nginx mysql&lt;/p>
+&lt;p>查看单独的文章 &lt;a class="link" href="https://dev.leiyanhui.com/alpine/docker-s/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/alpine/docker-s/&lt;/a>&lt;/p>
+&lt;h2 id="最后的-启动脚本">最后的 启动脚本&lt;/h2>
+&lt;p>脚本备份： &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/%E4%B8%80%E4%B8%AA%E4%B8%93%E9%97%A8%E8%BF%90%E8%A1%8Cdocker%E7%9A%84alpine.sh" target="_blank" rel="noopener"
+>github传送门&lt;/a>&lt;/p></description></item><item><title>Alpine Linux运行KVM虚拟化 和 docker</title><link>https://dev.leiyanhui.com/alpine/install-kvm-docker-sys/</link><pubDate>Mon, 31 Oct 2022 14:31:20 +0800</pubDate><guid>https://dev.leiyanhui.com/alpine/install-kvm-docker-sys/</guid><description>&lt;p>alpine的优势不用多说， 轻量小巧，还有diskless&lt;/p>
+&lt;p>kvm 也是linux 最好的虚拟机软件了，性能应该也是最好的。&lt;/p>
+&lt;p>最终目标 是搭建一个轻量的linux 里面只跑docker和kvm&lt;/p>
+&lt;p>可以直接使用QEMU来运行虚拟机，但是管理命令较为复杂，所以通常我们都会安装libvirt来帮助管理。&lt;/p>
+&lt;h2 id="alpine安装">alpine安装&lt;/h2>
+&lt;p>略 安装完成 大概需要40M左右硬盘空间&lt;/p>
+&lt;h2 id="准备安装-处理源">准备安装 处理源&lt;/h2>
+&lt;pre>&lt;code>nano /etc/apk/repositories
+&lt;/code>&lt;/pre>
+&lt;p>去掉community的那行的注释&lt;/p>
+&lt;h2 id="安装所需要的软件包">安装所需要的软件包&lt;/h2>
+&lt;h3 id="kvm-需要的">kvm 需要的&lt;/h3>
+&lt;p>kvm 还是最好用qemu来管理，还有libvirt 为了方便最好再安装一个 virt-install&lt;/p>
+&lt;pre>&lt;code>apk add libvirt-daemon qemu-img qemu-system-x86_64 qemu-modules
+apk add virt-install
+rc-update add libvirtd
+rc-service libvirtd start
+virsh list
+&lt;/code>&lt;/pre>
+&lt;p>如果diskless 还需要&lt;/p>
+&lt;pre>&lt;code>lbu ci
+&lt;/code>&lt;/pre>
+&lt;p>现在大概需要327M 硬盘&lt;/p>
+&lt;h3 id="再安装docker">再安装docker&lt;/h3>
+&lt;pre>&lt;code>apk add docker
+&lt;/code>&lt;/pre>
+&lt;p>现在 546.6M&lt;/p>
+&lt;h3 id="远程kvm所需要的">远程kvm所需要的&lt;/h3>
+&lt;pre>&lt;code>apk add dbus polkit virt-manager terminus-font rc-update add dbus
+&lt;/code>&lt;/pre></description></item></channel></rss>
