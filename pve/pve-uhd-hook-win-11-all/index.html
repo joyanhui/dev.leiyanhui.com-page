@@ -1,0 +1,288 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="本文部分内容过期，请查看新版 https://dev.leiyanhui.com/pve/pve-uhd-hook-win-11-1 另外文中没有直通声卡进去，所以虚拟机HDMI也没有声音。 请另外加进去即可 目标 pve 桌面环境日用win和macos 偶尔使用。 win1 开机 ，不直通 usb 和 显卡，使用rdp远程桌面操作。 win2 开机 独占显卡 声卡和usb键鼠 以及其他usb设备。 win2关机后 直通的硬件 返给pve. macos 也是一样（本文目前只有win部分的内容，macos的稍后整理）。 注意 部分cpu/主板 暂时是不能完全支持的。我这里可以正常挂载和自动退还给宿主。但是实际使用存在一下几个问题： 开机画面，Q35模式下没搞定i440fx下可用，但是需要挂载定制主板bios文件，可以和macos直通核显需要的bios文件通用。这个不是大问题。 vm开机后，显卡会直通给vm 宿主机桌面的软件都会退出，这个挺不爽的哈。这个后期可以修改ledisbest大佬的脚本来实现，可以考虑把桌面下的所有软件丢到vnc,而后vm模式下可以用vnc继续操作，vm关机后再返给宿主的桌面。暂时留一个坑。 1 2 3 4 5 6 7 > 我的硬件配置 : - qnct i7 8850h - 技嘉 B150M-PIO-SI R3 - OS: Proxmox VE 8.0.3 x86_64 - Kernel: 6.2.16-3-pve pve版本8.0.3 - 核显 uhd630 - 桌面是i3w 桌面管理器本来是用的 xinit,但是发现zhing和ledisbest大佬的脚本不支持，所以干脆先换了lightdm 硬件QNCT 实际测试有几种方案（均不限制win版本和驱动版本） 1、i440fx seaf 实际测试 效果不好，操作有卡顿感，系统更新的时候重启黑屏无法环境 可以有开机画面，winpe之类无驱动模式 可用"><title>pve 核显直通钩子 实现 vm开机直通关机换给pve- 初步尝试</title>
+<link rel=canonical href=https://dev.leiyanhui.com/pve/pve-uhd-hook-win-11-all/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="pve 核显直通钩子 实现 vm开机直通关机换给pve- 初步尝试"><meta property='og:description' content="本文部分内容过期，请查看新版 https://dev.leiyanhui.com/pve/pve-uhd-hook-win-11-1 另外文中没有直通声卡进去，所以虚拟机HDMI也没有声音。 请另外加进去即可 目标 pve 桌面环境日用win和macos 偶尔使用。 win1 开机 ，不直通 usb 和 显卡，使用rdp远程桌面操作。 win2 开机 独占显卡 声卡和usb键鼠 以及其他usb设备。 win2关机后 直通的硬件 返给pve. macos 也是一样（本文目前只有win部分的内容，macos的稍后整理）。 注意 部分cpu/主板 暂时是不能完全支持的。我这里可以正常挂载和自动退还给宿主。但是实际使用存在一下几个问题： 开机画面，Q35模式下没搞定i440fx下可用，但是需要挂载定制主板bios文件，可以和macos直通核显需要的bios文件通用。这个不是大问题。 vm开机后，显卡会直通给vm 宿主机桌面的软件都会退出，这个挺不爽的哈。这个后期可以修改ledisbest大佬的脚本来实现，可以考虑把桌面下的所有软件丢到vnc,而后vm模式下可以用vnc继续操作，vm关机后再返给宿主的桌面。暂时留一个坑。 1 2 3 4 5 6 7 > 我的硬件配置 : - qnct i7 8850h - 技嘉 B150M-PIO-SI R3 - OS: Proxmox VE 8.0.3 x86_64 - Kernel: 6.2.16-3-pve pve版本8.0.3 - 核显 uhd630 - 桌面是i3w 桌面管理器本来是用的 xinit,但是发现zhing和ledisbest大佬的脚本不支持，所以干脆先换了lightdm 硬件QNCT 实际测试有几种方案（均不限制win版本和驱动版本） 1、i440fx seaf 实际测试 效果不好，操作有卡顿感，系统更新的时候重启黑屏无法环境 可以有开机画面，winpe之类无驱动模式 可用"><meta property='og:url' content='https://dev.leiyanhui.com/pve/pve-uhd-hook-win-11-all/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Pve'><meta property='article:published_time' content='2023-09-27T22:14:20+08:00'><meta property='article:modified_time' content='2023-09-27T22:14:20+08:00'><meta name=twitter:title content="pve 核显直通钩子 实现 vm开机直通关机换给pve- 初步尝试"><meta name=twitter:description content="本文部分内容过期，请查看新版 https://dev.leiyanhui.com/pve/pve-uhd-hook-win-11-1 另外文中没有直通声卡进去，所以虚拟机HDMI也没有声音。 请另外加进去即可 目标 pve 桌面环境日用win和macos 偶尔使用。 win1 开机 ，不直通 usb 和 显卡，使用rdp远程桌面操作。 win2 开机 独占显卡 声卡和usb键鼠 以及其他usb设备。 win2关机后 直通的硬件 返给pve. macos 也是一样（本文目前只有win部分的内容，macos的稍后整理）。 注意 部分cpu/主板 暂时是不能完全支持的。我这里可以正常挂载和自动退还给宿主。但是实际使用存在一下几个问题： 开机画面，Q35模式下没搞定i440fx下可用，但是需要挂载定制主板bios文件，可以和macos直通核显需要的bios文件通用。这个不是大问题。 vm开机后，显卡会直通给vm 宿主机桌面的软件都会退出，这个挺不爽的哈。这个后期可以修改ledisbest大佬的脚本来实现，可以考虑把桌面下的所有软件丢到vnc,而后vm模式下可以用vnc继续操作，vm关机后再返给宿主的桌面。暂时留一个坑。 1 2 3 4 5 6 7 > 我的硬件配置 : - qnct i7 8850h - 技嘉 B150M-PIO-SI R3 - OS: Proxmox VE 8.0.3 x86_64 - Kernel: 6.2.16-3-pve pve版本8.0.3 - 核显 uhd630 - 桌面是i3w 桌面管理器本来是用的 xinit,但是发现zhing和ledisbest大佬的脚本不支持，所以干脆先换了lightdm 硬件QNCT 实际测试有几种方案（均不限制win版本和驱动版本） 1、i440fx seaf 实际测试 效果不好，操作有卡顿感，系统更新的时候重启黑屏无法环境 可以有开机画面，winpe之类无驱动模式 可用"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_huc576795bd0b236a89cc0b965a29f05fa_109254_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>Links</span></a></li><li><a href=/contact/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>联系</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><ol><li><a href=#目标>目标</a></li></ol></li><li><a href=#bios的配置>bios的配置</a></li><li><a href=#pve安装一个windows>pve安装一个windows</a><ol><li><a href=#复制一个虚拟机>复制一个虚拟机</a><ol><li></li></ol></li><li><a href=#进阶>进阶</a><ol><li><a href=#开机画面>开机画面</a></li></ol></li><li><a href=#获取钩子>获取钩子</a></li><li><a href=#新虚拟配置>新虚拟配置</a></li><li><a href=#准备另外一台设备>准备另外一台设备</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/pve/>Pve
+</a><a href=/categories/lxc/>Lxc</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/pve/pve-uhd-hook-win-11-all/>pve 核显直通钩子 实现 vm开机直通关机换给pve- 初步尝试</a></h2></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>2023-09-27</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><blockquote><p>本文部分内容过期，请查看新版</p></blockquote><p><a class=link href=https://dev.leiyanhui.com/pve/pve-uhd-hook-win-11-1 target=_blank rel=noopener>https://dev.leiyanhui.com/pve/pve-uhd-hook-win-11-1</a></p><p>另外文中没有直通声卡进去，所以虚拟机HDMI也没有声音。 请另外加进去即可</p><h3 id=目标>目标</h3><p>pve 桌面环境日用win和macos 偶尔使用。<br>win1 开机 ，不直通 usb 和 显卡，使用rdp远程桌面操作。<br>win2 开机 独占显卡 声卡和usb键鼠 以及其他usb设备。 win2关机后 直通的硬件 返给pve.<br>macos 也是一样（本文目前只有win部分的内容，macos的稍后整理）。</p><blockquote><p>注意 部分cpu/主板 暂时是不能完全支持的。我这里可以正常挂载和自动退还给宿主。但是实际使用存在一下几个问题：</p><ul><li>开机画面，Q35模式下没搞定i440fx下可用，但是需要挂载定制主板bios文件，可以和macos直通核显需要的bios文件通用。这个不是大问题。</li><li>vm开机后，显卡会直通给vm 宿主机桌面的软件都会退出，这个挺不爽的哈。这个后期可以修改ledisbest大佬的脚本来实现，可以考虑把桌面下的所有软件丢到vnc,而后vm模式下可以用vnc继续操作，vm关机后再返给宿主的桌面。暂时留一个坑。</li></ul></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; 我的硬件配置 :
+</span></span><span class=line><span class=cl>- qnct  i7 8850h   
+</span></span><span class=line><span class=cl>- 技嘉 B150M-PIO-SI R3
+</span></span><span class=line><span class=cl>- OS: Proxmox VE 8.0.3 x86_64
+</span></span><span class=line><span class=cl>- Kernel: 6.2.16-3-pve  pve版本8.0.3
+</span></span><span class=line><span class=cl>- 核显 uhd630 
+</span></span><span class=line><span class=cl>- 桌面是i3w  桌面管理器本来是用的 xinit,但是发现zhing和ledisbest大佬的脚本不支持，所以干脆先换了lightdm
+</span></span></code></pre></td></tr></table></div></div><p>硬件QNCT 实际测试有几种方案（均不限制win版本和驱动版本）</p><p>1、i440fx seaf 实际测试 效果不好，操作有卡顿感，系统更新的时候重启黑屏无法环境 可以有开机画面，winpe之类无驱动模式 可用<br>2、i440fx ovmf 性能可以 操作流畅 可以有开机画面，winpe之类无驱动模式 可用<br>3、q35 ovmf 性能可以 操作流畅 暂时没研究明白怎么添加开机画面，pve控制台屏幕可用，winpe之类驱动模式 无法使用。win要安装驱动后才可以点亮直通核显。</p><p>关于tpm，可以用win下用bat脚本处理iso文件然后就脱离tpm安装。也可以 q35 ovmf+tpm 安装成功后修改为 i440fx。</p><blockquote><p>后面内容有一部分使用了显卡的rom文件，但是实际测试在我的设备上不需要</p></blockquote><h2 id=bios的配置>bios的配置</h2><p>只需要开启 vt-d 即可，gms无要求，可以uefi也可以传统模式启动pve.</p><h2 id=pve安装一个windows>pve安装一个windows</h2><p>VM ID 是 811 用uefi q35机型,驱动用的 虚拟化驱动用的 virtio-win-0.1.215.iso。参考配置如下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>agent: <span class=m>1</span>
+</span></span><span class=line><span class=cl>bios: ovmf
+</span></span><span class=line><span class=cl>boot: <span class=nv>order</span><span class=o>=</span>virtio0
+</span></span><span class=line><span class=cl>cores: <span class=m>12</span>
+</span></span><span class=line><span class=cl>cpu: host
+</span></span><span class=line><span class=cl>efidisk0: local:811/vm-811-disk-0.qcow2,efitype<span class=o>=</span>4m,pre-enrolled-keys<span class=o>=</span>1,size<span class=o>=</span>528K
+</span></span><span class=line><span class=cl>ide0: local:iso/virtio-win-0.1.240.iso,media<span class=o>=</span>cdrom,size<span class=o>=</span>612812K
+</span></span><span class=line><span class=cl>ide2: local:iso/Win11_22H2_Chinese_Simplified_x64v2.iso,media<span class=o>=</span>cdrom,size<span class=o>=</span>5723780K
+</span></span><span class=line><span class=cl>machine: pc-q35-8.0
+</span></span><span class=line><span class=cl>memory: <span class=m>10240</span>
+</span></span><span class=line><span class=cl>meta: creation-qemu<span class=o>=</span>8.0.2,ctime<span class=o>=</span><span class=m>1695825773</span>
+</span></span><span class=line><span class=cl>net0: <span class=nv>virtio</span><span class=o>=</span>0E:01:BC:9D:02:51,bridge<span class=o>=</span>vmbr0,firewall<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>numa: <span class=m>1</span>
+</span></span><span class=line><span class=cl>ostype: win11
+</span></span><span class=line><span class=cl>scsihw: virtio-scsi-single
+</span></span><span class=line><span class=cl>smbios1: <span class=nv>uuid</span><span class=o>=</span>37977c80-49d4-49f8-8cda-cc03b4ca2fc6
+</span></span><span class=line><span class=cl>sockets: <span class=m>1</span>
+</span></span><span class=line><span class=cl>tpmstate0: local:811/vm-811-disk-1.raw,size<span class=o>=</span>4M,version<span class=o>=</span>v2.0
+</span></span><span class=line><span class=cl>virtio0: local:811/vm-811-disk-2.qcow2,cache<span class=o>=</span>unsafe,iothread<span class=o>=</span>1,size<span class=o>=</span>30G
+</span></span><span class=line><span class=cl>virtio1: local:811/vm-811-disk-3.qcow2,iothread<span class=o>=</span>1,size<span class=o>=</span>64G
+</span></span><span class=line><span class=cl>vmgenid: 6328352c-225d-4a86-b7ee-643a781aafe0
+</span></span></code></pre></td></tr></table></div></div><p>正常安装，找不到硬盘的时候 加载一下驱动，提示联网的时候，正常跳过: fn + shift + f10 然后终端输入 oobe\bypassnro.cmd 回车重启<br>装完后 安装驱动 关闭休眠（必须关闭）安装完成后，固定win11的ip(也可以修改计算机名或者路由器里面查看),并打开远程桌面（要先测试确定没问题） 关闭休眠等。</p><h3 id=复制一个虚拟机>复制一个虚拟机</h3><p>这样可以在不影响811单独启动的情况下 创建一个新的911虚拟机，两个虚拟机磁盘一样 所以不能同时启动。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>sudo cp /etc/pve/qemu-server/811.conf /etc/pve/qemu-server/911.conf
+</span></span></code></pre></td></tr></table></div></div><p>编辑这个文件 添加三行 args设置 核显直通（vbios_gvt_uefi.rom是非必须的，如果需要可以放到/usr/share/kvm/）和 钩子脚本（后文获取）</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>args: -set device.hostpci0.addr<span class=o>=</span>02.0 -set device.hostpci0.x-igd-gms<span class=o>=</span><span class=m>1</span> -set device.hostpci0.x-igd-opregion<span class=o>=</span>on
+</span></span><span class=line><span class=cl>hostpci0: 0000:00:02.0,legacy-igd<span class=o>=</span>1,romfile<span class=o>=</span>vbios_gvt_uefi.rom
+</span></span><span class=line><span class=cl>hookscript: local:snippets/hooks-igpupt.pl
+</span></span></code></pre></td></tr></table></div></div><p>然后返回pve 网页控制台给911 添加一个usb设备。并设置显示none,机型修改为i440fx。</p><p>启动911后 pve 会黑屏。 用另外一个设备比如iphone iSH 连接到pve,运行 <code>qm start 911</code>​ 手动启动并看下能否启动，而后用 远程桌面app 连接到win（可以用win计算机名或者路由器查看ip）</p><h6 id=最终参考如下>最终参考如下</h6><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>agent: <span class=m>1</span>
+</span></span><span class=line><span class=cl>args: -set device.hostpci0.addr<span class=o>=</span>02.0 -set device.hostpci0.x-igd-gms<span class=o>=</span><span class=m>1</span> -set device.hostpci0.x-igd-opregion<span class=o>=</span>on
+</span></span><span class=line><span class=cl>bios: ovmf
+</span></span><span class=line><span class=cl>boot: <span class=nv>order</span><span class=o>=</span>virtio0
+</span></span><span class=line><span class=cl>cores: <span class=m>12</span>
+</span></span><span class=line><span class=cl>cpu: host
+</span></span><span class=line><span class=cl>efidisk0: local:811/vm-811-disk-0.qcow2,efitype<span class=o>=</span>4m,pre-enrolled-keys<span class=o>=</span>1,size<span class=o>=</span>528K
+</span></span><span class=line><span class=cl>hookscript: local:snippets/hooks-igpupt.pl
+</span></span><span class=line><span class=cl>hostpci0: 0000:00:02.0,legacy-igd<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>hostpci1: 0000:00:1f.3
+</span></span><span class=line><span class=cl>ide0: local:iso/virtio-win-0.1.240.iso,media<span class=o>=</span>cdrom,size<span class=o>=</span>612812K
+</span></span><span class=line><span class=cl>ide2: local:iso/Win11_22H2_Chinese_Simplified_x64v2.iso,media<span class=o>=</span>cdrom,size<span class=o>=</span>5723780K
+</span></span><span class=line><span class=cl>machine: pc-i440fx-8.0
+</span></span><span class=line><span class=cl>memory: <span class=m>10240</span>
+</span></span><span class=line><span class=cl>meta: creation-qemu<span class=o>=</span>8.0.2,ctime<span class=o>=</span><span class=m>1695825773</span>
+</span></span><span class=line><span class=cl>net0: <span class=nv>virtio</span><span class=o>=</span>0E:01:BC:9D:02:51,bridge<span class=o>=</span>vmbr0,firewall<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>numa: <span class=m>1</span>
+</span></span><span class=line><span class=cl>ostype: win11
+</span></span><span class=line><span class=cl>scsihw: virtio-scsi-single
+</span></span><span class=line><span class=cl>smbios1: <span class=nv>uuid</span><span class=o>=</span>37977c80-49d4-49f8-8cda-cc03b4ca2fc6
+</span></span><span class=line><span class=cl>sockets: <span class=m>1</span>
+</span></span><span class=line><span class=cl>tpmstate0: local:811/vm-811-disk-1.raw,size<span class=o>=</span>4M,version<span class=o>=</span>v2.0
+</span></span><span class=line><span class=cl>usb0: <span class=nv>host</span><span class=o>=</span>4037:2804,usb3<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>usb1: <span class=nv>host</span><span class=o>=</span>1ea7:0064,usb3<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>usb2: <span class=nv>host</span><span class=o>=</span>260d:0013,usb3<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>vga: none
+</span></span><span class=line><span class=cl>virtio0: local:811/vm-811-disk-2.qcow2,cache<span class=o>=</span>unsafe,iothread<span class=o>=</span>1,size<span class=o>=</span>30G
+</span></span><span class=line><span class=cl>virtio1: local:811/vm-811-disk-3.qcow2,iothread<span class=o>=</span>1,size<span class=o>=</span>64G
+</span></span><span class=line><span class=cl>vmgenid: 6328352c-225d-4a86-b7ee-643a781aafe0
+</span></span></code></pre></td></tr></table></div></div><p>不出以外的话，在驱动安装完成后，屏幕可以被点亮。</p><h3 id=进阶>进阶</h3><p>上面的操作911 这个虚拟机有三个问题</p><ul><li>没有开机画面</li><li>会直接关掉当前宿主机器的所有软件</li></ul><p>开机画面不显示这个问题在q35机型上 好像是无法避免的。在i440fx有的机器可以直接显示,有的需要特殊方法。</p><h4 id=开机画面>开机画面</h4><h5 id=主板vbios方案---有开机画面>主板vbios方案 - 有开机画面</h5><p>尝试继续处理 这次创建一个新的711 的虚拟机 这次先解决开机画面问题，我这次引用了一个修改后的主板bios文件。如果你没有，可以不加args里面的bios的配置，或从ls -lh /usr/share/kvm/*.bin 里自带的逐个试试，我这里不引用修改后的bios的话，可以显示kvm的bios界面但是最终，会卡到 boot form disk 的命令界面。</p><p>最终配置文件参考如下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>args: -bios /opt/pve-igpu-hooks/b150m.bin  -set device.hostpci0.addr<span class=o>=</span>02.0 -set device.hostpci0.x-igd-gms<span class=o>=</span><span class=m>2</span> -set device.hostpci0.x-igd-opregion<span class=o>=</span>on  -smbios <span class=nv>type</span><span class=o>=</span><span class=m>2</span> -global nec-usb-xhci.msi<span class=o>=</span>off -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support<span class=o>=</span>off -cpu host,vendor<span class=o>=</span>GenuineIntel,+invtsc,+hypervisor,kvm<span class=o>=</span>on,vmware-cpuid-freq<span class=o>=</span>on
+</span></span><span class=line><span class=cl>boot: <span class=nv>order</span><span class=o>=</span>virtio0
+</span></span><span class=line><span class=cl>cores: <span class=m>12</span>
+</span></span><span class=line><span class=cl>cpu: host
+</span></span><span class=line><span class=cl>hostpci0: 0000:00:02.0,legacy-igd<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>hostpci1: 0000:02:00.0
+</span></span><span class=line><span class=cl>memory: <span class=m>10241</span>
+</span></span><span class=line><span class=cl>meta: creation-qemu<span class=o>=</span>8.0.2,ctime<span class=o>=</span><span class=m>1695825773</span>
+</span></span><span class=line><span class=cl>name: w11-test
+</span></span><span class=line><span class=cl>net0: <span class=nv>virtio</span><span class=o>=</span>0E:01:BC:9D:02:51,bridge<span class=o>=</span>vmbr0,firewall<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>numa: <span class=m>1</span>
+</span></span><span class=line><span class=cl>ostype: other
+</span></span><span class=line><span class=cl>scsihw: virtio-scsi-single
+</span></span><span class=line><span class=cl>smbios1: <span class=nv>uuid</span><span class=o>=</span>0c5111fb-3e27-41eb-80f7-c097ad453e7b
+</span></span><span class=line><span class=cl>sockets: <span class=m>1</span>
+</span></span><span class=line><span class=cl>usb0: <span class=nv>host</span><span class=o>=</span>4037:2804,usb3<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>usb1: <span class=nv>host</span><span class=o>=</span>1ea7:0064,usb3<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>usb2: <span class=nv>host</span><span class=o>=</span>260d:0013,usb3<span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>vga: none
+</span></span><span class=line><span class=cl>tpmstate0: local:811/vm-811-disk-1.raw,size<span class=o>=</span>4M,version<span class=o>=</span>v2.0
+</span></span><span class=line><span class=cl>efidisk0: local:811/vm-811-disk-0.qcow2,efitype<span class=o>=</span>4m,pre-enrolled-keys<span class=o>=</span>1,size<span class=o>=</span>528K
+</span></span><span class=line><span class=cl>virtio0: local:811/vm-811-disk-2.qcow2,cache<span class=o>=</span>unsafe,iothread<span class=o>=</span>1,size<span class=o>=</span>30G
+</span></span><span class=line><span class=cl>virtio1: local:811/vm-811-disk-3.qcow2,iothread<span class=o>=</span>1,size<span class=o>=</span>64G
+</span></span><span class=line><span class=cl>vmgenid: 6328352c-225d-4a86-b7ee-643a781aafe0
+</span></span><span class=line><span class=cl>hookscript: local:snippets/hooks-igpupt.pl
+</span></span></code></pre></td></tr></table></div></div><h5 id=继续研究-q35方案---无开机画面>继续研究 q35方案 - 无开机画面</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>agent: 1
+</span></span><span class=line><span class=cl>args: -device vfio-pci,host=00:02.0,addr=0x02,x-igd-opregion=on,romfile=igd.rom
+</span></span><span class=line><span class=cl>bios: ovmf
+</span></span><span class=line><span class=cl>boot: order=virtio0
+</span></span><span class=line><span class=cl>cores: 12
+</span></span><span class=line><span class=cl>cpu: host
+</span></span><span class=line><span class=cl>efidisk0: local:811/vm-811-disk-0.qcow2,efitype=4m,pre-enrolled-keys=1,size=528K
+</span></span><span class=line><span class=cl>hookscript: local:snippets/hooks-igpupt.pl
+</span></span><span class=line><span class=cl>ide0: local:iso/virtio-win-0.1.240.iso,media=cdrom,size=612812K
+</span></span><span class=line><span class=cl>ide2: local:iso/Win11_22H2_Chinese_Simplified_x64v2.iso,media=cdrom,size=5723780K
+</span></span><span class=line><span class=cl>machine: pc-q35-8.0
+</span></span><span class=line><span class=cl>memory: 10240
+</span></span><span class=line><span class=cl>meta: creation-qemu=8.0.2,ctime=1695825773
+</span></span><span class=line><span class=cl>net0: virtio=0E:01:BC:9D:02:51,bridge=vmbr0,firewall=1
+</span></span><span class=line><span class=cl>numa: 1
+</span></span><span class=line><span class=cl>ostype: win11
+</span></span><span class=line><span class=cl>scsihw: virtio-scsi-single
+</span></span><span class=line><span class=cl>smbios1: uuid=37977c80-49d4-49f8-8cda-cc03b4ca2fc6
+</span></span><span class=line><span class=cl>sockets: 1
+</span></span><span class=line><span class=cl>tpmstate0: local:811/vm-811-disk-1.raw,size=4M,version=v2.0
+</span></span><span class=line><span class=cl>usb0: host=4037:2804,usb3=1
+</span></span><span class=line><span class=cl>usb1: host=1ea7:0064,usb3=1
+</span></span><span class=line><span class=cl>usb2: host=260d:0013,usb3=1
+</span></span><span class=line><span class=cl>vga: none
+</span></span><span class=line><span class=cl>virtio0: local:811/vm-811-disk-2.qcow2,cache=unsafe,iothread=1,size=30G
+</span></span><span class=line><span class=cl>virtio1: local:811/vm-811-disk-3.qcow2,iothread=1,size=64G
+</span></span><span class=line><span class=cl>vmgenid: 6328352c-225d-4a86-b7ee-643a781aafe0
+</span></span></code></pre></td></tr></table></div></div><p>可以启动，但是 卡开机画面</p><h5 id=尝试黑名单>尝试黑名单</h5><p>/etc/modprobe.d/pve-blacklist.conf 修改完成后 sudo update-initramfs -u -k all</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># This file contains a list of modules which are not supported by Proxmox VE </span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># nvidiafb see bugreport https://bugzilla.proxmox.com/show_bug.cgi?id=701</span>
+</span></span><span class=line><span class=cl>blacklist nvidiafb
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>blacklist i915
+</span></span><span class=line><span class=cl>blacklist snd_hda_intel
+</span></span><span class=line><span class=cl>blacklist snd_hda_codec_hdmi
+</span></span></code></pre></td></tr></table></div></div><p>实际测试 在pve8下，这个黑名单在直通核显的时候，屏蔽后除了会导致pve没有显示之外并没有别的任何作用。</p><p>‍</p><h3 id=获取钩子>获取钩子</h3><p>我这里所有操作都放到 /opt/pve-uhd630-hooks/ 这个目录</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>sudo mkdir -p /opt/pve-igpu-hooks/ <span class=o>&amp;&amp;</span> <span class=nb>cd</span> /opt/pve-igpu-hooks/
+</span></span><span class=line><span class=cl>sudo wget https://github.com/HelloZhing/pvevm-hooks/archive/refs/heads/main.zip 
+</span></span><span class=line><span class=cl>sudo unzip main.zip <span class=c1># apt install unzip</span>
+</span></span><span class=line><span class=cl>sudo chown -R yanhui:yanhui /opt/pve-igpu-hooks/  <span class=c1># 临时修改为当前用户yanhui所有方便后面直接在pve桌面下修改编辑</span>
+</span></span><span class=line><span class=cl>mv /opt/pve-igpu-hooks/pvevm-hooks-main/*.sh /opt/pve-igpu-hooks/
+</span></span><span class=line><span class=cl>mv /opt/pve-igpu-hooks/pvevm-hooks-main/hooks-igpupt.pl /opt/pve-igpu-hooks/hooks-igpupt.pl
+</span></span><span class=line><span class=cl>rm main.zip <span class=o>&amp;&amp;</span> rm -r pvevm-hooks-main <span class=c1># 删掉无用文件</span>
+</span></span><span class=line><span class=cl>chmod a+x *.sh *.pl <span class=c1># 运行权限</span>
+</span></span></code></pre></td></tr></table></div></div><p>需要几个地方修改</p><ul><li><p>hooks-igpupt.pl 里面的 路径 <code>/root/pvevm-hooks</code>​ 全部替换为 <code>/opt/pve-igpu-hooks</code>​</p></li><li><p>vm-start.sh 里面的 <code>#$(dirname0)/vfio-startup.sh</code>​ 这行注射下面 添加一行 <code>/opt/pve-igpu-hooks/vfio-startup.sh</code>​ 同理把 vm-stop.sh中 有 <code>vfio-teardown.sh</code>​ 那行注射下面添加一行 <code>/opt/pve-igpu-hooks/vfio-teardown.sh</code>​</p></li></ul><p>钩子函数复制到</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>sudo rm /var/lib/vz/snippets/hooks-igpupt.pl
+</span></span><span class=line><span class=cl>sudo cp /opt/pve-igpu-hooks/hooks-igpupt.pl /var/lib/vz/snippets/hooks-igpupt.pl
+</span></span></code></pre></td></tr></table></div></div><h3 id=新虚拟配置>新虚拟配置</h3><p>返回到pve平台，编辑多出来的911的虚拟机，添加直通设备，我这里暂时只直通usb键鼠标</p><p>然后编辑<code>/etc/pve/qemu-server/911.conf</code>​</p><ul><li>顶部添加一行 <code>​ args: -devive vfio-pci,host=00:02.0,addr=0x02,x-idg-gms=1,x-ide-opregion-on ​</code>​</li></ul><p>然后在pve 运行命令 添加 hooks</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>sudo qm <span class=nb>set</span> <span class=m>911</span> --hookscript local:snippets/hooks-igpupt.pl <span class=c1># 会多出一行 hookscript: local:snippets/hooks-igpupt.pl</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=准备另外一台设备>准备另外一台设备</h3><p>可能需要另外一个设备操作pve 和 win11的远程桌面。<br>我这里用iphone + ish+RD Client上面 win11 我固定了ip是 10.1.1.11 所以 在启动911 后，在手机 ish 一直ping 这个ip 就好</p><p>‍</p><p>‍</p><p>本文参考，并做了一些小修改：https://zhing.fun/pve_igpupt/</p><p>‍</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/pve/move/><div class=article-details><h2 class=article-title>pve 在线迁移lxc和kvm</h2></div></a></article><article><a href=/vpn/tailscale-lxc/><div class=article-details><h2 class=article-title>pve lxc下使用tailscale</h2></div></a></article><article><a href=/pve/pve-uhd-hook-win-11-1/><div class=article-details><h2 class=article-title>pve 直通钩子 - pve桌面环境日用，win11 三机器钩子脚本自动占用核显 快速实现</h2></div></a></article><article><a href=/openwrt/lxc-mian-op/><div class=article-details><h2 class=article-title>双网卡 pve8.0.3 lxc 运行 openwrt作为主路由 最靠谱简单教程</h2></div></a></article><article><a href=/pve/lxc-nas/><div class=article-details><h2 class=article-title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 总览</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2024 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
