@@ -1,0 +1,154 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="旁路由方案的痛点 旁路由在出问题的时候，会影响网关配置为旁路由的设备使用。所以需要自动检测旁路由。 首先 主路由要有完整权限的系统，就是有ssh权限的！ 爱快请使用分流方案 到二级路由以及环回等方式实现。 旁路由的自动切换方案是很多的人的刚性需求。 用软路由做主路由，主要问题两点，折腾过程中的失误一些不确定东西，容易断网。还有x86软路由 不少人遇到突然断电导致的无法启动后全家断网 自动切换旁路由方案，更加稳定一些。 本文撰写于2019年，后期虽有修改补充，但是部分内容已经落后 有能力有时间的朋友，建议还是上x86 方案，不需要旁路由。 或者使用爱快分流方案。 https://dev.leiyanhui.com/route/ikuai-bypass-gfw/ 个人经验 爱快分流方案更为稳健，但是需要另外开一个op 以及docker来处理分流规则。 对设备内存要求较高（x32爱快不支持kvm docker可用镜像有限，爱快x64 需要4G内存安装 2G内存运行）。 如果内存紧张最好还是选择openwrt one only 实现目标 主路由为硬路由负责上网和dhcp 顺带wifi，硬交换负责nas和机顶盒 台式机之间通讯。 去掉 x86 软路由 nas或者aio主机 或者 N1 或者闲置手机作为旁路由/旁网关(后面统称旁路由) 重点目标： 旁路由离线后，所有设备自动切换到主路由网关 双旁路由A和B A正常运行的时候B删除不存在在需要调整的时候，复制一个独立的旁路由出来，自己手动修改主机电脑的网关到旁路由B测试没问题后替换A 可控制部分设备科学，部分设备不科学 ksm ipsec 科学 广告过滤 alist ddns nas 等，全部由旁路由或者aio/nas处理。 实现原理 旁路由用pve 或者 unraid 或者docker运行，关闭dhcp服务，静态ip（10.0.0.50），网关指定为主路由。也就是旁路由只是主路由下面的一个普通设备而已。 双DHCP 存在抢dhcp的情况，所以dhcp本身占不了太多资源，还是主路由统一管理。 主路由10.1.1.1 开启dhcp dhcp的网关改为程序脚本控制 dhcp的租期尽可能短一些（120秒） 主路由 dhcp的ip段为 10.1.1.200-245 重点设备 静态绑定到 10.1.1.200以内的ip段。 逻辑如下 主路由每隔一定时间 30秒或者1分钟，检查一次旁路由是否在线， 如果在线那么 dhcp服务的网关改为旁路由（10."><title>旁路由方案，自动切换网关方案 参考</title>
+<link rel=canonical href=https://dev.leiyanhui.com/openwrt/auto-change-gatway/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="旁路由方案，自动切换网关方案 参考"><meta property='og:description' content="旁路由方案的痛点 旁路由在出问题的时候，会影响网关配置为旁路由的设备使用。所以需要自动检测旁路由。 首先 主路由要有完整权限的系统，就是有ssh权限的！ 爱快请使用分流方案 到二级路由以及环回等方式实现。 旁路由的自动切换方案是很多的人的刚性需求。 用软路由做主路由，主要问题两点，折腾过程中的失误一些不确定东西，容易断网。还有x86软路由 不少人遇到突然断电导致的无法启动后全家断网 自动切换旁路由方案，更加稳定一些。 本文撰写于2019年，后期虽有修改补充，但是部分内容已经落后 有能力有时间的朋友，建议还是上x86 方案，不需要旁路由。 或者使用爱快分流方案。 https://dev.leiyanhui.com/route/ikuai-bypass-gfw/ 个人经验 爱快分流方案更为稳健，但是需要另外开一个op 以及docker来处理分流规则。 对设备内存要求较高（x32爱快不支持kvm docker可用镜像有限，爱快x64 需要4G内存安装 2G内存运行）。 如果内存紧张最好还是选择openwrt one only 实现目标 主路由为硬路由负责上网和dhcp 顺带wifi，硬交换负责nas和机顶盒 台式机之间通讯。 去掉 x86 软路由 nas或者aio主机 或者 N1 或者闲置手机作为旁路由/旁网关(后面统称旁路由) 重点目标： 旁路由离线后，所有设备自动切换到主路由网关 双旁路由A和B A正常运行的时候B删除不存在在需要调整的时候，复制一个独立的旁路由出来，自己手动修改主机电脑的网关到旁路由B测试没问题后替换A 可控制部分设备科学，部分设备不科学 ksm ipsec 科学 广告过滤 alist ddns nas 等，全部由旁路由或者aio/nas处理。 实现原理 旁路由用pve 或者 unraid 或者docker运行，关闭dhcp服务，静态ip（10.0.0.50），网关指定为主路由。也就是旁路由只是主路由下面的一个普通设备而已。 双DHCP 存在抢dhcp的情况，所以dhcp本身占不了太多资源，还是主路由统一管理。 主路由10.1.1.1 开启dhcp dhcp的网关改为程序脚本控制 dhcp的租期尽可能短一些（120秒） 主路由 dhcp的ip段为 10.1.1.200-245 重点设备 静态绑定到 10.1.1.200以内的ip段。 逻辑如下 主路由每隔一定时间 30秒或者1分钟，检查一次旁路由是否在线， 如果在线那么 dhcp服务的网关改为旁路由（10."><meta property='og:url' content='https://dev.leiyanhui.com/openwrt/auto-change-gatway/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Openwrt'><meta property='article:published_time' content='2022-12-30T09:14:20+08:00'><meta property='article:modified_time' content='2022-12-30T09:14:20+08:00'><meta name=twitter:title content="旁路由方案，自动切换网关方案 参考"><meta name=twitter:description content="旁路由方案的痛点 旁路由在出问题的时候，会影响网关配置为旁路由的设备使用。所以需要自动检测旁路由。 首先 主路由要有完整权限的系统，就是有ssh权限的！ 爱快请使用分流方案 到二级路由以及环回等方式实现。 旁路由的自动切换方案是很多的人的刚性需求。 用软路由做主路由，主要问题两点，折腾过程中的失误一些不确定东西，容易断网。还有x86软路由 不少人遇到突然断电导致的无法启动后全家断网 自动切换旁路由方案，更加稳定一些。 本文撰写于2019年，后期虽有修改补充，但是部分内容已经落后 有能力有时间的朋友，建议还是上x86 方案，不需要旁路由。 或者使用爱快分流方案。 https://dev.leiyanhui.com/route/ikuai-bypass-gfw/ 个人经验 爱快分流方案更为稳健，但是需要另外开一个op 以及docker来处理分流规则。 对设备内存要求较高（x32爱快不支持kvm docker可用镜像有限，爱快x64 需要4G内存安装 2G内存运行）。 如果内存紧张最好还是选择openwrt one only 实现目标 主路由为硬路由负责上网和dhcp 顺带wifi，硬交换负责nas和机顶盒 台式机之间通讯。 去掉 x86 软路由 nas或者aio主机 或者 N1 或者闲置手机作为旁路由/旁网关(后面统称旁路由) 重点目标： 旁路由离线后，所有设备自动切换到主路由网关 双旁路由A和B A正常运行的时候B删除不存在在需要调整的时候，复制一个独立的旁路由出来，自己手动修改主机电脑的网关到旁路由B测试没问题后替换A 可控制部分设备科学，部分设备不科学 ksm ipsec 科学 广告过滤 alist ddns nas 等，全部由旁路由或者aio/nas处理。 实现原理 旁路由用pve 或者 unraid 或者docker运行，关闭dhcp服务，静态ip（10.0.0.50），网关指定为主路由。也就是旁路由只是主路由下面的一个普通设备而已。 双DHCP 存在抢dhcp的情况，所以dhcp本身占不了太多资源，还是主路由统一管理。 主路由10.1.1.1 开启dhcp dhcp的网关改为程序脚本控制 dhcp的租期尽可能短一些（120秒） 主路由 dhcp的ip段为 10.1.1.200-245 重点设备 静态绑定到 10.1.1.200以内的ip段。 逻辑如下 主路由每隔一定时间 30秒或者1分钟，检查一次旁路由是否在线， 如果在线那么 dhcp服务的网关改为旁路由（10."></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu18051034001919707733.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#旁路由方案的痛点>旁路由方案的痛点</a><ol><li><a href=#实现目标>实现目标</a><ol><li><a href=#重点目标>重点目标：</a></li></ol></li><li><a href=#实现原理>实现原理</a><ol><li><a href=#逻辑如下>逻辑如下</a></li></ol></li><li><a href=#具体实现>具体实现</a><ol><li><a href=#脚本测试>脚本测试</a></li><li><a href=#编写脚本>编写脚本</a></li></ol></li></ol></li><li><a href=#最后存在的问题>最后存在的问题</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/openwrt/>Openwrt
+</a><a href=/categories/aio/>Aio
+</a><a href=/categories/pve/>Pve
+</a><a href=/categories/unraid/>Unraid
+</a><a href=/categories/ventoy/>Ventoy
+</a><a href=/categories/kvm/>Kvm</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/openwrt/auto-change-gatway/>旁路由方案，自动切换网关方案 参考</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>2022-12-30</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 3 分钟</time></div></footer></div></header><section class=article-content><h2 id=旁路由方案的痛点>旁路由方案的痛点</h2><p>旁路由在出问题的时候，会影响网关配置为旁路由的设备使用。所以需要自动检测旁路由。<br>首先 主路由要有完整权限的系统，就是有ssh权限的！ 爱快请使用分流方案 到二级路由以及环回等方式实现。<br>旁路由的自动切换方案是很多的人的刚性需求。<br>用软路由做主路由，主要问题两点，折腾过程中的失误一些不确定东西，容易断网。还有x86软路由 不少人遇到突然断电导致的无法启动后全家断网<br>自动切换旁路由方案，更加稳定一些。</p><blockquote><p>本文撰写于2019年，后期虽有修改补充，但是部分内容已经落后<br>有能力有时间的朋友，建议还是上x86 方案，不需要旁路由。 或者使用爱快分流方案。 <a class=link href=https://dev.leiyanhui.com/route/ikuai-bypass-gfw/ target=_blank rel=noopener>https://dev.leiyanhui.com/route/ikuai-bypass-gfw/</a><br>个人经验 爱快分流方案更为稳健，但是需要另外开一个op 以及docker来处理分流规则。 对设备内存要求较高（x32爱快不支持kvm docker可用镜像有限，爱快x64 需要4G内存安装 2G内存运行）。 如果内存紧张最好还是选择openwrt one only</p></blockquote><h3 id=实现目标>实现目标</h3><p>主路由为硬路由负责上网和dhcp 顺带wifi，硬交换负责nas和机顶盒 台式机之间通讯。
+去掉 x86 软路由<br>nas或者aio主机 或者 N1 或者闲置手机作为旁路由/旁网关(后面统称旁路由)</p><h4 id=重点目标>重点目标：</h4><ul><li>旁路由离线后，所有设备自动切换到主路由网关</li><li>双旁路由A和B A正常运行的时候B删除不存在在需要调整的时候，复制一个独立的旁路由出来，自己手动修改主机电脑的网关到旁路由B测试没问题后替换A</li><li>可控制部分设备科学，部分设备不科学</li><li>ksm ipsec 科学 广告过滤 alist ddns nas 等，全部由旁路由或者aio/nas处理。</li></ul><h3 id=实现原理>实现原理</h3><p>旁路由用pve 或者 unraid 或者docker运行，关闭dhcp服务，静态ip（10.0.0.50），网关指定为主路由。也就是旁路由只是主路由下面的一个普通设备而已。</p><blockquote><p>双DHCP 存在抢dhcp的情况，所以dhcp本身占不了太多资源，还是主路由统一管理。
+主路由10.1.1.1 开启dhcp dhcp的网关改为程序脚本控制 dhcp的租期尽可能短一些（120秒）
+主路由 dhcp的ip段为 10.1.1.200-245 重点设备 静态绑定到 10.1.1.200以内的ip段。</p></blockquote><h4 id=逻辑如下>逻辑如下</h4><p>主路由每隔一定时间 30秒或者1分钟，检查一次旁路由是否在线，
+如果在线那么 dhcp服务的网关改为旁路由（10.0.0.50）<br>如果旁路由不在线 那么dhcp服务的网关改为主路由（10.0.0.1）</p><blockquote><p>如果旁路由状态发生了变化，那么重启一次dnsmasq（或者再重启wifi 或者重启整个系统）<br>科学部分，由openclash 实现分流，就是部分设备不走科学还有部分设备强制全局科学等等。 这个可以看我以前的文章 <a class=link href=https://dev.leiyanhui.com/openwrt/openclash/ target=_blank rel=noopener>https://dev.leiyanhui.com/openwrt/openclash/</a></p></blockquote><h3 id=具体实现>具体实现</h3><p>我主路由依旧用10多年前的 古董级k2p刷Padavan 固件，因为他的2.4G信号一直很好，Padavan 可以跑满1000M，5G的话也能跑到500M，另外一个5G路由器因为2.4G信号一般所以只能做ap用。 万兆由下级一个交换机处理，千兆以内众生平等 适合自己的才是最好的。<br>Padavan 也是开源linux 和openwrt使用起来在系统层面差距不是很大 ，只要有ssh权限，所有固件都大同小异。<br>旁路由 用 pve 跑的自己编译的openwrt，直接挂的vm跑的，因为我这边，8核心，64G内存 所以没用lxc和docker。</p><h4 id=脚本测试>脚本测试</h4><p>padvan默认是关闭ssh的，系统管理 - 服务 找到ssh 打开，客户端登录ssh</p><h5 id=检查旁路由是否在线>检查旁路由是否在线</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>curl http://10.1.1.50
+</span></span></code></pre></td></tr></table></div></div><p>这是openwrt的登录页面 他会自动301跳转，查看返回http代码 <code>-m 3</code> 是3秒</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>curl -I -s -m 3 http://10.1.1.50 -w %{http_code} | tail -n1
+</span></span></code></pre></td></tr></table></div></div><p>应该会自动返回一个301代码, http://10.1.1.50/cgi-bin/luci/ 的话应该是返回403，这个先不管
+如果是不存在的地址，那么应该是返回 000</p><h5 id=找dnsmasql的配置文件地址>找dnsmasql的配置文件地址</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>find / -name  &#34;*dnsmasq*&#34;
+</span></span></code></pre></td></tr></table></div></div><p>返回 结果 逐个检查后发现Padavan和openwrt一样 都是<code>/etc/dnsmasq.conf</code> 这个文件，同时已经分配的列表也是<code>/tmp/dnsmasq.leases</code>这个文件。<br>在主路由中 设置dhcp的网关为 旁路由地址10.1.1.50 ，然后执行 <code>cat /etc/dnsmasq.conf</code>应该有一行<code>dhcp-option=tag:lan,3,10.1.1.50</code></p><h5 id=测试配置文件的查找和替换>测试配置文件的查找和替换</h5><p>记住上面的那段 <code>dhcp-option=tag:lan,3,10.1.1.50</code> 用grep搜索试试</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>grep dhcp-option=tag:lan,3,10.1.1.50 /etc/dnsmasq.conf |wc -l  # 查找 如果有的话应该返回1
+</span></span></code></pre></td></tr></table></div></div><p>替换</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sed -i &#34;s/dhcp-option=tag:lan,3,10.1.1.50/dhcp-option=tag:lan,3,10.1.1.1/g&#34; /etc/dnsmasq.conf
+</span></span><span class=line><span class=cl>## 检查
+</span></span><span class=line><span class=cl>cat /etc/dnsmasq.conf
+</span></span></code></pre></td></tr></table></div></div><p>如果padavan的话不用这么麻烦 用<code>nvram set dhcp_gateway_x=10.1.1.1</code></p><h5 id=重启-dnsmasq>重启 dnsmasq</h5><p>openwrt 下面这两个命令 都一样的效果</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>service dnsmasq restart
+</span></span><span class=line><span class=cl>/etc/init.d/dnsmasq restart
+</span></span></code></pre></td></tr></table></div></div><p>Padavan 下可执行文件是 <code>/usr/sbin/dnsmasq</code> 通过查询网上资料得知 Padavan把服务脚本放在/sbin 直接执行<code>/sbin/restart_dhcpd</code> 即可</p><h4 id=编写脚本>编写脚本</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=cp>#!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=nv>default_gateway</span><span class=o>=</span><span class=s1>&#39;10.1.1.1&#39;</span>  <span class=c1>#主路由 IP</span>
+</span></span><span class=line><span class=cl><span class=nv>up_gateway</span><span class=o>=</span><span class=s1>&#39;10.1.1.50&#39;</span>   <span class=c1>#旁路由 IP （需设置的主路由 DNS 地址）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>check_ip_available<span class=o>(){</span>  <span class=c1>#使用 ping 命令检测旁路由是否在线</span>
+</span></span><span class=line><span class=cl>    ping -c <span class=m>3</span> <span class=nv>$1</span> <span class=p>|</span> grep packets <span class=p>|</span> awk <span class=s1>&#39;{print $4}&#39;</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>change_gateway_dns<span class=o>(){</span>  <span class=c1>#网关 DNS 切换</span>
+</span></span><span class=line><span class=cl>   nvram <span class=nb>set</span> <span class=nv>dhcp_gateway_x</span><span class=o>=</span><span class=nv>$1</span>  <span class=c1>#设置网关</span>
+</span></span><span class=line><span class=cl>   nvram <span class=nb>set</span> <span class=nv>dhcp_dns1_x</span><span class=o>=</span><span class=nv>$1</span>
+</span></span><span class=line><span class=cl>   nvram <span class=nb>set</span> <span class=nv>dhcp_dns2_x</span><span class=o>=</span><span class=s2>&#34;&#34;</span>  <span class=c1>#设置 DNS</span>
+</span></span><span class=line><span class=cl>   nvram commit  <span class=c1>#提交修改</span>
+</span></span><span class=line><span class=cl>   sleep <span class=m>2</span>
+</span></span><span class=line><span class=cl>   rc rc_service restart_net_and_phy  <span class=c1>#重启主路由 网络服务</span>
+</span></span><span class=line><span class=cl>   restart_dns    <span class=c1>#重启主路由 DNS</span>
+</span></span><span class=line><span class=cl>   restart_dhcpd  <span class=c1>#重启主路由 DHCP</span>
+</span></span><span class=line><span class=cl>   <span class=c1># sleep 5</span>
+</span></span><span class=line><span class=cl>   <span class=c1># reboot  #自动修改后存在网络故障，可能需要直接重启路由器， 等待时间较长</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># If the gateway of the up close, the network is completely unusable</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nv>res</span><span class=o>=</span><span class=sb>`</span>check_ip_available <span class=nv>$up_gateway</span><span class=sb>`</span>  <span class=c1>#检测旁路由是否存在</span>
+</span></span><span class=line><span class=cl><span class=nv>current_gateway</span><span class=o>=</span><span class=sb>`</span>nvram get dhcp_gateway_x<span class=sb>`</span>  <span class=c1>#获取主路由当前网关</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=o>[</span> <span class=k>$((</span><span class=nv>$res</span><span class=k>))</span> -eq <span class=m>0</span> <span class=o>]</span><span class=p>;</span> <span class=c1>#检测结果等于 0，即旁路由不存在，应设置网关和 DNS 为主路由地址</span>
+</span></span><span class=line><span class=cl><span class=k>then</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=nv>$current_gateway</span><span class=s2>&#34;</span> !<span class=o>=</span> <span class=s2>&#34;</span><span class=nv>$default_gateway</span><span class=s2>&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>  <span class=c1>#如果当前网关地址不是主路由地址</span>
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> <span class=s2>&#34;up_gateway to default&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=sb>`</span>change_gateway_dns <span class=nv>$default_gateway</span><span class=sb>`</span>  <span class=c1>#将网关和DNS切换为主路由地址 并重启</span>
+</span></span><span class=line><span class=cl>    <span class=k>fi</span>
+</span></span><span class=line><span class=cl>    <span class=nb>echo</span> <span class=s2>&#34;use default gateway , nothing changed&#34;</span> <span class=c1># 什么都不用做</span>
+</span></span><span class=line><span class=cl>    <span class=nb>exit</span> <span class=m>1</span>
+</span></span><span class=line><span class=cl><span class=k>fi</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=o>[</span> <span class=k>$((</span><span class=nv>$res</span><span class=k>))</span> -ne <span class=m>0</span> <span class=o>]</span><span class=p>;</span> <span class=c1>#检测结果不等于 0，即旁路由存在，应设置网关和 DNS 为旁路由地址</span>
+</span></span><span class=line><span class=cl><span class=k>then</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=nv>$current_gateway</span><span class=s2>&#34;</span> !<span class=o>=</span> <span class=s2>&#34;</span><span class=nv>$up_gateway</span><span class=s2>&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span> <span class=c1>#如果当前网关地址不是主路由地址</span>
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> <span class=s2>&#34;up_gateway to  auxiliary_gateway&#34;</span> 
+</span></span><span class=line><span class=cl>        <span class=sb>`</span>change_gateway_dns <span class=nv>$up_gateway</span><span class=sb>`</span> <span class=c1>#将网关和DNS切换为旁路由地址 并重启</span>
+</span></span><span class=line><span class=cl>    <span class=k>fi</span>
+</span></span><span class=line><span class=cl>    <span class=nb>echo</span> <span class=s2>&#34;use auxiliary_gateway , nothing changed&#34;</span> <span class=c1># 什么都不用做</span>
+</span></span><span class=line><span class=cl>    <span class=nb>exit</span> <span class=m>1</span>
+</span></span><span class=line><span class=cl><span class=k>fi</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>#将脚本置于 /etc/storage/change_gatway.sh </span>
+</span></span><span class=line><span class=cl><span class=c1>#设置脚本运行权限：`chmod +x  /etc/storage/change_gatway.sh `  </span>
+</span></span><span class=line><span class=cl><span class=c1>#保存脚本，防止重启丢失：`/sbin/mtd_storage.sh save`</span>
+</span></span><span class=line><span class=cl><span class=c1>#自动定时运行脚本（每一分钟检测一次）：</span>
+</span></span><span class=line><span class=cl><span class=c1>#`系统管理 - 服务 ` 调度任务 (Crontab)  加入 `*/1 * * * * /etc/storage/change_gatway.sh` </span>
+</span></span></code></pre></td></tr></table></div></div><p>最后</p><p>将脚本置于 /etc/storage/change_gatway.sh
+设置脚本运行权限：<code>chmod +x /etc/storage/change_gatway.sh</code><br>保存脚本，防止重启丢失：<code>/sbin/mtd_storage.sh save</code>
+自动定时运行脚本（每一分钟检测一次）：
+<code>系统管理 - 服务 </code>调度任务 (Crontab) 加入 <code>*/1 * * * * /etc/storage/change_gatway.sh</code></p><blockquote><p>以上内容抄 自：恩山，xuezou</p></blockquote><h2 id=最后存在的问题>最后存在的问题</h2><p>经过测试 无论是wifi接入还是网线加入的设备 都可以在短暂掉线后 自动切换成功</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/openwrt/padaven-port-rule/><div class=article-details><h2 class=article-title>padaven 固件端口转发配置无效的问题</h2></div></a></article><article><a href=/all-in-one/my-jiujie/><div class=article-details><h2 class=article-title>我的all in one 以及路由器 nas 的纠结和最终的方案</h2></div></a></article><article><a href=/all-in-one/arch-aio/><div class=article-details><h2 class=article-title>选择arch-aio，彻底抛弃pve esxi unraid</h2></div></a></article><article><a href=/all-in-one/arch-aio-use/><div class=article-details><h2 class=article-title>arch-aio 免费高扩展性灵活且开放的all in one 系统的基本使用</h2></div></a></article><article><a href=/all-in-one/faq/><div class=article-details><h2 class=article-title>arch-aio 常见问题</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2024 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
