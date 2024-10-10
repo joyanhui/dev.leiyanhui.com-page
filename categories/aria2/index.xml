@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Aria2 on 小类随手记</title><link>https://dev.leiyanhui.com/categories/aria2/</link><description>Recent content in Aria2 on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 17 Feb 2023 18:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/aria2/index.xml" rel="self" type="application/rss+xml"/><item><title>lxc alpine下使用cloudreve替代nginx搭建webdav 之aria2离线下载</title><link>https://dev.leiyanhui.com/pve/lxc-nas-cloudreve-aria2/</link><pubDate>Fri, 17 Feb 2023 18:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/lxc-nas-cloudreve-aria2/</guid><description>&lt;p>单独一个lxc运行 aria2，系统alpine 并挂载 硬盘进来&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">pct set 10002 -mp0 /dev/sda1,mp=/mnt/sda1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这个硬盘 要求运行 cloudreve的lxc容器也可以访问。不然cloudreve没法移动文件进去。&lt;/p>
+&lt;h3 id="安装aria2">安装aria2
+&lt;/h3>&lt;p>用p3terx的最后版本，需要科学环境&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">apk&lt;/span> &lt;span class="nx">add&lt;/span> &lt;span class="nx">bash&lt;/span> &lt;span class="nx">wget&lt;/span> &lt;span class="nx">ca&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">certificates&lt;/span> &lt;span class="nx">curl&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">wget&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="nx">N&lt;/span> &lt;span class="nx">git&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">io&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">aria2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">sh&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">chmod&lt;/span> &lt;span class="o">+&lt;/span>&lt;span class="nx">x&lt;/span> &lt;span class="nx">aria2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">sh&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">aria2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">sh&lt;/span> &lt;span class="err">#&lt;/span> &lt;span class="nx">安装&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>安装完成后 在aria2.sh 配置修改一下,主要修改下载目录。
+安装完成后 会提示 RPC 密钥 还有NG的地址。&lt;/p>
+&lt;p>BT下载功能 需要开 51413端口，另外aria2是不支持 ed2k协议的。冷门bt下载，还是用开迅雷去吧。其他都不好用。&lt;/p>
+&lt;p>开机自动启动,因为p3terx的脚本不支持alpine，需要处理一下，我这里为了省事直接用supervisor&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">apk add supervisor
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add supervisord boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service supervisord restart
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo_supervisord_conf &amp;gt; /etc/supervisord.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;[include]&amp;#34;&lt;/span>&amp;gt;&amp;gt;/etc/supervisord.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;files = /root/supervisor/*.ini&amp;#34;&lt;/span>&amp;gt;&amp;gt;/etc/supervisord.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkdir /root/supervisor/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#supervisor aria2 配置&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; /root/supervisor/aria2.ini &lt;span class="s">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">[program:aria2c]
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">directory=/root/.aria2c/
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">command=/usr/local/bin/aria2c --conf-path=/root/.aria2c/aria2.conf
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">autostart=true
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">autorestart=true
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">;stderr_logfile=/tmp/aria2c.err
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">;stdout_logfile=/tmp/aria2c.log
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">environment=CODENATION_ENV=prod
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 其他指令&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">supervisord -c /etc/supervisord.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">supervisorctl start aria2c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">supervisorctl stop aria2c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">supervisorctl status aria2c
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="ariang">AriaNg
+&lt;/h3>&lt;p>可视化的Aria 管理界面，用nginx跑吧&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">apk add nginx
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rm -rf /var/cache/apk/*
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add nginx boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service nginx start
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">cd&lt;/span> ~
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkdir ng-html &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">cd&lt;/span> ng-html
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget https://github.com/mayswind/AriaNg/releases/download/1.3.2/AriaNg-1.3.2.zip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">unzip AriaNg*
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rm AriaNg*
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配置nginx ，还有修改一下 nginx的运行用户 或者 目录所有者&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">mv /etc/nginx/http.d/default.conf /etc/nginx/http.d/default.conf-bak
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; /etc/nginx/http.d/ariang.conf &lt;span class="s">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">server {
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> listen 80 ;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> server_name _ ;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> root /root/ng-html;# 站点根目录
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> index index.html;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nginx -s reload
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>测试 http://10.1.1.82/#!/settings/rpc/set/ws/10.1.1.82/6800/jsonrpc/XXXXXXXXXXX&lt;/p>
+&lt;p>如果你的 ariaNG 要外网使用，再去处理一下ssl和端口映射就好。&lt;/p></description></item></channel></rss>
