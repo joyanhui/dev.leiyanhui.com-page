@@ -1,0 +1,519 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='相关 redis 命令中文手册 https://redis.com.cn/commands.html\nredis hash list set zset 的对比和使用 https://dev.leiyanhui.com/web/redis-hash-set-list/ golang 常用数据类型转换 https://dev.leiyanhui.com/c/golang-string-byte-int-float-map-json/\ngo redis客户端手册【没啥可看的】 https://redis.uptrace.dev/zh/guide/\ngo中文手册 还不错 http://c.biancheng.net/golang/intro/\n英文手册 实例不全，但是细节都有 https://pkg.go.dev/github.com/redis/go-redis/v9@v9.0.2\n本文主要内容转载自 https://www.cnblogs.com/itbsl/p/14198111.htm 感谢 itbsl，另外增加了一部分内容\n项目初始化 这里用redis/go-redis/v9\n1 2 go mod init demo go get github.com/redis/go-redis/v9 连接redis 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 package main import ( "context" "fmt" "github.com/go-redis/redis/v8" ) //Background返回一个非空的Context。 它永远不会被取消，没有值，也没有期限。 //它通常在main函数，初始化和测试时使用，并用作传入请求的顶级上下文。 var ctx = context.Background() func main() { rdb := redis.NewClient(&amp;redis.Options{ Addr: "172.16.147.128:6379", Password: "", DB: 0, }) pong, err := rdb.Ping(ctx).Result() if err != nil { fmt.Printf("连接redis出错，错误信息：%v", err) } fmt.Println("成功连接redis") } 基本指令 Keys():根据正则获取keys 1 2 3 //*表示获取所有的key keys, err := rdb.Keys(ctx, "*").Result() } Rename RenameNX 重命名key Redis Renamenx 命令用于在新的 key 不存在时修改 key 的名称 。若 key 不存在返回错误。\nRedis RENAME 命令用于修改 key 的名字为 newkey 。若key 不存在返回错误。如果newkey存在 将会被覆盖。\n'><title>golang 操作redis大全</title>
+<link rel=canonical href=https://dev.leiyanhui.com/golang/redis/><link rel=stylesheet href=/scss/style.min.663803bebe609202d5b39d848f2d7c2dc8b598a2d879efa079fa88893d29c49c.css><meta property='og:title' content="golang 操作redis大全"><meta property='og:description' content='相关 redis 命令中文手册 https://redis.com.cn/commands.html\nredis hash list set zset 的对比和使用 https://dev.leiyanhui.com/web/redis-hash-set-list/ golang 常用数据类型转换 https://dev.leiyanhui.com/c/golang-string-byte-int-float-map-json/\ngo redis客户端手册【没啥可看的】 https://redis.uptrace.dev/zh/guide/\ngo中文手册 还不错 http://c.biancheng.net/golang/intro/\n英文手册 实例不全，但是细节都有 https://pkg.go.dev/github.com/redis/go-redis/v9@v9.0.2\n本文主要内容转载自 https://www.cnblogs.com/itbsl/p/14198111.htm 感谢 itbsl，另外增加了一部分内容\n项目初始化 这里用redis/go-redis/v9\n1 2 go mod init demo go get github.com/redis/go-redis/v9 连接redis 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 package main import ( "context" "fmt" "github.com/go-redis/redis/v8" ) //Background返回一个非空的Context。 它永远不会被取消，没有值，也没有期限。 //它通常在main函数，初始化和测试时使用，并用作传入请求的顶级上下文。 var ctx = context.Background() func main() { rdb := redis.NewClient(&amp;redis.Options{ Addr: "172.16.147.128:6379", Password: "", DB: 0, }) pong, err := rdb.Ping(ctx).Result() if err != nil { fmt.Printf("连接redis出错，错误信息：%v", err) } fmt.Println("成功连接redis") } 基本指令 Keys():根据正则获取keys 1 2 3 //*表示获取所有的key keys, err := rdb.Keys(ctx, "*").Result() } Rename RenameNX 重命名key Redis Renamenx 命令用于在新的 key 不存在时修改 key 的名称 。若 key 不存在返回错误。\nRedis RENAME 命令用于修改 key 的名字为 newkey 。若key 不存在返回错误。如果newkey存在 将会被覆盖。\n'><meta property='og:url' content='https://dev.leiyanhui.com/golang/redis/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Golang'><meta property='article:published_time' content='2022-03-24T08:14:20+08:00'><meta property='article:modified_time' content='2022-03-24T08:14:20+08:00'><meta name=twitter:title content="golang 操作redis大全"><meta name=twitter:description content='相关 redis 命令中文手册 https://redis.com.cn/commands.html\nredis hash list set zset 的对比和使用 https://dev.leiyanhui.com/web/redis-hash-set-list/ golang 常用数据类型转换 https://dev.leiyanhui.com/c/golang-string-byte-int-float-map-json/\ngo redis客户端手册【没啥可看的】 https://redis.uptrace.dev/zh/guide/\ngo中文手册 还不错 http://c.biancheng.net/golang/intro/\n英文手册 实例不全，但是细节都有 https://pkg.go.dev/github.com/redis/go-redis/v9@v9.0.2\n本文主要内容转载自 https://www.cnblogs.com/itbsl/p/14198111.htm 感谢 itbsl，另外增加了一部分内容\n项目初始化 这里用redis/go-redis/v9\n1 2 go mod init demo go get github.com/redis/go-redis/v9 连接redis 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 package main import ( "context" "fmt" "github.com/go-redis/redis/v8" ) //Background返回一个非空的Context。 它永远不会被取消，没有值，也没有期限。 //它通常在main函数，初始化和测试时使用，并用作传入请求的顶级上下文。 var ctx = context.Background() func main() { rdb := redis.NewClient(&amp;redis.Options{ Addr: "172.16.147.128:6379", Password: "", DB: 0, }) pong, err := rdb.Ping(ctx).Result() if err != nil { fmt.Printf("连接redis出错，错误信息：%v", err) } fmt.Println("成功连接redis") } 基本指令 Keys():根据正则获取keys 1 2 3 //*表示获取所有的key keys, err := rdb.Keys(ctx, "*").Result() } Rename RenameNX 重命名key Redis Renamenx 命令用于在新的 key 不存在时修改 key 的名称 。若 key 不存在返回错误。\nRedis RENAME 命令用于修改 key 的名字为 newkey 。若key 不存在返回错误。如果newkey存在 将会被覆盖。\n'></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu18051034001919707733.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#相关>相关</a></li><li><a href=#项目初始化>项目初始化</a></li><li><a href=#连接redis>连接redis</a></li><li><a href=#基本指令>基本指令</a><ol><li><a href=#keys根据正则获取keys>Keys():根据正则获取keys</a></li><li><a href=#rename-renamenx--重命名key>Rename RenameNX 重命名key</a></li><li><a href=#type获取key对应值得类型>Type():获取key对应值得类型</a></li><li><a href=#del-删除key>del 删除key</a></li><li><a href=#exists检测缓存项是否存在>Exists():检测缓存项是否存在</a></li><li><a href=#expireexpireat设置有效期>Expire(),ExpireAt():设置有效期</a></li><li><a href=#ttlpttl获取有效期>TTL(),PTTL():获取有效期</a></li><li><a href=#dbsize查看当前数据库key的数量>DBSize():查看当前数据库key的数量</a></li><li><a href=#flushdb清空当前数据>FlushDB():清空当前数据</a></li><li><a href=#flushall清空所有数据库>FlushAll():清空所有数据库</a></li></ol></li><li><a href=#字符串string类型>字符串(string)类型</a><ol><li><a href=#set设置>Set():设置</a></li><li><a href=#setex设置并指定过期时间>SetEX():设置并指定过期时间</a></li><li><a href=#setnx设置并指定过期时间>SetNX():设置并指定过期时间</a></li><li><a href=#get>get</a></li><li><a href=#getrange字符串截取>GetRange():字符串截取</a></li><li><a href=#incr增加1>Incr():增加+1</a></li><li><a href=#incrby按指定步长增加>IncrBy():按指定步长增加</a></li><li><a href=#decr减少-1>Decr():减少-1</a></li><li><a href=#decrby按指定步长减少>DecrBy():按指定步长减少</a></li><li><a href=#append追加>Append():追加</a></li><li><a href=#strlen获取长度>StrLen():获取长度</a></li><li><a href=#更多>更多</a></li></ol></li><li><a href=#列表list类型>列表(list)类型</a><ol><li><a href=#lpush将元素压入链表>LPush():将元素压入链表</a></li><li><a href=#linsert在某个位置插入新元素>LInsert():在某个位置插入新元素</a></li><li><a href=#lset设置某个元素的值>LSet():设置某个元素的值</a></li><li><a href=#llen获取链表元素个数>LLen():获取链表元素个数</a></li><li><a href=#lindex获取链表下标对应的元素>LIndex():获取链表下标对应的元素</a></li><li><a href=#lrange获取某个选定范围的元素集>LRange():获取某个选定范围的元素集</a></li><li><a href=#lpop从链表左侧弹出数据>LPop从链表左侧弹出数据</a></li><li><a href=#lrem根据值移除元素>LRem():根据值移除元素</a></li></ol></li><li><a href=#集合set类型>集合(set)类型</a><ol><li><a href=#sadd添加元素>SAdd():添加元素</a></li><li><a href=#spop随机获取一个元素>SPop():随机获取一个元素</a></li><li><a href=#srem删除集合里指定的值>SRem():删除集合里指定的值</a></li><li><a href=#ssmembers获取所有成员>SSMembers():获取所有成员</a></li><li><a href=#sismember判断元素是否在集合中>SIsMember():判断元素是否在集合中</a></li><li><a href=#scard获取集合元素个数>SCard():获取集合元素个数</a></li><li><a href=#sunion并集sdiff差集sinter交集>SUnion():并集,SDiff():差集,SInter():交集</a></li></ol></li><li><a href=#有序集合zset类型>有序集合(zset)类型</a><ol><li><a href=#zadd添加元素>ZAdd():添加元素</a></li><li><a href=#zincrby增加元素分值>ZIncrBy():增加元素分值</a></li><li><a href=#zrangezrevrange获取根据score排序后的数据段>ZRange()、ZRevRange():获取根据score排序后的数据段</a></li><li><a href=#zrangebyscorezrevrangebyscore获取score过滤后排序的数据段>ZRangeByScore()、ZRevRangeByScore():获取score过滤后排序的数据段</a></li><li><a href=#zcard获取元素个数>ZCard():获取元素个数</a></li><li><a href=#zcount获取区间内元素个数>ZCount():获取区间内元素个数</a></li><li><a href=#zscore获取元素的score>ZScore():获取元素的score</a></li><li><a href=#zrankzrevrank获取某个元素在集合中的排名>ZRank()、ZRevRank():获取某个元素在集合中的排名</a></li><li><a href=#zrem删除元素>ZRem():删除元素</a></li><li><a href=#zremrangebyrank根据排名来删除>ZRemRangeByRank():根据排名来删除</a></li><li><a href=#zremrangebyscore根据分值区间来删除>ZRemRangeByScore():根据分值区间来删除</a></li></ol></li><li><a href=#哈希hash类型>哈希(hash)类型</a><ol><li><a href=#hset设置>HSet():设置</a></li><li><a href=#hmset批量设置>HMset():批量设置</a></li><li><a href=#hget获取某个元素>HGet():获取某个元素</a></li><li><a href=#hgetall获取全部元素>HGetAll():获取全部元素</a></li><li><a href=#hdel删除某个元素>HDel():删除某个元素</a></li><li><a href=#hexists判断元素是否存在>HExists():判断元素是否存在</a></li><li><a href=#hlen获取长度>HLen():获取长度</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/golang/>Golang
+</a><a href=/categories/redis/>Redis</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/golang/redis/>golang 操作redis大全</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>2022-03-24</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><h2 id=相关>相关</h2><p>redis 命令中文手册 <a class=link href=https://redis.com.cn/commands.html target=_blank rel=noopener>https://redis.com.cn/commands.html</a><br>redis hash list set zset 的对比和使用 <a class=link href=https://dev.leiyanhui.com/web/redis-hash-set-list/ target=_blank rel=noopener>https://dev.leiyanhui.com/web/redis-hash-set-list/</a><br>golang 常用数据类型转换 <a class=link href=https://dev.leiyanhui.com/c/golang-string-byte-int-float-map-json/ target=_blank rel=noopener>https://dev.leiyanhui.com/c/golang-string-byte-int-float-map-json/</a><br>go redis客户端手册【没啥可看的】 <a class=link href=https://redis.uptrace.dev/zh/guide/ target=_blank rel=noopener>https://redis.uptrace.dev/zh/guide/</a><br>go中文手册 还不错 <a class=link href=http://c.biancheng.net/golang/intro/ target=_blank rel=noopener>http://c.biancheng.net/golang/intro/</a><br>英文手册 实例不全，但是细节都有 <a class=link href=https://pkg.go.dev/github.com/redis/go-redis/v9@v9.0.2 target=_blank rel=noopener>https://pkg.go.dev/github.com/redis/go-redis/v9@v9.0.2</a><br>本文主要内容转载自 <a class=link href=https://www.cnblogs.com/itbsl/p/14198111.htm target=_blank rel=noopener>https://www.cnblogs.com/itbsl/p/14198111.htm</a> 感谢 itbsl，另外增加了一部分内容</p><h2 id=项目初始化>项目初始化</h2><p>这里用redis/go-redis/v9</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>go mod init demo
+</span></span><span class=line><span class=cl>go get github.com/redis/go-redis/v9
+</span></span></code></pre></td></tr></table></div></div><h2 id=连接redis>连接redis</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>package</span> <span class=n>main</span>
+</span></span><span class=line><span class=cl><span class=n>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>	<span class=s2>&#34;context&#34;</span>
+</span></span><span class=line><span class=cl>	<span class=s2>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>	<span class=s2>&#34;github.com/go-redis/redis/v8&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=o>//</span><span class=n>Background返回一个非空的Context</span><span class=err>。</span> <span class=err>它永远不会被取消，没有值，也没有期限。</span> 
+</span></span><span class=line><span class=cl><span class=o>//</span><span class=err>它通常在</span><span class=n>main函数</span><span class=err>，初始化和测试时使用，并用作传入请求的顶级上下文。</span>
+</span></span><span class=line><span class=cl><span class=k>var</span> <span class=n>ctx</span> <span class=o>=</span> <span class=n>context</span><span class=o>.</span><span class=n>Background</span><span class=p>()</span>
+</span></span><span class=line><span class=cl><span class=k>func</span> <span class=n>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>rdb</span> <span class=p>:</span><span class=o>=</span> <span class=n>redis</span><span class=o>.</span><span class=n>NewClient</span><span class=p>(</span><span class=o>&amp;</span><span class=n>redis</span><span class=o>.</span><span class=n>Options</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=n>Addr</span><span class=p>:</span>     <span class=s2>&#34;172.16.147.128:6379&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=n>Password</span><span class=p>:</span> <span class=s2>&#34;&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=n>DB</span><span class=p>:</span>       <span class=mi>0</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=n>pong</span><span class=p>,</span> <span class=n>err</span> <span class=p>:</span><span class=o>=</span> <span class=n>rdb</span><span class=o>.</span><span class=n>Ping</span><span class=p>(</span><span class=n>ctx</span><span class=p>)</span><span class=o>.</span><span class=n>Result</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=n>err</span> <span class=o>!=</span> <span class=n>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=n>fmt</span><span class=o>.</span><span class=n>Printf</span><span class=p>(</span><span class=s2>&#34;连接redis出错，错误信息：%v&#34;</span><span class=p>,</span> <span class=n>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>fmt</span><span class=o>.</span><span class=n>Println</span><span class=p>(</span><span class=s2>&#34;成功连接redis&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=基本指令>基本指令</h2><h3 id=keys根据正则获取keys>Keys():根据正则获取keys</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//*表示获取所有的key
+</span></span><span class=line><span class=cl>keys, err := rdb.Keys(ctx, &#34;*&#34;).Result()
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=rename-renamenx--重命名key>Rename RenameNX 重命名key</h3><p>Redis Renamenx 命令用于在新的 key 不存在时修改 key 的名称 。若 key 不存在返回错误。<br>Redis RENAME 命令用于修改 key 的名字为 newkey 。若key 不存在返回错误。如果newkey存在 将会被覆盖。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=k>func</span> <span class=p>(</span><span class=n>c</span> <span class=n>Client</span><span class=p>)</span> <span class=n>Rename</span><span class=p>(</span><span class=n>ctx</span> <span class=n>context</span><span class=o>.</span><span class=n>Context</span><span class=p>,</span> <span class=n>key</span><span class=p>,</span> <span class=n>newkey</span> <span class=n>string</span><span class=p>)</span> <span class=o>*</span><span class=n>StatusCmd</span>
+</span></span><span class=line><span class=cl><span class=k>func</span> <span class=p>(</span><span class=n>c</span> <span class=n>Client</span><span class=p>)</span> <span class=n>RenameNX</span><span class=p>(</span><span class=n>ctx</span> <span class=n>context</span><span class=o>.</span><span class=n>Context</span><span class=p>,</span> <span class=n>key</span><span class=p>,</span> <span class=n>newkey</span> <span class=n>string</span><span class=p>)</span> <span class=o>*</span><span class=n>BoolCmd</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=type获取key对应值得类型>Type():获取key对应值得类型</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>vType, err := rdb.Type(ctx, &#34;key&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=del-删除key>del 删除key</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>n, err := rdb.Del(ctx, &#34;key1&#34;, &#34;key2&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;成功删除了 %v 个\n&#34;, n)
+</span></span></code></pre></td></tr></table></div></div><h3 id=exists检测缓存项是否存在>Exists():检测缓存项是否存在</h3><p>注：Exists()方法可以传入多个key,返回的第一个结果表示存在的key的数量,不过工作中我们一般不同时判断多个key是否存在，一般就判断一个key,所以判断是否大于0即可，如果判断判断传入的多个key是否都存在，则返回的结果的值要和传入的key的数量相等</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>n, err := rdb.Exists(ctx, &#34;key1&#34;).Result()
+</span></span><span class=line><span class=cl>if n &gt; 0 {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;存在&#34;)
+</span></span><span class=line><span class=cl>} else {
+</span></span><span class=line><span class=cl>    fmt.Println(&#34;不存在&#34;)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=expireexpireat设置有效期>Expire(),ExpireAt():设置有效期</h3><p>需要在设置好了缓存项后，再设置有效期
+Expire()方法是设置某个时间段(time.Duration)后过期，ExpireAt()方法是在某个时间点(time.Time)过期失效</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.Expire(ctx, &#34;key&#34;, time.Minute * 2).Result()
+</span></span><span class=line><span class=cl>if res {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;设置成功&#34;)
+</span></span><span class=line><span class=cl>} else {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;设置失败&#34;)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>res, err = rdb.ExpireAt(ctx, &#34;key2&#34;, time.Now()).Result()
+</span></span><span class=line><span class=cl>if res {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;设置成功&#34;)
+</span></span><span class=line><span class=cl>} else {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;设置失败&#34;)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=ttlpttl获取有效期>TTL(),PTTL():获取有效期</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//设置一分钟的有效期
+</span></span><span class=line><span class=cl>rdb.Expire(ctx, &#34;key&#34;, time.Minute)
+</span></span><span class=line><span class=cl>//获取剩余有效期,单位:秒(s)
+</span></span><span class=line><span class=cl>ttl, err := rdb.TTL(ctx, &#34;key&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(ttl)
+</span></span><span class=line><span class=cl>//获取剩余有效期,单位:毫秒(ms)
+</span></span><span class=line><span class=cl>pttl, err := rdb.PTTL(ctx, &#34;key&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(pttl)
+</span></span></code></pre></td></tr></table></div></div><h3 id=dbsize查看当前数据库key的数量>DBSize():查看当前数据库key的数量</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>num, err := rdb.DBSize(ctx).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;数据库有 %v 个缓存项\n&#34;, num)
+</span></span></code></pre></td></tr></table></div></div><h3 id=flushdb清空当前数据>FlushDB():清空当前数据</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//清空当前数据库，因为连接的是索引为0的数据库，所以清空的就是0号数据库
+</span></span><span class=line><span class=cl>res, err := rdb.FlushDB(ctx).Result()
+</span></span><span class=line><span class=cl>fmt.Println(res)//OK
+</span></span></code></pre></td></tr></table></div></div><h3 id=flushall清空所有数据库>FlushAll():清空所有数据库</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.FlushAll(ctx).Result()
+</span></span><span class=line><span class=cl>fmt.Println(res)//OK
+</span></span></code></pre></td></tr></table></div></div><h2 id=字符串string类型>字符串(string)类型</h2><h3 id=set设置>Set():设置</h3><p>仅仅支持字符串(包含数字)操作，不支持内置数据编码功能。如果需要存储Go的非字符串类型，需要提前手动序列化，获取时再反序列化。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>_, err := rdb.Ping(ctx).Result()
+</span></span><span class=line><span class=cl>//fmt.Println(pong, err)
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	fmt.Printf(&#34;连接redis出错，错误信息：%v&#34;, err)
+</span></span><span class=line><span class=cl>	return
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>//Set方法的最后一个参数表示过期时间，0表示永不过期
+</span></span><span class=line><span class=cl>err = rdb.Set(ctx, &#34;key1&#34;, &#34;value1&#34;, 0).Err()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>//key2将会在两分钟后过期失效
+</span></span><span class=line><span class=cl>err = rdb.Set(ctx, &#34;key2&#34;, &#34;value2&#34;, time.Minute * 2).Err()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>    panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=setex设置并指定过期时间>SetEX():设置并指定过期时间</h3><p>设置键的同时，设置过期时间</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>err := rdb.SetEX(ctx, &#34;key&#34;, &#34;value&#34;, time.Hour * 2).Err()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=setnx设置并指定过期时间>SetNX():设置并指定过期时间</h3><p>注：SetNX()与SetEX()的区别是，SexNX()仅当key不存在的时候才设置，如果key已经存在则不做任何操作，而SetEX()方法不管该key是否已经存在缓存中直接覆盖</p><p>介绍了SetNX()与SetEX()的区别后，还有一点需要注意的时候，如果我们想知道我们调用SetNX()是否设置成功了，可以接着调用Result()方法，返回的第一个值表示是否设置成功了，如果返回false,说明缓存Key已经存在，此次操作虽然没有错误，但是是没有起任何效果的。如果返回true，表示在此之前key是不存在缓存中的，操作是成功的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.SetNX(ctx, &#34;key&#34;, &#34;value&#34;, time.Minute).Result()
+</span></span><span class=line><span class=cl>if res {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;设置成功&#34;)
+</span></span><span class=line><span class=cl>} else {
+</span></span><span class=line><span class=cl>	fmt.Printf(&#34;key已经存在缓存中，设置失败&#34;)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=get>get</h3><p>如果要获取的key在缓存中并不存在，Get()方法将会返回redis.Nil</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>err := rdb.Set(ctx, &#34;key&#34;, &#34;value&#34;, 0).Err()
+</span></span><span class=line><span class=cl>val, err := rdb.Get(ctx, &#34;key&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;key: %v\n&#34;, val)
+</span></span><span class=line><span class=cl>val2, err := rdb.Get(ctx, &#34;key-not-exist&#34;).Result()
+</span></span><span class=line><span class=cl>if err == redis.Nil {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;key不存在&#34;)
+</span></span><span class=line><span class=cl>} else if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>} else {
+</span></span><span class=line><span class=cl>	fmt.Printf(&#34;值为: %v\n&#34;, val2)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=getrange字符串截取>GetRange():字符串截取</h3><p>GetRange()方法可以用来截取字符串的部分内容,第二个参数是下标索引的开始位置，第三个参数是下标索引的结束位置(不是要截取的长度)<br>注：即使key不存在，调用GetRange()也不会报错，只是返回的截取结果是空"",可以使用fmt.Printf("%q\n", val)来打印测试</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>err := rdb.Set(ctx, &#34;key&#34;, &#34;Hello World!&#34;, 0).Err()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>val, err := rdb.GetRange(ctx, &#34;key&#34;, 1, 4).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;key: %v\n&#34;, val) //截取到的内容为: ello
+</span></span></code></pre></td></tr></table></div></div><h3 id=incr增加1>Incr():增加+1</h3><p>Incr()、IncrBy()都是操作数字，对数字进行增加的操作，incr是执行原子加1操作，incrBy是增加指定的数<br>所谓原子操作是指不会被线程调度机制打断的操作：这种操作一旦开始，就一直运行到结束，中间不会有任何context witch(切换到另一个线程).<br>(1)在单线程中，能够在单条指令中完成的操作都可以认为是“原子操作”，因为中断只能发生于指令之间。<br>(2)在多线程中，不能被其它进程(线程)打算的操作叫原子操作。<br>Redis单命令的原子性主要得益于Redis的单线程</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>val, err := rdb.Incr(ctx, &#34;number&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;key当前的值为: %v\n&#34;, val)
+</span></span></code></pre></td></tr></table></div></div><h3 id=incrby按指定步长增加>IncrBy():按指定步长增加</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>val, err := rdb.IncrBy(ctx, &#34;number&#34;, 12).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;key当前的值为: %v\n&#34;, val)
+</span></span></code></pre></td></tr></table></div></div><h3 id=decr减少-1>Decr():减少-1</h3><p>Decr()和DecrBy()方法是对数字进行减的操作，和Incr正好相反</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>val, err := rdb.Decr(ctx, &#34;number&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;key当前的值为: %v\n&#34;, val)
+</span></span></code></pre></td></tr></table></div></div><h3 id=decrby按指定步长减少>DecrBy():按指定步长减少</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>val, err := rdb.DecrBy(ctx, &#34;number&#34;, 12).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;key当前的值为: %v\n&#34;, val)
+</span></span></code></pre></td></tr></table></div></div><h3 id=append追加>Append():追加</h3><p>Append()表示往字符串后面追加元素，返回值是字符串的总长度</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>err := rdb.Set(ctx, &#34;key&#34;, &#34;hello&#34;, 0).Err()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>length, err := rdb.Append(ctx, &#34;key&#34;, &#34; world!&#34;).Result()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;当前缓存key的长度为: %v\n&#34;, length) //12
+</span></span><span class=line><span class=cl>val, err := rdb.Get(ctx, &#34;key&#34;).Result()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;当前缓存key的值为: %v\n&#34;, val) //hello world!
+</span></span></code></pre></td></tr></table></div></div><h3 id=strlen获取长度>StrLen():获取长度</h3><p>StrLen()方法可以获取字符串的长度</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>err := rdb.Set(ctx, &#34;key&#34;, &#34;hello world!&#34;, 0).Err()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>length, err := rdb.StrLen(ctx, &#34;key&#34;).Result()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;当前缓存key的长度为: %v\n&#34;, length) //12
+</span></span></code></pre></td></tr></table></div></div><h3 id=更多>更多</h3><p>如上所述都是常用的字符串操作，此外，字符串(string)类型还有MGet()、Mset()、MSetNX()等同时操作多个key的方法，详见：https://pkg.go.dev/github.com/go-redis/redis/v9</p><h2 id=列表list类型>列表(list)类型</h2><h3 id=lpush将元素压入链表>LPush():将元素压入链表</h3><p>可以使用LPush()方法将数据从左侧压入链表,也可以从右侧压如链表，对应的方法是RPush()</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//返回值是当前列表元素的数量
+</span></span><span class=line><span class=cl>n, err := rdb.LPush(ctx, &#34;list&#34;, 1, 2, 3).Result()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>fmt.Println(n)
+</span></span></code></pre></td></tr></table></div></div><h3 id=linsert在某个位置插入新元素>LInsert():在某个位置插入新元素</h3><p>位置的判断，是根据相对的参考元素判断.<br>注：即使key列表里有多个值为100的元素，也只会在第一个值为100的元素前面插入123，并不会在所有值为100的前面插入123,客户端还提供了从前面插入和从后面插入的LInsertBefore()和LInsertAfer()方法</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//在名为key的缓存项值为100的元素前面插入一个值，值为123
+</span></span><span class=line><span class=cl>err := rdb.LInsert(ctx, &#34;key&#34;, &#34;before&#34;, &#34;100&#34;, 123).Err()
+</span></span><span class=line><span class=cl>if err != nil {
+</span></span><span class=line><span class=cl>	panic(err)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=lset设置某个元素的值>LSet():设置某个元素的值</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//下标是从0开始的
+</span></span><span class=line><span class=cl>err := rdb.LSet(ctx, &#34;list&#34;, 1, 100).Err()
+</span></span></code></pre></td></tr></table></div></div><h3 id=llen获取链表元素个数>LLen():获取链表元素个数</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>length, err := rdb.LLen(ctx, &#34;list&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;当前链表的长度为: %v\n&#34;, length)
+</span></span></code></pre></td></tr></table></div></div><h3 id=lindex获取链表下标对应的元素>LIndex():获取链表下标对应的元素</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>val, err := rdb.LIndex(ctx, &#34;list&#34;, 0).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;下标为0的值为: %v\n&#34;, val)
+</span></span></code></pre></td></tr></table></div></div><h3 id=lrange获取某个选定范围的元素集>LRange():获取某个选定范围的元素集</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>vals, err := rdb.LRange(ctx, &#34;list&#34;, 0, 2).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;从下标0到下标2的值: %v\n&#34;, vals)
+</span></span></code></pre></td></tr></table></div></div><h3 id=lpop从链表左侧弹出数据>LPop从链表左侧弹出数据</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>val, err := rdb.LPop(ctx, &#34;list&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;移除的元素为: %v\n&#34;, val)
+</span></span></code></pre></td></tr></table></div></div><h3 id=lrem根据值移除元素>LRem():根据值移除元素</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>n, err := rdb.LRem(ctx, &#34;list&#34;, 2, &#34;100&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;移除了: %v 个\n&#34;, n)
+</span></span></code></pre></td></tr></table></div></div><h2 id=集合set类型>集合(set)类型</h2><p>Redis set对外提供的功能与list类似是一个列表的功能，特殊之处在于set是可以自动排重的，当你需要存储一个列表数据，又不希望出现重复数据，set是一个很好的选择，并且set提供了判断某个成员是否在一个set集合内的接口，这是也是list所不能提供了。<br>Redis的Set是string类型的无序集合。它底层其实是一个value为null的hash表，所以添加、删除、查找的复杂度都是O(1)。<br>集合数据的特征：<br>元素不能重复，保持唯一性<br>元素无序，不能使用索引(下标)操作<br>更多内容参考 redis hash list set zset 的对比和使用 <a class=link href=https://dev.leiyanhui.com/web/redis-hash-set-list/ target=_blank rel=noopener>https://dev.leiyanhui.com/web/redis-hash-set-list/</a></p><h3 id=sadd添加元素>SAdd():添加元素</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rdb.SAdd(ctx, &#34;team&#34;, &#34;kobe&#34;, &#34;jordan&#34;)
+</span></span><span class=line><span class=cl>rdb.SAdd(ctx, &#34;team&#34;, &#34;curry&#34;)
+</span></span><span class=line><span class=cl>rdb.SAdd(ctx, &#34;team&#34;, &#34;kobe&#34;) //由于kobe已经被添加到team集合中，所以重复添加时无效的
+</span></span></code></pre></td></tr></table></div></div><h3 id=spop随机获取一个元素>SPop():随机获取一个元素</h3><p>SPop()方法是从集合中随机取出元素的，如果想一次获取多个元素，可以使用SPopN()方法</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>val, err := rdb.SPop(ctx, &#34;team&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(val)
+</span></span></code></pre></td></tr></table></div></div><h3 id=srem删除集合里指定的值>SRem():删除集合里指定的值</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>n, err := rdb.SRem(ctx, &#34;team&#34;, &#34;kobe&#34;, &#34;v2&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(n)
+</span></span></code></pre></td></tr></table></div></div><h3 id=ssmembers获取所有成员>SSMembers():获取所有成员</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>vals, err := rdb.SMembers(ctx, &#34;team&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(vals)
+</span></span></code></pre></td></tr></table></div></div><h3 id=sismember判断元素是否在集合中>SIsMember():判断元素是否在集合中</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>exists, err := rdb.SIsMember(ctx, &#34;team&#34;, &#34;jordan&#34;).Result()
+</span></span><span class=line><span class=cl>if exists {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;存在集合中&#34;)
+</span></span><span class=line><span class=cl>} else {
+</span></span><span class=line><span class=cl>	fmt.Println(&#34;不存在集合中&#34;)
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=scard获取集合元素个数>SCard():获取集合元素个数</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>total, err := rdb.SCard(ctx, &#34;team&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Printf(&#34;集合总共有 %v 个元素\n&#34;, total)
+</span></span></code></pre></td></tr></table></div></div><h3 id=sunion并集sdiff差集sinter交集>SUnion():并集,SDiff():差集,SInter():交集</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rdb.SAdd(ctx, &#34;setA&#34;, &#34;a&#34;, &#34;b&#34;, &#34;c&#34;, &#34;d&#34;)
+</span></span><span class=line><span class=cl>rdb.SAdd(ctx, &#34;setB&#34;, &#34;a&#34;, &#34;d&#34;, &#34;e&#34;, &#34;f&#34;)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>//并集
+</span></span><span class=line><span class=cl>union, err := rdb.SUnion(ctx, &#34;setA&#34;, &#34;setB&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(union)
+</span></span><span class=line><span class=cl>//差集
+</span></span><span class=line><span class=cl>diff, err := rdb.SDiff(ctx, &#34;setA&#34;, &#34;setB&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(diff)
+</span></span><span class=line><span class=cl>//交集
+</span></span><span class=line><span class=cl>inter, err := rdb.SInter(ctx, &#34;setA&#34;, &#34;setB&#34;).Result()
+</span></span><span class=line><span class=cl>fmt.Println(inter)
+</span></span></code></pre></td></tr></table></div></div><h2 id=有序集合zset类型>有序集合(zset)类型</h2><p>Redis 有序集合和集合一样也是string类型元素的集合,且不允许重复的成员。<br>不同的是每个元素都会关联一个double类型的分数。redis正是通过分数来为集合中的成员进行从小到大的排序。<br>有序集合的成员是唯一的,但分数(score)却可以重复。<br>集合是通过哈希表实现的，所以添加，删除，查找的复杂度都是O(1)。 集合中最大的成员数为 232 - 1 (4294967295, 每个集合可存储40多亿个成员)。</p><h3 id=zadd添加元素>ZAdd():添加元素</h3><p>添加6个元素1~6,分值都是0</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rdb.ZAdd(ctx, &#34;zSet&#34;, &amp;redis.Z{
+</span></span><span class=line><span class=cl>	Score: 0,
+</span></span><span class=line><span class=cl>	Member: 1,
+</span></span><span class=line><span class=cl>})
+</span></span><span class=line><span class=cl>rdb.ZAdd(ctx, &#34;zSet&#34;, &amp;redis.Z{
+</span></span><span class=line><span class=cl>	Score: 0,
+</span></span><span class=line><span class=cl>	Member: 2,
+</span></span><span class=line><span class=cl>})
+</span></span><span class=line><span class=cl>rdb.ZAdd(ctx, &#34;zSet&#34;, &amp;redis.Z{
+</span></span><span class=line><span class=cl>	Score: 0,
+</span></span><span class=line><span class=cl>	Member: 3,
+</span></span><span class=line><span class=cl>})
+</span></span><span class=line><span class=cl>rdb.ZAdd(ctx, &#34;zSet&#34;, &amp;redis.Z{
+</span></span><span class=line><span class=cl>	Score: 0,
+</span></span><span class=line><span class=cl>	Member: 4,
+</span></span><span class=line><span class=cl>})
+</span></span><span class=line><span class=cl>rdb.ZAdd(ctx, &#34;zSet&#34;, &amp;redis.Z{
+</span></span><span class=line><span class=cl>	Score: 0,
+</span></span><span class=line><span class=cl>	Member: 5,
+</span></span><span class=line><span class=cl>})
+</span></span><span class=line><span class=cl>rdb.ZAdd(ctx, &#34;zSet&#34;, &amp;redis.Z{
+</span></span><span class=line><span class=cl>	Score: 0,
+</span></span><span class=line><span class=cl>	Member: 6,
+</span></span><span class=line><span class=cl>})
+</span></span></code></pre></td></tr></table></div></div><h3 id=zincrby增加元素分值>ZIncrBy():增加元素分值</h3><p>分值可以为负数，表示递减</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rdb.ZIncrBy(ctx, &#34;zSet&#34;, float64(rand.Intn(100)), &#34;1&#34;)
+</span></span><span class=line><span class=cl>rdb.ZIncrBy(ctx, &#34;zSet&#34;, float64(rand.Intn(100)), &#34;2&#34;)
+</span></span><span class=line><span class=cl>rdb.ZIncrBy(ctx, &#34;zSet&#34;, float64(rand.Intn(100)), &#34;3&#34;)
+</span></span><span class=line><span class=cl>rdb.ZIncrBy(ctx, &#34;zSet&#34;, float64(rand.Intn(100)), &#34;4&#34;)
+</span></span><span class=line><span class=cl>rdb.ZIncrBy(ctx, &#34;zSet&#34;, float64(rand.Intn(100)), &#34;5&#34;)
+</span></span><span class=line><span class=cl>rdb.ZIncrBy(ctx, &#34;zSet&#34;, float64(rand.Intn(100)), &#34;6&#34;)
+</span></span></code></pre></td></tr></table></div></div><h3 id=zrangezrevrange获取根据score排序后的数据段>ZRange()、ZRevRange():获取根据score排序后的数据段</h3><p>根据分值排序后的，升序和降序的列表获取</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//获取排行榜
+</span></span><span class=line><span class=cl>//获取分值(点击率)前三的文章ID列表
+</span></span><span class=line><span class=cl>res, err := rdb.ZRevRange(ctx, &#34;zSet&#34;, 0, 2).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zrangebyscorezrevrangebyscore获取score过滤后排序的数据段>ZRangeByScore()、ZRevRangeByScore():获取score过滤后排序的数据段</h3><p>根据分值过滤之后的列表,需要提供分值区间</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.ZRangeByScore(ctx, &#34;zSet&#34;, &amp;redis.ZRangeBy{
+</span></span><span class=line><span class=cl>	Min:    &#34;40&#34;,
+</span></span><span class=line><span class=cl>	Max:    &#34;85&#34;,
+</span></span><span class=line><span class=cl>}).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zcard获取元素个数>ZCard():获取元素个数</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>count, err := rdb.ZCard(ctx, &#34;zSet&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zcount获取区间内元素个数>ZCount():获取区间内元素个数</h3><p>获取分值在[40, 85]的元素的数量</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>n, err := rdb.ZCount(ctx, &#34;zSet&#34;, &#34;40&#34;, &#34;85&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zscore获取元素的score>ZScore():获取元素的score</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>score, err := rdb.ZScore(ctx, &#34;zSet&#34;, &#34;5&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zrankzrevrank获取某个元素在集合中的排名>ZRank()、ZRevRank():获取某个元素在集合中的排名</h3><p>ZRank()方法是返回元素在集合中的升序排名情况，从0开始。ZRevRank()正好相反</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.ZRevRank(ctx, &#34;zSet&#34;, &#34;2&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zrem删除元素>ZRem():删除元素</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.ZRem(ctx, &#34;zSet&#34;, &#34;2&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zremrangebyrank根据排名来删除>ZRemRangeByRank():根据排名来删除</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//按照升序排序删除第一个和第二个元素
+</span></span><span class=line><span class=cl>res, err := rdb.ZRemRangeByRank(ctx, &#34;zSet&#34;,  0, 1).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=zremrangebyscore根据分值区间来删除>ZRemRangeByScore():根据分值区间来删除</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>//删除score在[40, 70]之间的元素
+</span></span><span class=line><span class=cl>res, err := rdb.ZRemRangeByScore(ctx, &#34;zSet&#34;, &#34;40&#34;, &#34;70&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h2 id=哈希hash类型>哈希(hash)类型</h2><p>Redis hash 是一个 string 类型的 field（字段） 和 value（值） 的映射表，hash 特别适合用于存储对象。</p><p>Redis 中每个 hash 可以存储 232 - 1 键值对（40多亿）。</p><p>当前服务器一般都是将用户登录信息保存到Redis中，这里存储用户登录信息就比较适合用hash表。hash表比string更合适，如果我们选择使用string类型来存储用户的信息的时候，我们每次存储的时候就得先序列化(json_encode()、serialize())成字符串才能存储redis,</p><p>从redis拿到用户信息后又得反序列化(UnMarshal()、Marshal())成数组或对象，这样开销比较大。如果使用hash的话我们通过key(用户ID)+field(属性标签)就可以操作对应属性数据了，既不需要重复存储数据，也不会带来序列化和并发修改控制的问题。</p><h3 id=hset设置>HSet():设置</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rdb.HSet(ctx, &#34;user&#34;, &#34;key1&#34;, &#34;value1&#34;, &#34;key2&#34;, &#34;value2&#34;)
+</span></span><span class=line><span class=cl>rdb.HSet(ctx, &#34;user&#34;, []string{&#34;key3&#34;, &#34;value3&#34;, &#34;key4&#34;, &#34;value4&#34;})
+</span></span><span class=line><span class=cl>rdb.HSet(ctx, &#34;user&#34;, map[string]interface{}{&#34;key5&#34;: &#34;value5&#34;, &#34;key6&#34;: &#34;value6&#34;})
+</span></span></code></pre></td></tr></table></div></div><h3 id=hmset批量设置>HMset():批量设置</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rdb.Del(ctx, &#34;user&#34;)
+</span></span><span class=line><span class=cl>rdb.HMSet(ctx, &#34;user&#34;, map[string]interface{}{&#34;name&#34;:&#34;kevin&#34;, &#34;age&#34;: 27, &#34;address&#34;:&#34;北京&#34;})
+</span></span></code></pre></td></tr></table></div></div><h3 id=hget获取某个元素>HGet():获取某个元素</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>address, err := rdb.HGet(ctx, &#34;user&#34;, &#34;address&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=hgetall获取全部元素>HGetAll():获取全部元素</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>user, err := rdb.HGetAll(ctx, &#34;user&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=hdel删除某个元素>HDel():删除某个元素</h3><p>HDel():删除某个元素</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.HDel(ctx, &#34;user&#34;, &#34;name&#34;, &#34;age&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=hexists判断元素是否存在>HExists():判断元素是否存在</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.HExists(ctx, &#34;user&#34;, &#34;address&#34;).Result()
+</span></span></code></pre></td></tr></table></div></div><h3 id=hlen获取长度>HLen():获取长度</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>res, err := rdb.HLen(ctx, &#34;user&#34;).Result()
+</span></span><span class=line><span class=cl>```本文转自：https://www.cnblogs.com/itbsl/p/14198111.html
+</span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/golang/getkeyswithprefixforcluster/><div class=article-details><h2 class=article-title>golang 从redis cluster获取所有keys</h2></div></a></article><article><a href=/golang/webview/><div class=article-details><h2 class=article-title>golang 比较靠谱的 webview</h2></div></a></article><article><a href=/golang/ws-redis/><div class=article-details><h2 class=article-title>redis走websocket的方法</h2></div></a></article><article><a href=/nixos/golang/><div class=article-details><h2 class=article-title>nixos下golang+goland开发环境</h2></div></a></article><article><a href=/golang/funpointerparameter/><div class=article-details><h2 class=article-title>golang 指针传参和直接传的性能简单对比</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2024 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
