@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Polybar on 小类随手记</title><link>https://dev.leiyanhui.com/categories/polybar/</link><description>Recent content in Polybar on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 13 May 2023 12:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/polybar/index.xml" rel="self" type="application/rss+xml"/><item><title>polybar天气预报插件</title><link>https://dev.leiyanhui.com/linux/polybar-weather-plugin/</link><pubDate>Sat, 13 May 2023 12:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/linux/polybar-weather-plugin/</guid><description>&lt;p>自己手写一个，你可以直接抄作业。&lt;/p>
+&lt;h2 id="获取天气预报api">获取天气预报api
+&lt;/h2>&lt;p>首先需要自己注册一个api,我这里用的 openweathermap,注册账号后打开 &lt;a class="link" href="https://home.openweathermap.org/api_keys" target="_blank" rel="noopener"
+>https://home.openweathermap.org/api_keys&lt;/a>,查看自己的 api_key&lt;br>
+openweathermap 的api_key有延迟，界面显示可用的有时候好像需要半个多小时才可以使用，否则接口一直返回401错误&lt;br>
+openweathermap 虽然有诸多不方便，比如英文，速度慢，但是天气预报很准确 而且接口稳定，并分钟级实时预报，天气云图，国内很多免费的接口不稳定。&lt;/p>
+&lt;h2 id="获取城市id">获取城市id
+&lt;/h2>&lt;p>openweathermap 支持城市名称搜索查询，我这里为了简化直接用城市id了。 打开openweathermap网站 输入你所在地城市的拼音/英文名搜索，查看天气，地址栏的例如 &lt;a class="link" href="https://openweathermap.org/city/1793724" target="_blank" rel="noopener"
+>https://openweathermap.org/city/1793724&lt;/a> 1793724就是城市id了&lt;/p>
+&lt;h2 id="手动测试api">手动测试api
+&lt;/h2>&lt;p>访问地址： &lt;a class="link" href="https://api.openweathermap.org/data/2.5/weather?id=%7b" target="_blank" rel="noopener"
+>https://api.openweathermap.org/data/2.5/weather?id={&lt;/a>城市ID}&amp;amp;appid={api_key}&amp;amp;units=Metric&amp;amp;lang=zh_cn
+后面units是单位公制或者英制之类的 lang 就是语言了&lt;br>
+正常应该可以返回json数据，如果是401错误，那么就是api_key错误，或者没生效，或者请求太频繁（1分钟上限60次）&lt;/p>
+&lt;h2 id="本地准备">本地准备
+&lt;/h2>&lt;p>因为是polybar用，那么铁定是linux下日用，也肯定有pyhone了。我抄的别人的（原作者忘记）直接用了pyhone。&lt;br>
+需要先引用requests, 没有安装。提前安装一下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S python-pip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pip3 install requests
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -Rns python-pip #是否卸载掉看你自己
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="创建脚本">创建脚本
+&lt;/h2>&lt;p>把下面脚本的apt_key和城市id（1793724）换成你自己的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># 需要requests
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># sudo pacman -S python-pip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># pip3 install requests
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; ~/.config/polybar/weather-plugin.py&amp;lt;&amp;lt; \EOF
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#!/bin/python
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># -*- coding: utf-8 -*-
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import requests
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">REQ = requests.get(&amp;#34;https://api.openweathermap.org/data/2.5/weather?id=1793724&amp;amp;appid=XXXXXXXXXXXX&amp;amp;units=Metric&amp;amp;lang=zh_cn&amp;#34;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">try:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # HTTP CODE = OK
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if REQ.status_code == 200:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON_ID = REQ.json()[&amp;#34;weather&amp;#34;][0][&amp;#34;icon&amp;#34;]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # Set the weather icon
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ICON_ID == &amp;#34;01d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;☀&amp;#34; # 晴天 Clear Sky
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;01n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;⭐&amp;#34; # Night, Clear Sky
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;02d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌤&amp;#34; # Day,少云 Few Clouds
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;02n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌤&amp;#34; # Night, 少云 Few Clouds
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;03d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌤&amp;#34; # Day, 少云 Scattered Clouds
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;03n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌤&amp;#34; # Night, 少云 Scattered Clouds
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;04d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;多云&amp;#34; # Day, 多云 Broken Clouds
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;04n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;多云&amp;#34; # Night, 多云 Broken Clouds
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;09d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌧&amp;#34; # Day, 小雨 Shower Rain
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;09n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌧&amp;#34; # Night,小雨 Shower Rain
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;10d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌧&amp;#34; # Day, Rain
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;10n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌧&amp;#34; # Night, Rain
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;11d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;⛈&amp;#34; # Day, 雷雨 Thunderstorm
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;11n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;⛈&amp;#34; # Night, 雷雨 Thunderstorm
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;13d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;❄&amp;#34; # Day,雪 Snow
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;13n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;❄&amp;#34; # Night, 雪 Snow
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;50d&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌫&amp;#34; # Day, 雾 Mist
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> elif ICON_ID == &amp;#34;50n&amp;#34;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;🌫&amp;#34; # Night,雾 Mist
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> else:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ICON = &amp;#34;天气 &amp;#34; # 其他 Just Weather Icon
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> CURRENT = REQ.json()[&amp;#34;weather&amp;#34;][0][&amp;#34;description&amp;#34;].capitalize()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> TEMP = int(float(REQ.json()[&amp;#34;main&amp;#34;][&amp;#34;temp&amp;#34;]))
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> WIND = int(float(REQ.json()[&amp;#34;wind&amp;#34;][&amp;#34;speed&amp;#34;]))
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # 输出格式
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(&amp;#34;{} {}, {} °C 🌬 {}m/s&amp;#34;.format(ICON, CURRENT, TEMP, WIND))
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> else:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(&amp;#34;Error: BAD HTTP STATUS CODE &amp;#34; + str(REQ.status_code))
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">except (ValueError, IOError):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(&amp;#34;Error: Unable print the data&amp;#34;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">EOF
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>测试一下，正常可以在终端输出天气&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">python3 ~/.config/polybar/weather-plugin.py
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="polybar引用">polybar引用
+&lt;/h2>&lt;p>编辑配置文件 ~/.config/polybar/config.ini 添加一行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">; ===天气预报 需要单独的pyhtone插件===
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[module/weather]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">type = custom/script
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">exec = python3 ~/.config/polybar/weather-plugin.py
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">interval = 960
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tail = true
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">click-left= exec firefox https://openweathermap.org/city/1793724
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="完毕">完毕
+&lt;/h2></description></item></channel></rss>
