@@ -1,0 +1,978 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Lxd on 小类随手记</title><link>https://dev.leiyanhui.com/categories/lxd/</link><description>Recent content in Lxd on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 20 Nov 2023 00:01:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/lxd/index.xml" rel="self" type="application/rss+xml"/><item><title>podman跨云部署keydb集群替代docker+redis的过程和几个坑</title><link>https://dev.leiyanhui.com/container/podman-keydb/</link><pubDate>Mon, 20 Nov 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/container/podman-keydb/</guid><description>&lt;h2 id="升级目的">升级目的
+&lt;/h2>&lt;p>受阿里云(2023-11-12)故障事件影响，虽然项目一开始都跨云跨地区部署，但是我们的部分业务依旧受到牵连，遭遇重挫。所以此次升级主要是跨云大量零碎小数据储存，更换为网络kv储存（之前是定时合并文件后同步到阿里云oss）。 &lt;br>
+彻底解决业务对阿里云oss的依赖。阿里云oss和腾讯cos都改为数据备份专用，不再和业务有关联。&lt;br>
+本月逐步使用podman 替代docker 使用keydb替代redis。 &lt;br>
+因为打算上keydb,所以原有redis集群也替换为keydb。 并新建一个集群用于储存海量碎数据。&lt;/p>
+&lt;h2 id="关于podman">关于podman
+&lt;/h2>&lt;p>podman的好处对我们目前的物联网项目来说主要是可以免root用户部署维护。&lt;br>
+在试运行一段时间后，从几台服务器线上使用后没问题到全部服务器都开始替换docker，历时两个月没出现任何问题。&lt;/p>
+&lt;h2 id="keydb">keydb
+&lt;/h2>&lt;p>而keydb经过一周的反复测试，在实际应用场景下 keydb6.3.x 性能远远超过redis6.2.13和redis7.2.3。因为跨云公网集群，所以tls是必须的，而keydb的tls性能经过测试要比redis7.2.3的qps高出6-10倍。tcp性能高出40%-2倍。&lt;br>
+keydb完全兼容redis6.2.x 一周的线上部分节点测试中没发现问题。&lt;/p>
+&lt;h2 id="遇到的几个坑">遇到的几个坑
+&lt;/h2>&lt;h3 id="华为云和debian11">华为云和debian11
+&lt;/h3>&lt;p>腾讯云和阿里云都很顺利，主要是华为云那边。华为云没有提供debian12的镜像，在手动升级到debian12后 容器无法启动。因为时间紧张没有去检查是华为云镜像里面内置的华为组件导致的还是别的的问题。 以下记录 基于debian12 华为云部分基于debian11&lt;/p>
+&lt;h3 id="lxc主机下的podman">lxc主机下的podman
+&lt;/h3>&lt;p>和docker不太一样，非特权lxc也要解决cgroup2&lt;/p>
+&lt;h3 id="su切换用户的丢失xdg_runtime_dir">su切换用户的丢失XDG_RUNTIME_DIR
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">&lt;span class="nb">export&lt;/span> &lt;span class="nv">XDG_RUNTIME_DIR&lt;/span>&lt;span class="o">=&lt;/span>/run/user/&lt;span class="k">$(&lt;/span>id -u&lt;span class="k">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">echo&lt;/span> &lt;span class="nv">$XDG_RUNTIME_DIR&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="keydb集群维护和redis7不一样的地方">keydb集群维护和redis7不一样的地方
+&lt;/h3>&lt;p>keydb 6.2.3 应该是基于redis6.x的，在集群创建和添加节点的，不支持用域名和hostname的方式，需要手动指定ip,否则集群无法通讯。&lt;/p>
+&lt;h3 id="阿里云的域名问题">阿里云的域名问题
+&lt;/h3>&lt;p>因为为了隔离实体，这次升级，我们新使用了一个和我个人以及公司不相关的域名（未在阿里云备案）组建redis集群。结果在阿里云那边 tls频繁被重置。 集群也经常卡掉。 反复检查后，并和阿里云技术沟通几次后发现确实是备案的问题。（非web业务域名也要备案）&lt;br>
+后更换一个在阿里云备案过的域名 没有再出问题。&lt;br>
+我朝这些政策真的是。。。&lt;/p>
+&lt;h3 id="acl">ACL
+&lt;/h3>&lt;p>keydb6.3.4 依旧不支持Redis 7.X ACL，部分业务代码需要调整。之前说2023年中支持，好像跳票了。但是目前最新代码中已经有acl相关的内容 &lt;br>
+unstable 版本未测试&lt;/p>
+&lt;h3 id="其他可选的kv储存">其他可选的kv储存
+&lt;/h3>&lt;p>一开始是打算先在部分需要储存的业务上替换目前的s3储存，新方案需要去中心化跨云的集群，加上我们对go-reids sdk针对性的优化过，所以优先考察了几个兼容redis协议的 以及minio集群。&lt;br>
+主要是 minio kvrocks tendis redrock Pika&lt;/p>
+&lt;ul>
+&lt;li>minio集群 去中心化，但是扩展需要指数扩展，另外etcd联邦方案过于复杂。我们实际情况是大量小数据段，写入多但是读取也不少，在实际测试后minio集群方式带来的费用可能比直接使用云厂商的对象储存反还要高。&lt;/li>
+&lt;li>tendis 未尝试，因为不支持tls不跨云部署。&lt;/li>
+&lt;li>redrock 个人开发者，作者在知乎，github不活跃，代码已经许久没维护，文档不全。简单测试后性能和redis差不多，低于keydb。&lt;/li>
+&lt;li>kvrocks 花费大量时间测试和权衡后得到的结论：他的集群的管理以及故障转移方式虽然没有gossip开支，需要一个外部节点来自动进行故障转移，另外就是他的热数据是基于rocks的cache来管理在qps比较高的时候的表现一般，在测试过几轮后和redis6/7的差距较大（不知道为什么所有kv数据去vs redis的时候都去和单线程的redis比较&amp;hellip;）。&lt;/li>
+&lt;li>pika 看起来不是完全去中心化的，和我们实际需求不相符。&lt;br>
+主要是我们还需要热数据查询速度好一些，虽然另外有一个redis集群，但是本着尽可能独立的原则。剩下也就keydb 和 kvrocks可选了。&lt;br>
+因为线下模拟测试和线上实际情况有出入，而kvrocks和keydb都是兼容redis cluster，我们目前情况是qps较高而节点数量并不多，gossip协议对我们影响不大，所以我们最终决定先逐步在线上用keydb替代redis和kv储存。日后再调研kvrocks&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>keydb的硬盘存储功能，也就是flash功能，目前还是测试版。但是这是从keydb专业版合并到开源版本的功能，所以简单的 get set 经过一周测试稳定性和性能都没有问题。&lt;/p>&lt;/blockquote>
+&lt;h2 id="部署过程">部署过程
+&lt;/h2>&lt;h3 id="系统环境准备">系统环境准备
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget https://github代理站/https://github.com/rclone/rclone/releases/download/v1.64.2/rclone-v1.64.2-linux-amd64.deb
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt install ./rclone-v1.64.2-linux-amd64.deb
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rm ./rclone-v1.64.2-linux-amd64.deb
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#apt install docker-compose&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt-get -y install podman crun slirp4netns fuse-overlayfs
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl &lt;span class="nb">enable&lt;/span> --now podman &lt;span class="c1"># debian11 需要&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 别名 alpine的写到 /etc/profile&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp /etc/containers/registries.conf /etc/containers/registries.conf-bak
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; /etc/containers/registries.conf&lt;span class="s">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">unqualified-search-registries = [&amp;#39;registry.redhat.io&amp;#39;, &amp;#39;docker.io&amp;#39;]
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">[[registry]]
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">prefix = &amp;#34;docker.io&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">location = &amp;#34;docker.io&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">[[registry.mirror]]
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">location = &amp;#34;docker.nju.edu.cn&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">[[registry.mirror]]
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">location = &amp;#34;docker.mirrors.sjtug.sjtu.edu.cn&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">[[registry.mirror]]
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">location = &amp;#34;阿里云容器镜像加速地址.mirror.aliyuncs.com&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkdir -p ~/.config/rclone/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; ~/.config/rclone/rclone.conf &lt;span class="s">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">[oss-hz]
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">type = s3
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">provider = Alibaba
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">access_key_id = XXXXX
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">secret_access_key = XXXX
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">endpoint = oss-cn-shanghai.aliyuncs.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">acl = private
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">storage_class = STANDARD
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">bucket_acl = private
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="独立用户">独立用户
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">adduser --shell /bin/bash keydb
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">loginctl enable-linger keydb &lt;span class="c1"># 允许用户常驻&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">##需要给 检查sudo权限，否则容器的一些目录他没有权限删除，&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">usermod -aG sudo keydb &lt;span class="c1">#部署完成后 移除sudo&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo -l -U keydb
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 部分云主机（腾讯云）改动过sudoer文件 需要手动添加 sudo用户组&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;%sudo ALL=(ALL:ALL) ALL&amp;#34;&lt;/span> &amp;gt; /etc/sudoers.d/sudogrup
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 配置证书&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">su keydb
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkdir -p ~/.ssh/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; ~/.ssh/authorized_keys &lt;span class="s">&amp;lt;&amp;lt; \EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">ssh-rsa AAAXXXXXXXX
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chmod -R &lt;span class="m">600&lt;/span> ~/.ssh/authorized_keys
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>推出ssh,重新用 keydb用户登陆到服务器，后面操作都是基于keydb&lt;/p>
+&lt;h3 id="tls证书">tls证书
+&lt;/h3>&lt;p>用rclone 从oss获取&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">rclone copyto oss-hz:/XXXX/redis_tls ~/redis_tls
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rm -rf ~/.config/rclone/rclone.conf &lt;span class="c1"># 用完删掉配置文件&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="keydb模板">keydb模板
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;span class="lnt">113
+&lt;/span>&lt;span class="lnt">114
+&lt;/span>&lt;span class="lnt">115
+&lt;/span>&lt;span class="lnt">116
+&lt;/span>&lt;span class="lnt">117
+&lt;/span>&lt;span class="lnt">118
+&lt;/span>&lt;span class="lnt">119
+&lt;/span>&lt;span class="lnt">120
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">cat &amp;gt; ~/etc/keydb_tpl_all.conf &lt;span class="s">&amp;lt;&amp;lt; \EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># flash版本
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># 主要设置 maxmemory128mb
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">maxmemory {MaxMem}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># allkeys-lfu allkeys-lru
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">maxmemory-policy allkeys-lfu
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">maxmemory-samples 5
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># storage-provider flash /path/to/flash/db
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">storage-provider flash /data/flash
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># === 持久化
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">appendonly yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">appendfilename &amp;#34;appendonly.aof&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">appendfsync everysec
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">rdbcompression yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">rdbchecksum yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">dbfilename dump.rdb
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">rdb-del-sync-files no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">dir /data
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">hz 10
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">dynamic-hz yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">aof-rewrite-incremental-fsync yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">rdb-save-incremental-fsync yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">no-appendfsync-on-rewrite no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">auto-aof-rewrite-percentage 100
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">auto-aof-rewrite-min-size 64mb
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">aof-load-truncated yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">aof-use-rdb-preamble yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># ======= 密码
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">requirepass &amp;#34;{password}&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">masterauth &amp;#34;{password}&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># ======== tls
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-port {tlsPort}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-cert-file {tlsCert}/redis.crt
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-key-file {tlsCert}/redis.key
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-client-cert-file {tlsCert}/client.crt
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-client-key-file {tlsCert}/client.key
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-client-key-file-pass {tlsCert}/secret
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-dh-params-file {tlsCert}/redis.dh
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-ca-cert-file {tlsCert}/ca.crt
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-ca-cert-dir {tlsCert}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-auth-clients no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-auth-clients optional
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-replication yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-cluster yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-protocols &amp;#34;TLSv1.2 TLSv1.3&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-ciphers DEFAULT:!MEDIUM
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-prefer-server-ciphers yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-session-caching no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-session-cache-size 5000
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tls-session-cache-timeout 60
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">#=== 集群
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">cluster-enabled yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">cluster-config-file &amp;#34;nodes.conf&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">cluster-node-timeout 5000
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">cluster-announce-ip {domian}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">cluster-announce-bus-port {PORT_BUS}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># ======= 其他
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">protected-mode no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">bind * -::*
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">port {port}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tcp-backlog 511
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">timeout 0
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">tcp-keepalive 300
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">supervised no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">pidfile /var/run/keydb.pid
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">#loglevel notice warning
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">loglevel notice
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">databases 16
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">always-show-logo no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">set-proc-title yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">proc-title-template &amp;#34;{title} {listen-addr} {server-mode}&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">save 900 1
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">save 300 10
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">save 60 10000
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">stop-writes-on-bgsave-error yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">replica-serve-stale-data yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">replica-read-only yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">repl-diskless-sync no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">repl-diskless-sync-delay 5
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">repl-diskless-load disabled
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">repl-disable-tcp-nodelay no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">replica-priority 100
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">acllog-max-len 128
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">lazyfree-lazy-eviction no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">lazyfree-lazy-expire no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">lazyfree-lazy-server-del no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">replica-lazy-flush no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">lazyfree-lazy-user-del no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">lazyfree-lazy-user-flush no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">oom-score-adj no
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">oom-score-adj-values 0 200 800
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">disable-thp yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">lua-time-limit 5000
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">slowlog-log-slower-than 10000
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">slowlog-max-len 128
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">latency-monitor-threshold 0
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">notify-keyspace-events &amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">hash-max-ziplist-entries 512
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">hash-max-ziplist-value 64
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">list-max-ziplist-size -2
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">list-compress-depth 0
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">set-max-intset-entries 512
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">zset-max-ziplist-entries 128
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">zset-max-ziplist-value 64
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">hll-sparse-max-bytes 3000
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">stream-node-max-bytes 4096
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">stream-node-max-entries 100
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">activerehashing yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">client-output-buffer-limit normal 0 0 0
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">client-output-buffer-limit replica 256mb 64mb 60
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">client-output-buffer-limit pubsub 32mb 8mb 60
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">jemalloc-bg-thread yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">server-threads 2
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">replica-weighting-factor 2
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">active-client-balancing yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="通过模板创建n个keydb配置文件">通过模板创建N个keydb配置文件
+&lt;/h3>&lt;p>下面创建了 5+5 10个，每个实例需要3个端口&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">get_keydb_conf&lt;span class="o">()&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> mkdir -p ~/etc &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">cd&lt;/span> ~/etc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rm -rf ./keydb&lt;span class="nv">$PORT_TCP&lt;/span>.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> cp ./keydb_tpl_all.conf ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1"># 模板&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sed -i &lt;span class="s2">&amp;#34;s/{port}/&lt;/span>&lt;span class="nv">$PORT_TCP&lt;/span>&lt;span class="s2">/g&amp;#34;&lt;/span> ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1">#tcp 端口&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sed -i &lt;span class="s2">&amp;#34;s/{tlsPort}/&lt;/span>&lt;span class="nv">$PORT_TLS&lt;/span>&lt;span class="s2">/g&amp;#34;&lt;/span> ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1">#tls 端口&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sed -i &lt;span class="s2">&amp;#34;s/{PORT_BUS}/&lt;/span>&lt;span class="nv">$PORT_BUS&lt;/span>&lt;span class="s2">/g&amp;#34;&lt;/span> ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1">#BUS 端口&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sed -i &lt;span class="s2">&amp;#34;s/{domian}/&lt;/span>&lt;span class="nv">$KEYDB_DOMAIN&lt;/span>&lt;span class="s2">/g&amp;#34;&lt;/span> ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1">#域名&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sed -i &lt;span class="s2">&amp;#34;s/{tlsCert}/\/redis_tls/g&amp;#34;&lt;/span> ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1">#证书&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sed -i &lt;span class="s2">&amp;#34;s/{password}/&lt;/span>&lt;span class="nv">$KEYDB_PSW&lt;/span>&lt;span class="s2">/g&amp;#34;&lt;/span> ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1">#密码&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sed -i &lt;span class="s2">&amp;#34;s/{MaxMem}/&lt;/span>&lt;span class="nv">$MaxMem&lt;/span>&lt;span class="s2">/g&amp;#34;&lt;/span> ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1">#最大内存&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="o">[[&lt;/span> &lt;span class="k">$(&lt;/span>uname -m&lt;span class="k">)&lt;/span> &lt;span class="o">==&lt;/span> arm* &lt;span class="o">||&lt;/span> &lt;span class="k">$(&lt;/span>uname -m&lt;span class="k">)&lt;/span> &lt;span class="o">==&lt;/span> aarch* &lt;span class="o">]]&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;当前是 ARM 架构 需要添加一行 ARM64-COW-BUG &amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;ignore-warnings ARM64-COW-BUG&amp;#34;&lt;/span>&amp;gt;&amp;gt; ./&lt;span class="nv">$PORT_TCP&lt;/span>.conf &lt;span class="c1"># arm需要这个&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">KEYDB_PSW&lt;/span>&lt;span class="o">=&lt;/span>mypasswd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">MaxMem&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;512mb&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">KEYDB_DOMAIN&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;serv-ali-1.leiyanhui.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> i in &lt;span class="o">{&lt;/span>1..5&lt;span class="o">}&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_TCP&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">4000&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_TLS&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">4100&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_BUS&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">14100&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> get_keydb_conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">MaxMem&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;1024mb&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> i in &lt;span class="o">{&lt;/span>1..5&lt;span class="o">}&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_TCP&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">5000&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_TLS&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">5100&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_BUS&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">15100&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> get_keydb_conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano 6001.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="创建容器">创建容器
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">get_podman&lt;span class="o">()&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> podman stop keydb&lt;span class="nv">$PORT_TCP&lt;/span>&lt;span class="o">&amp;amp;&amp;amp;&lt;/span>podman rm keydb&lt;span class="nv">$PORT_TCP&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sudo rm -rf ~/storage&lt;span class="nv">$PORT_TCP&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> mkdir ~/storage&lt;span class="nv">$PORT_TCP&lt;/span> &lt;span class="c1"># 先sudo 删除储存目录&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> podman run -itd --name keydb&lt;span class="nv">$PORT_TCP&lt;/span> --hostname keydb&lt;span class="nv">$PORT_TCP&lt;/span> --network host &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -v ~/etc:/keydb_etc &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -v ~/redis_tls:/redis_tls &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -v ~/storage&lt;span class="nv">$PORT_TCP&lt;/span>:/data &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -e &lt;span class="nv">TZ&lt;/span>&lt;span class="o">=&lt;/span>Asia/Shanghai &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --restart&lt;span class="o">=&lt;/span>always &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --shm-size 128M &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -d &lt;span class="nv">$DOCKEIMAGE&lt;/span> keydb-server /keydb_etc/&lt;span class="nv">$PORT_TCP&lt;/span>.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 处理用户服务&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> mkdir -p ~/.config/systemd/user &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">cd&lt;/span> ~/.config/systemd/user
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rm -rf ./container-keydb&lt;span class="nv">$PORT_TCP&lt;/span>.service
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> podman generate systemd --name keydb&lt;span class="nv">$PORT_TCP&lt;/span> --files --new
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> systemctl --user daemon-reload
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> systemctl --user &lt;span class="nb">enable&lt;/span> container-keydb&lt;span class="nv">$PORT_TCP&lt;/span>.service
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">export&lt;/span> &lt;span class="nv">DOCKEIMAGE&lt;/span>&lt;span class="o">=&lt;/span>docker.io/eqalpha/keydb:alpine_x86_64_v6.3.4
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> i in &lt;span class="o">{&lt;/span>1..5&lt;span class="o">}&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_TCP&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">4000&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> get_podman
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> i in &lt;span class="o">{&lt;/span>1..5&lt;span class="o">}&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">PORT_TCP&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$((&lt;/span>&lt;span class="m">5000&lt;/span> &lt;span class="o">+&lt;/span> i&lt;span class="k">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> get_podman
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ls
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">podman ps -a
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="开放端口">开放端口
+&lt;/h3>&lt;p>去各家云主机控制面板 防火墙 开放端口&lt;br>
+4101-4105,14101-14105, 5101-5105,15101-15105&lt;/p>
+&lt;h3 id="主集群连接">主集群连接
+&lt;/h3>&lt;p>keydb必须使用ip连接&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">podman &lt;span class="nb">exec&lt;/span> -it keydb6001 keydb-cli --tls &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cacert /redis_tls/ca.crt &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -a 密码 &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cluster create 18.18.18.18:4101 18.18.18.18:4102 18.18.18.18:4103 18.18.18.18:4104 18.18.18.18:4105
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">podman &lt;span class="nb">exec&lt;/span> -it keydb6001 keydb-cli --tls &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cacert /redis_tls/ca.crt &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -a 密码 &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cluster create 18.18.18.18:5101 18.18.18.18:5102 18.18.18.18:5103 18.18.18.18:5104 18.18.18.18:5105
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="添加从节点">添加从节点
+&lt;/h3>&lt;p>也必须用ip方式&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">podman &lt;span class="nb">exec&lt;/span> -it keydb6001 keydb-cli --tls &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cacert /redis_tls/ca.crt &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -a 密码 &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cluster add-node 新节点:4105 现有任意一个旧节点ip:4101 &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cluster-slave --cluster-master-id &amp;lt;本节点的主节点id&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="手动调整主节点">手动调整主节点
+&lt;/h3>&lt;p>逐个连接到要提为主节点上执行，这里可以用域名了哈&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">podman &lt;span class="nb">exec&lt;/span> -it keydb6001 keydb-cli --tls &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> --cacert /redis_tls/ca.crt &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -a 密码 &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -h 要提为主节点的从节点的ip或者域名 -p &lt;span class="m">4104&lt;/span> &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> CLUSTER FAILOVER TAKEOVER
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="导入历史数据">导入历史数据
+&lt;/h3>&lt;p>方法1 、 &lt;a class="link" href="https://github.com/joyanhui/redis-back" target="_blank" rel="noopener"
+>https://github.com/joyanhui/redis-back&lt;/a>&lt;br>
+方法2、 aof 和 rdb文件直接恢复&lt;br>
+实际3、 集群未停机，主节点都在线，所以直接接入&lt;/p>
+&lt;h3 id="防止主节点过于集中">防止主节点过于集中
+&lt;/h3>&lt;p>某些极端情况下，多数主节点会被集群迁移到其中一台机器上（目前是4台机器，每个集群5个主节点）。如果有3个主节点被集群自动迁移到一台机器上，刚好这台机器宕机。那么整个集群会无法自愈。&lt;br>
+需要另外运行一个脚本定时执行&lt;code>CLUSTER NODES&lt;/code>检查节点部分情况。&lt;br>
+我们是部署在云函数上的golang+shell脚本实现 定时器事件触发，具体实现略&lt;/p>
+&lt;h3 id="防止主从同步带宽占用过大">防止主从同步带宽占用过大
+&lt;/h3>&lt;p>每个集群是 1主2从 1从和它的主放在同一个云上，修改hosts为内网ip，另外一从跨云。&lt;br>
+这样尽可能的降低主从同步的带宽占用。在经济性和高可用性之间找平衡。&lt;/p>
+&lt;h2 id="对redis的一些看法">对redis的一些看法
+&lt;/h2>&lt;p>其实无论是keydb还是dragonfly实际运行环境中，性能都已经远远超过redis，连接数比较多的时候cpu和内存的开支也都比redis小很多。 甚至kvrocks在ramdis或者傲腾下，性能都超过redis 所以如果和我一样是自建的话，尽早切换吧。 &lt;br>
+redis的设计逻辑有一些固执，或许这也是redis一开始成功的原因。&lt;/p></description></item><item><title>chroot 进去后的系统 devpts错误</title><link>https://dev.leiyanhui.com/container/chroot-devpts/</link><pubDate>Sat, 16 Sep 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/container/chroot-devpts/</guid><description>&lt;p>devpts 是一个虚拟文件系统，用于在 Linux 系统中为伪终端（pseudo terminal）提供设备文件。&lt;/p>
+&lt;p>伪终端是一种特殊的设备，它提供了一个类似于真实终端（如终端窗口）的接口，用于与系统进行交互和执行命令。伪终端常用于远程登录、SSH 链接、终端模拟器等场景。&lt;/p>
+&lt;p>devpts 文件系统通过 /dev/pts 目录中的设备文件来管理伪终端。每个伪终端都会在 /dev/pts 目录下创建一个相应的设备文件，例如 /dev/pts/0、/dev/pts/1 等。当你打开一个伪终端时，实际上是打开了一个对应的设备文件。&lt;/p>
+&lt;p>devpts 文件系统的挂载点通常是 /dev/pts，可以使用 mount 命令将其挂载到该目录。挂载 devpts 文件系统后，系统就能正常使用伪终端，并在 /dev/pts 目录下创建对应的设备文件。&lt;/p>
+&lt;p>总而言之，devpts 是用于管理伪终端设备文件的虚拟文件系统，它在 Linux 系统中起到了关键的作用。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">mount -t devpts devpts /dev/pts
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>另外 一些进程管理类的程序需要用 proc&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mount -t proc proc /proc
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>chroot 进去后的系统无网络或者dns错误</title><link>https://dev.leiyanhui.com/container/chroot-dns/</link><pubDate>Sat, 16 Sep 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/container/chroot-dns/</guid><description>&lt;p>有两种情况，1是宿主的dev 没有挂进来 2是dns错误&lt;/p>
+&lt;p>ip a 和 ping ip地址 先排查是1 还是2&lt;/p>
+&lt;h2 id="1宿主机的dev挂载到rootfs">1、宿主机的dev挂载到&lt;!-- raw HTML omitted -->
+&lt;/h2>&lt;p>宿主机执行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">sudo mount -v --bind /dev ./debian12v5/dev
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#sys proc tmp run&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo mount --bind /sys ./debian12v5/sys
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo mount --bind /proc ./debian12v5/proc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo mount --bind /tmp ./debian12v5/tmp
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo mount --bind /run ./debian12v5/run
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>然后 ip a 和ping命令应该就正常了。&lt;/p>
+&lt;h3 id="2dns">2、dns
+&lt;/h3>&lt;p>容器内执行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">rm -rf /etc/resolv.conf &lt;span class="c1"># 在dns无法用的时候，这里肯定一个错误连接，要删掉&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;search lan&amp;#34;&lt;/span> &amp;gt;/etc/resolv.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;nameserver 114.114.114.114&amp;#34;&lt;/span> &amp;gt;&amp;gt;/etc/resolv.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat /etc/resolv.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>也可把宿主机的ln -s 过来&lt;/p></description></item><item><title>chroot的sudo setuid错误的处理</title><link>https://dev.leiyanhui.com/container/chroot-sudo/</link><pubDate>Sat, 16 Sep 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/container/chroot-sudo/</guid><description>&lt;p>chroot后的容器内 使用普通用户 执行sudu 会提示&lt;br>
+sudo: /usr/bin/sudo 必须属于用户 ID 0(的用户)并且设置 setuid 位&lt;br>
+sudo: /usr/bin/sudo must be owned by uid 0 and have the setuid bit set&lt;/p>
+&lt;p>在网上搜索很久，多数是让chmod 处理/usr/bin/sudo权限，但是那个方法只适合你把权限搞乱的情况下 不适合chroot。&lt;/p>
+&lt;p>解决方法 其实也很简单，就是rootfs目录的所有权 需要是root用户的。而不能是普通用户所有，只要是root所有再sudo chroot &lt;!-- raw HTML omitted --> 进去就没有这个问题。&lt;/p>
+&lt;h2 id="img方法">img方法
+&lt;/h2>&lt;p>这个方法适合需要独立管理的情况 文件放到img后先挂载到目录后 重新 &lt;code>sudo mount -o remount,suid &amp;lt;patch&amp;gt;&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">dd &lt;span class="k">if&lt;/span>&lt;span class="o">=&lt;/span>/dev/zero &lt;span class="nv">of&lt;/span>&lt;span class="o">=&lt;/span>test.img &lt;span class="nv">bs&lt;/span>&lt;span class="o">=&lt;/span>1G &lt;span class="nv">count&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="m">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkfs.ext4 test.img
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkdir /tmp/test
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo mount -o loop test.img /tmp/test
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo mount --bind /tmp/test /tmp/test
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo mount -o remount,suid /tmp/test
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo tar -xf bookworm.tar.xz -C /tmp/test/bookworm
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>当然不用img也是一样，目录挂载重新remount,suid也是可以。&lt;/p>
+&lt;h2 id="直接目录">直接目录
+&lt;/h2>&lt;p>另外一个常见的处理方法 就是&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">mkdir debian12v5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tat -xvJf bookworm.tar.xz -C ./debian12v5
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这时候 你直接chroot到目录里面，普通用户是无法执行sudo的。但是只要是把rootfs改为root所有 就没有这个问题了。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">sudo mkdir debian12v5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo tat -xvJf bookworm.tar.xz -C ./debian12v5
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>本文参考：https://www.cnblogs.com/ztguang/p/12644320.html&lt;/p></description></item><item><title>chroot的使用方法 替代docker/lxc/lxd</title><link>https://dev.leiyanhui.com/container/chroot/</link><pubDate>Fri, 15 Sep 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/container/chroot/</guid><description>&lt;p>某些情况下，docker和lxc不适合使用。例如内核不支持、或者docker会引入iptable的复杂化。这时候需要容器化的是可选的就只有systemd-nspawn 和chroot。但是systemd-nspawn仅在支持systemd的发行版有效。强用又会引入更复杂的状况。&lt;/p>
+&lt;p>这时候 chroot 又成为了唯一的选择。 但是chroot也有一些问题，例如：过于低级 使用 复杂。&lt;/p>
+&lt;h2 id="chroot">chroot
+&lt;/h2>&lt;p>chroot 是 Linux 内置的命令，所以不需要额外安装任何软件包或工具即可使用。它是一种常见且有用的工具，被广泛应用于隔离、测试和恢复操作系统环境。&lt;/p>
+&lt;h2 id="create">create
+&lt;/h2>&lt;p>chroot 需要一个目录 或者一个 raw文件 里面应该是一个完整的rootfs.
+常见的发行版可以去 &lt;a class="link" href="https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/" target="_blank" rel="noopener"
+>https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/&lt;/a> 这里下载。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">mkdir ~/container-chroot &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">cd&lt;/span> ~/container-chroot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 两个典型的发行版&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/debian/bookworm/amd64/default/20230830_05%3A24/rootfs.tar.xz -O bookworm.tar.xz
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget https://mirrors.tuna.tsinghua.edu.cn/lxc-images/images/alpine/3.18/amd64/default/20230830_13%3A00/rootfs.tar.xz -O alpine.tar.xz
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="使用">使用
+&lt;/h2>&lt;p>我 使用chroot 运行一个 redis&lt;/p>
+&lt;h2 id="配置目录">配置目录
+&lt;/h2>&lt;p>debian&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir bw-redis
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tar -xf bookworm.tar.xz -C ./bw-redis
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>alpine&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir alpine
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tar -xf alpine.tar.xz -C alpine
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>基础目录 镜像里面已经有 一般不需要&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir ./alpine/{dev,proc,sys,run}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkdir ./bw-redis/{dev,proc,sys,run}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="挂载">挂载
+&lt;/h3>&lt;p>主要是挂载/dev进去&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mount -v --bind /dev ./bw-redis/dev
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mount -v --bind /dev ./alpine/dev
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>看情况，可能你还需要挂载 /tmp 等目录&lt;/p>
+&lt;h4 id="进入容器">进入容器
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo chroot bw-redis #debian
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo chroot alpine /bin/busybox sh # alpine 默认没有bash
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置网络">配置网络
+&lt;/h3>&lt;p>网络和宿主机是一样的，但是没有dns&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">rm -rf /etc/resolv.conf # 默认是一个空符号连接，要删掉
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;search lan&amp;#34; &amp;gt;/etc/resolv.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;nameserver 114.114.114.114&amp;#34; &amp;gt;&amp;gt;/etc/resolv.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat /etc/resolv.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ping baidu.com
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="其他一些目录权限和需要挂载的目录">其他一些目录权限和需要挂载的目录
+&lt;/h3>&lt;p>需要处理一下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">chown -R root:root /etc/sudo.conf /etc/sudoers # sudo 命令
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chown -R root:root /etc/sudoers.d #根据发行版不同 需要调整一下配置文件
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chmod -R 777 /tmp #会影响某一些文件写入，另外tmp最好挂载到宿主系统由宿主系统决定是否ramfs
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mount -t devpts devpts /dev/pts #挂载 devpts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mount -t proc proc /proc #挂载proc ， ps 以及其他进程管理类的工具 要用
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="安装redis">安装redis
+&lt;/h3>&lt;p>debian&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apt&lt;/span> &lt;span class="n">update&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apt&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">transport&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">https&lt;/span> &lt;span class="n">ca&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">certificates&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># https://mirror.tuna.tsinghua.edu.cn/help/debian/ 修改国内源&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">apt&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="n">lsb&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">release&lt;/span> &lt;span class="n">curl&lt;/span> &lt;span class="n">gpg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">curl&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">fsSL&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">packages&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">redis&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">io&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">gpg&lt;/span> &lt;span class="o">|&lt;/span> &lt;span class="n">gpg&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">dearmor&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">o&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">keyrings&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">redis&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">archive&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">keyring&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">gpg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main&amp;#34;&lt;/span> &lt;span class="o">|&lt;/span> &lt;span class="n">tee&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apt&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">sources&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">list&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">redis&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">list&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apt&lt;/span> &lt;span class="n">update&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apt&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="n">redis&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">tools&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">6&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mf">7.2&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="n">rl1&lt;/span>&lt;span class="o">~&lt;/span>&lt;span class="n">bookworm1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apt&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="n">redis&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">server&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">6&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mf">7.2&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="n">rl1&lt;/span>&lt;span class="o">~&lt;/span>&lt;span class="n">bookworm1&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>alpine&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk update
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk add redis
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>redis 没有提供alpine的源，如果要安装指定版本的redis,可以自己编译，或者去docker 里面扣出来。&lt;/p>&lt;/blockquote>
+&lt;h3 id="启动">启动
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">redis-server
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="一些其他的处理">一些其他的处理
+&lt;/h4>&lt;p>redis 配置文件要处理一下。&lt;br>
+另外 local配置也可能会影响redis启动&lt;br>
+debian 下需要运行下面的命令，alpine下对容器进行的很多优化，不需要搞这些可以启动。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">&lt;span class="nb">export&lt;/span> &lt;span class="nv">TERM&lt;/span>&lt;span class="o">=&lt;/span>xterm
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt install locales
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">dpkg-reconfigure locales
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

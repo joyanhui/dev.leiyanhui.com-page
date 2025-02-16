@@ -1,0 +1,589 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Macos on 小类随手记</title><link>https://dev.leiyanhui.com/macos/</link><description>Recent content in Macos on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 09 Oct 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/macos/index.xml" rel="self" type="application/rss+xml"/><item><title>pve、kvm安装的macos 基本优化：opencore 迁移到虚拟硬盘 并进行基本操作</title><link>https://dev.leiyanhui.com/macos/kvm-macos-opencore-to-disk/</link><pubDate>Sun, 09 Oct 2022 00:00:00 +0000</pubDate><guid>https://dev.leiyanhui.com/macos/kvm-macos-opencore-to-disk/</guid><description>&lt;h1 id="pvekvm安装的macos-基本优化opencore-迁移到虚拟硬盘-并进行基本操作">pve、kvm安装的macos 基本优化：opencore 迁移到虚拟硬盘 并进行基本操作
+&lt;/h1>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/pve-install-macos-Ventura" >请查看新版：在pve上直接安装macos13Ventura 初步优化并直通显卡 蓝牙 wifi 声卡给macos&lt;/a>&lt;/p>
+&lt;p>前面 已经完成的 &lt;a class="link" href="https://dev.leiyanhui.com/new/pve-kvm-macos.html" target="_blank" rel="noopener"
+>在pve的kvm平台上手动安装macos12 并完成了基本设置，&lt;/a>&lt;/p>
+&lt;p>因为后面需要macos能自动启动 不需每次选启动盘，并还需要给它添加一下驱动，以便能使用我们的显卡和蓝牙wifi等。所以必须要把opencore迁移到虚拟磁盘上，方便修改。而不是iso文件&lt;/p>
+&lt;h2 id="分离-monterey-recoveryimg">分离 Monterey-recovery.img
+&lt;/h2>&lt;p>首先从 pve中 分离前面挂载的 Monterey-recovery.img 这个是系统恢复镜像，现在已经用不到了&lt;/p>
+&lt;p>然后 启动macos&lt;/p>
+&lt;p>用pve的vnc或者 用第三方工具连接已经打开屏幕共享的macos，打开mcaos的终端&lt;/p>
+&lt;h2 id="dd-opencore到虚拟硬盘">dd opencore到虚拟硬盘
+&lt;/h2>&lt;p>查看分区情况&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">diskutil list
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>disk1 是macos主盘，disk2 是opencore 的iso模拟的硬盘 disk1 是macos的引导&lt;/p>
+&lt;p>用DD命令吧opencore 分区拷贝到 disk1&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo dd if=/dev/disk2s1 of=/dev/disk0s1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>然后关机 pve 里面删除 opencore的iso，启动测试&lt;/p>
+&lt;p>如果跳转到了 efi命令行，检查一下 pve里面虚拟机设置 选择 引导顺序 选中 VirtIO 对应虚拟磁盘&lt;/p>
+&lt;h2 id="opencore-自动选择-虚拟硬盘启动">opencore 自动选择 虚拟硬盘启动
+&lt;/h2>&lt;p>需要用第三方工具 我这里选择 &lt;a class="link" href="https://github.com/ic005k/OCAuxiliaryTools/releases" target="_blank" rel="noopener"
+>https://github.com/ic005k/OCAuxiliaryTools/releases&lt;/a>&lt;/p>
+&lt;p>从macos里面 用safari下载&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">ghproxy&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ic005k&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OCAuxiliaryTools&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">releases&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">download&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">20220235&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OCAT_Mac&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">dmg&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>dmg下载后 把 OCAuxiliaryTools 拖到访达的应用程序里面 后面会经常用的&lt;/p>
+&lt;p>打开 OCAuxiliaryTools，编辑 挂载 esp分区，打开配置文件&lt;/p>
+&lt;p>OCAuxiliaryTools 会报错，还是用 ProperTree&lt;/p>
+&lt;h3 id="propertree下载">ProperTree下载
+&lt;/h3>&lt;p>可以直接用我的 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/ProperTree.app.zip" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/ProperTree.app.zip&lt;/a> ，或自己编辑
+&lt;code>https://github.com/corpnewt/ProperTree&lt;/code>&lt;/p>
+&lt;p>直接zip下载回来&lt;/p>
+&lt;h3 id="安装python310-macos">安装Python3.10 macOS
+&lt;/h3>&lt;p>&lt;code>https://www.python.org/downloads/release/python-3100/&lt;/code>&lt;/p>
+&lt;p>这个下载速度也很拉胯,建议挂一下代理 macos的代理设置 在 系统偏好设置 网络 高级 代理&lt;/p>
+&lt;h3 id="编译propertree">编译ProperTree
+&lt;/h3>&lt;p>打开访达 找到下载的 ProperTree/Scripts/buildapp-select.comm 运行 信任 仍旧打开&lt;/p>
+&lt;p>提示选择Python 版本 选择 3.10 ，自动编译到上级目录。 拖动到 访达的应用程序&lt;/p>
+&lt;h3 id="打开-opencore配置文件-改为自动跳过">打开 opencore配置文件 改为自动跳过
+&lt;/h3>&lt;p>直接用OCAuxiliaryTools 挂载efi 或者用 终端挂载
+Misc-&amp;gt;Boot-&amp;gt;showpicker 改为 false&lt;/p>
+&lt;p>就是关闭 选 由opencore 自动判断&lt;/p>
+&lt;p>或者 改为 倒计时&lt;/p>
+&lt;h3 id="opencore-倒计时启动">opencore 倒计时启动
+&lt;/h3>&lt;p>前面的 showpicker 不修改，保持是 true
+Misc-&amp;gt;Boot-&amp;gt;Timeout 改为3-5秒的数字，&lt;/p>
+&lt;p>MISC-&amp;gt;Security-&amp;gt;AllowSetDefault 改为ture&lt;/p>
+&lt;p>菜单栏 file 保存&lt;/p>
+&lt;p>在pve 重启macos 引导界面的时候 选中 启动硬盘，然后按下ctrl+回车 就会记住，以后会倒计时后自动使用这个硬盘&lt;/p>
+&lt;blockquote>
+&lt;p>注意 opencore 是不显示倒计时时间的，具体怎么显示&lt;br>
+另外 macos里面的引导磁盘的设置 容易导致混乱也不建议使用&lt;/p>&lt;/blockquote>
+&lt;h2 id="参考资料-和-进阶">参考资料 和 进阶
+&lt;/h2>&lt;p>&lt;a class="link" href="kvm-macos-install.md" >pve、kvm手动安装macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-opencore-to-disk.md" >pve、kvm安装的macos 基本优化：opencore 迁移到虚拟硬盘&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-gpu.md" >pve、kvm安装的macos 基本优化：显卡直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-wifi-Bluetooth.md" >pve、kvm安装的macos 基本优化：蓝牙和wifi直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="../new/kvm-usb.md" >pve usb设备和端口直通&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="err">流程图&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">processon&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">view&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">link&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">61&lt;/span>&lt;span class="n">b325221e08534ef3f1658d&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">mfpud&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">topics&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">8076&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">github上的OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="err">，几乎可以在任何的&lt;/span>&lt;span class="n">linux系统下虚拟化安装黑苹果&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">kholia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">pve&lt;/span>&lt;span class="err">：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">pve&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">wiki&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Downloads&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个英文参考教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nicksherlock&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">2021&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">installing&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">macos&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">12&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">7&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个视频教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1uq4y1g7ui&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">这个视频教程的第二部分：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1ML411E7eH&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>蓝牙和wifi 直通</title><link>https://dev.leiyanhui.com/macos/kvm-macos-wifi-bluetooth/</link><pubDate>Sun, 09 Oct 2022 00:00:00 +0000</pubDate><guid>https://dev.leiyanhui.com/macos/kvm-macos-wifi-bluetooth/</guid><description>&lt;h1 id="蓝牙和wifi-直通">蓝牙和wifi 直通
+&lt;/h1>&lt;h2 id="参考资料-和-进阶">参考资料 和 进阶
+&lt;/h2>&lt;p>&lt;a class="link" href="kvm-macos-install.md" >pve、kvm手动安装macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-opencore-to-disk.md" >pve、kvm安装的macos 基本优化：opencore 迁移到虚拟硬盘&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-gpu.md" >pve、kvm安装的macos 基本优化：显卡直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-wifi-Bluetooth.md" >pve、kvm安装的macos 基本优化：蓝牙和wifi直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="../new/kvm-usb.md" >pve usb设备和端口直通&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="err">流程图&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">processon&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">view&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">link&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">61&lt;/span>&lt;span class="n">b325221e08534ef3f1658d&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">mfpud&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">topics&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">8076&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">github上的OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="err">，几乎可以在任何的&lt;/span>&lt;span class="n">linux系统下虚拟化安装黑苹果&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">kholia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">pve&lt;/span>&lt;span class="err">：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">pve&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">wiki&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Downloads&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个英文参考教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nicksherlock&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">2021&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">installing&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">macos&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">12&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">7&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个视频教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1uq4y1g7ui&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">这个视频教程的第二部分：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1ML411E7eH&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>pve unraid 等kvm手动安装黑苹果</title><link>https://dev.leiyanhui.com/macos/kvm-macos-install/</link><pubDate>Sat, 08 Oct 2022 00:00:00 +0000</pubDate><guid>https://dev.leiyanhui.com/macos/kvm-macos-install/</guid><description>&lt;h1 id="pve-unraid-等kvm手动安装黑苹果">pve unraid 等kvm手动安装黑苹果
+&lt;/h1>&lt;h2 id="如果你pve-可以直接查看最新版程-直接安装macos13的教httpsdevleiyanhuicompvmpve-install-macos-ventura">如果你pve 可以直接查看最新版程 &lt;a class="link" href="https://dev.leiyanhui.com/pvm/pve-install-macos-ventura/" target="_blank" rel="noopener"
+>直接安装macos13的教&lt;/a>
+&lt;/h2>&lt;p>unraid市场有插件可以直接用docker安装黑苹果，但是因为收费 以及 神烦的网络问题，我换到了pve，同样都是基于kvm的使用方法 大同小异&lt;/p>
+&lt;p>首先知道 kvm安装黑苹果需要的两个东西
+1、opencore 引导盘
+2、macos 安装盘
+其次，要知道 一个关键的显卡问题，确定你显卡支持macos ，另外pve 最好是uefi启动的，不然后面显卡直通会问题。&lt;/p>
+&lt;p>我这里 是 qnct的CPU是魔改U 核显是u630&lt;/p>
+&lt;h2 id="基本流程">基本流程
+&lt;/h2>&lt;p>获取最新opencore &amp;gt; 用lxc容器获取macos恢复镜像 -&amp;gt; 创建虚拟机 -&amp;gt; 安装macos -&amp;gt; 优化 opencore硬盘化 显卡直通等&lt;/p>
+&lt;h2 id="先解决-基本的-opencore">先解决 基本的 opencore
+&lt;/h2>&lt;p>放到pve目录的iso目录，unraid的话放到 放到isos目录就好&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">cd&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">vz&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">template&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">iso&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">wget&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">ghproxy&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">thenickdude&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Opencore&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">releases&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">download&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">v19&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OpenCore&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v19&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">iso&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">gz&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">gzip&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">d&lt;/span> &lt;span class="n">OpenCore&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v19&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">iso&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">gz&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这个iso文件其实是一个硬盘镜像，只是后缀名 是iso。不过为了方便，后期我们最好还是把他挪到单独的一个磁盘镜像文件里面&lt;/p>
+&lt;h3 id="然后获取macos安装镜像">然后获取macos安装镜像
+&lt;/h3>&lt;p>有几个方法，
+1 是用GitHub的OSX-KVM &lt;a class="link" href="https://github.com/thenickdude/OSX-KVM.git" target="_blank" rel="noopener"
+>https://github.com/thenickdude/OSX-KVM.git&lt;/a>
+2 是用 Install\ macOS\ Ventura\ beta.app 自己做 ，
+3 是从小兵 远景 sysin 等直接拖 推荐 sysin 的，免费更新快
+4 直接下载苹果的dmg文件&lt;/p>
+&lt;h4 id="使用-osx-kvm-获取安装镜像">使用 OSX-KVM 获取安装镜像
+&lt;/h4>&lt;p>先搞一下lxc ，用lxc是为了避免影响pve宿主系统&lt;/p>
+&lt;p>1、下载容器模板
+pve local CT模板 模板 搜索 ubuntu 找到 ubuntu18.04 下载
+手动下载地址：&lt;code>http://download.proxmox.com/images/system/ubuntu-18.04-standard_18.04.1-1_amd64.tar.gz&lt;/code>
+或者
+修改 CT Templates (LXC 容器) 源#
+将 /usr/share/perl5/PVE/APLInfo.pm 文件中默认的源地址 &lt;a class="link" href="http://download.proxmox.com/images" target="_blank" rel="noopener"
+>http://download.proxmox.com/images&lt;/a> 替换为 &lt;a class="link" href="https://mirrors.tuna.tsinghua.edu.cn/proxmox/images" target="_blank" rel="noopener"
+>https://mirrors.tuna.tsinghua.edu.cn/proxmox/images&lt;/a> 即可。
+也可以&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">cp&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">perl5&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">PVE&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">APLInfo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">pm&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">perl5&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">PVE&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">APLInfo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">pm_back&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">sed&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="s1">&amp;#39;s|http://download.proxmox.com|https://mirrors.tuna.tsinghua.edu.cn/proxmox|g&amp;#39;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">perl5&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">PVE&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">APLInfo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">pm&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>重启&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">systemctl restart pvedaemon.service
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>然后重新下载即可&lt;/p>
+&lt;p>2、创建一个lxc&lt;br>
+容器名称 ubuntu18 密码 记住 这个密码是容器的root密码&lt;br>
+模板选ubuntu18这个&lt;br>
+磁盘大小16G&lt;br>
+cpu 给几个 无所谓给4个&lt;br>
+内存swap都给1024&lt;br>
+网络dhcp 就和我
+启动这个容器&lt;br>
+控制台 用root 和上面的密码登录&lt;/p>
+&lt;p>3、处理这个ubuntu系统&lt;br>
+更换国内源&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># nano /etc/apt/sources.list
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb http://mirrors.aliyun.com/ubuntu/ bionic main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb http://mirrors.aliyun.com/ubuntu/ bionic-security main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb http://mirrors.aliyun.com/ubuntu/ bionic-updates main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb http://mirrors.aliyun.com/ubuntu/ bionic-proposed main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb-src http://mirrors.aliyun.com/ubuntu/ bionic main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb-src http://mirrors.aliyun.com/ubuntu/ bionic-security main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb-src http://mirrors.aliyun.com/ubuntu/ bionic-updates main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb-src http://mirrors.aliyun.com/ubuntu/ bionic-proposed main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">deb-src http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted universe multiverse
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#apt update
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#apt upgrade
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>清华源,好像已经停止 18.04的支持 暂时用阿里的吧
+安装 需要的软件&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo apt install qemu-utils make git
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>4、克隆
+如果克隆不了，自己想办法挂一下代理 &lt;a class="link" href="https://dev.leiyanhui.com/new/linux-proxy.html" target="_blank" rel="noopener"
+>linux挂代理方法&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd ~
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git clone https://github.com/thenickdude/OSX-KVM.git
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>5、获取恢复镜像&lt;/p>
+&lt;p>monterey macos 12&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">unset&lt;/span> &lt;span class="n">http_proxy&lt;/span> &lt;span class="c1">#取消代理&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">unset&lt;/span> &lt;span class="n">https_proxy&lt;/span> &lt;span class="c1">#取消代理&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cd&lt;/span> &lt;span class="o">~/&lt;/span>&lt;span class="n">OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">scripts&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">monterey&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">make&lt;/span> &lt;span class="n">Monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">recovery&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">img&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 实际下载地址是 http://oscdn.apple.com/content/downloads/36/25/012-40515/f7fz3ubbup5g6lr4yj1x36xydr0fuwomkl/RecoveryImage/BaseSystem.dmg&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>6、拖动img 到pve
+登录pve ssh&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">pct&lt;/span> &lt;span class="n">pull&lt;/span> &lt;span class="mi">105&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">scripts&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">monterey&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">recovery&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">img&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">vz&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">template&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">iso&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">recovery&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">img&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 关掉ubuntu&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>105 是ubuntu容器编号&lt;/p>
+&lt;h4 id="官网下载地址">官网下载地址
+&lt;/h4>&lt;p>Monterey
+&lt;a class="link" href="http://oscdn.apple.com/content/downloads/36/25/012-40515/f7fz3ubbup5g6lr4yj1x36xydr0fuwomkl/RecoveryImage/BaseSystem.dmg" target="_blank" rel="noopener"
+>http://oscdn.apple.com/content/downloads/36/25/012-40515/f7fz3ubbup5g6lr4yj1x36xydr0fuwomkl/RecoveryImage/BaseSystem.dmg&lt;/a>
+Ventura Beta 10
+&lt;a class="link" href="https://swcdn.apple.com/content/downloads/02/20/012-83064-A_ITH2OUJKVC/dxpszsfokj0cxhpk0vndqs18fjiejer3sf/InstallAssistant.pkg" target="_blank" rel="noopener"
+>https://swcdn.apple.com/content/downloads/02/20/012-83064-A_ITH2OUJKVC/dxpszsfokj0cxhpk0vndqs18fjiejer3sf/InstallAssistant.pkg&lt;/a>&lt;/p>
+&lt;p>非Ventura的版本，网上都可以找到官网的dmg链接
+自己转换成img即可&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">qemu&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">img&lt;/span> &lt;span class="nb">convert&lt;/span> &lt;span class="n">BaseSystem&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">dmg&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">O&lt;/span> &lt;span class="n">raw&lt;/span> &lt;span class="n">BaseSystem&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">img&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#移动到iso里面备用&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">mv&lt;/span> &lt;span class="n">BaseSystem&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">img&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">vz&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">template&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">iso&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">install&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">img&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="创建一个虚拟机">创建一个虚拟机
+&lt;/h2>&lt;p>以kvm说明
+操作系统 ： other
+iso文件：就是那个 OpenCore-v18.iso&lt;/p>
+&lt;p>显卡：Vmware兼容
+Qemu代理：勾选
+BIOS：UEFI
+UEFI下面：预注册密钥 去掉
+机器：q35&lt;/p>
+&lt;p>总线：VirtIO
+缓存：Write Back（不安全）
+100G&lt;/p>
+&lt;p>CPU核心: 是2的次幂 2 4 8 16 我12核心的,只能给8
+类型：penryn
+Numa启用&lt;/p>
+&lt;p>网络模型：virtIO&lt;/p>
+&lt;p>创建了一个虚拟机103&lt;/p>
+&lt;p>添加一个cdrom 到 Monterey-install.img&lt;/p>
+&lt;h4 id="修改配置文件">修改配置文件
+&lt;/h4>&lt;p>还需要修改一下pve 据说是防止重复引导的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;options kvm ignore_msrs=Y&amp;#34; &amp;gt;&amp;gt; /etc/modprobe.d/kvm.conf &amp;amp;&amp;amp; update-initramfs -k all -u
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/pve/qemu-server/103.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>在第二行添加&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">intel:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">args: -device isa-applesmc,osk=&amp;#34;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&amp;#34; -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -global nec-usb-xhci.msi=off -cpu host,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 我的 参考 https://www.nicksherlock.com/2021/10/installing-macos-12-monterey-on-proxmox-7/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">args: -device isa-applesmc,osk=&amp;#34;THE-OSK-YOU-EXTRACTED-GOES-HERE&amp;#34; -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -global nec-usb-xhci.msi=off -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">args: -device isa-applesmc,osk=&amp;#34;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&amp;#34; -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -global nec-usb-xhci.msi=off -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off -cpu host,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">AMD:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">args: -device isa-applesmc,osk=&amp;#34;这里得自己找~&amp;#34; -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -global nec-usb-xhci.msi=off -cpu Penryn,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc,+pcid,+ssse3,+sse4.2,+popcnt,+avx,+avx2,+aes,+fma,+fma4,+bmi1,+bmi2,+xsave,+xsaveopt,check
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>我的配置文件&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">agent: 1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">args: -device isa-applesmc,osk=&amp;#34;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&amp;#34; -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -global nec-usb-xhci.msi=off -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off -cpu host,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bios: ovmf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">boot: order=ide2;ide0
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cores: 8
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cpu: Penryn
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">efidisk0: local:103/vm-103-disk-0.qcow2,efitype=4m,size=528K
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ide0: local:iso/Monterey-recovery.img,cache=unsafe,size=3144712K
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ide2: local:iso/OpenCore-v18.iso,cache=unsafe,size=150M
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">machine: q35
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">memory: 8196
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">meta: creation-qemu=6.2.0,ctime=1665305756
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">name: macos
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">net0: virtio=C6:73:64:FE:9A:61,bridge=vmbr0,firewall=1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">numa: 1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ostype: l26
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">scsihw: virtio-scsi-pci
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">smbios1: uuid=12a3b6e3-0fd3-41b0-942d-0a9591ca7f86
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sockets: 1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vga: vmware
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">virtio1: local:103/vm-103-disk-1.qcow2,cache=unsafe,size=100G
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vmgenid: d20a41e9-6bc5-4995-b785-f70a905fa727
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>然后下面的cdrom 两个
+media=cdrom 删掉改为 cache=unsafe&lt;/p>
+&lt;h2 id="安装">安装
+&lt;/h2>&lt;p>先格式磁盘，然后安装，重启过程中一直选择 macos install，指导没有 macos install之后，选之前分区的时候 设置的盘符&lt;/p>
+&lt;p>进去系统设置 中文，&lt;a class="link" href="https://support.apple.com/zh-cn/guide/mac-help/mchlp2996/mac" target="_blank" rel="noopener"
+>修改时区和时间&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://support.apple.com/zh-cn/guide/mac-help/mchlp2322/mac" target="_blank" rel="noopener"
+>更改电脑的名称或本地主机名&lt;/a>&lt;/p>
+&lt;p>更新一下系统，主要是 Safari更新到16，
+安装一个第三方远程工具，我这里选择todesk ，打开 共享 远程管理，添加管理员账户，给全部权限，然后再 电脑设置里面 开启vnc 输入一个密码。 用另外一个电脑测试vnc是否可以连接，如果可以 关机。就好了&lt;/p>
+&lt;h2 id="进阶">进阶
+&lt;/h2>&lt;p>先备份一下 虚拟磁盘 vm-103-disk-1.qcow2 可以压缩一下 &lt;a class="link" href="https://dev.leiyanhui.com/new/kvm-pve-unraid-compact-vdisk.html" target="_blank" rel="noopener"
+>kvm磁盘管理&lt;/a>
+cd /var/lib/vz/images/103#&lt;/p>
+&lt;p>后面需要把opencore弄到虚拟磁盘，方便进一步编辑处理（加驱动之类的），以及显卡直通 wifi蓝牙直通&lt;/p>
+&lt;h2 id="常见问题">常见问题
+&lt;/h2>&lt;ul>
+&lt;li>白苹果logo: 核心数 或者前面args参数有问题&lt;/li>
+&lt;li>lxc镜像下载失败:挂代理或者参考前面修改lxc的源&lt;/li>
+&lt;li>github clone失败:挂代理&lt;/li>
+&lt;/ul>
+&lt;h2 id="参考资料-和-进阶">参考资料 和 进阶
+&lt;/h2>&lt;p>&lt;a class="link" href="kvm-macos-install.md" >pve、kvm手动安装macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/pve-install-macos-Ventura" >请查看新版：在pve上直接安装macos13Ventura 初步优化并直通显卡 蓝牙 wifi 声卡给macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-opencore-to-disk.md" >pve、kvm安装的macos 基本优化：opencore 迁移到虚拟硬盘&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-gpu.md" >pve、kvm安装的macos 基本优化：显卡直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="kvm-macos-wifi-Bluetooth.md" >pve、kvm安装的macos 基本优化：蓝牙和wifi直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="../new/kvm-usb.md" >pve usb设备和端口直通&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="err">流程图&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">processon&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">view&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">link&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">61&lt;/span>&lt;span class="n">b325221e08534ef3f1658d&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">mfpud&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">topics&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">8076&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">github上的OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="err">，几乎可以在任何的&lt;/span>&lt;span class="n">linux系统下虚拟化安装黑苹果&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">kholia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">pve&lt;/span>&lt;span class="err">：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">pve&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">wiki&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Downloads&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个英文参考教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nicksherlock&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">2021&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">installing&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">macos&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">12&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">7&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个视频教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1uq4y1g7ui&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">这个视频教程的第二部分：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1ML411E7eH&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>linux下 可视化文件管理器</title><link>https://dev.leiyanhui.com/macos/kvm-macos-gpu/</link><pubDate>Wed, 03 Aug 2022 21:38:29 +0000</pubDate><guid>https://dev.leiyanhui.com/macos/kvm-macos-gpu/</guid><description>&lt;h1 id="pvekvm安装的macos-基本优化显卡直通到macos">pve、kvm安装的macos 基本优化：显卡直通到macos
+&lt;/h1>&lt;p>macos 在虚拟机下最要命的问题 就是 显卡性能，所以务必直通显卡或者vgpu给它。不然真的卡到崩溃&lt;/p>
+&lt;p>首先 bios要开启 VT-D&lt;/p>
+&lt;h2 id="配置-pve-打开直通">配置 pve 打开直通
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/default/grub
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>修改&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">GRUB_CMDLINE_LINUX_DEFAULT=&amp;#34;quiet intel_iommu=on&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>更新grub引导&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">update-grub
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>修改 /etc/modules&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">#nano /etc/modules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#添加
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_iommu_type1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_pc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_virqfd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>检查黑名单 /etc/modprobe.d/pve-blacklist.conf&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># nano /etc/modprobe.d/pve-blacklist.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 删除下面的内容
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist i915
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist snd_hda_intel
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist snd_hda_codec_hdmi
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>如果您此前将核显和声卡ID添加到vfio，请删除/etc/modprobe.d/vfio.conf&lt;/p>
+&lt;p>运行命令刷新initramfs，使以上修改生效&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">update-initramfs -u -k all
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="oc中添加核显驱动">oc中添加核显驱动
+&lt;/h2>&lt;p>要先添加驱动，不然开机就五国了&lt;/p>
+&lt;p>先安装 hackintool
+参考 &lt;a class="link" href="http://www.imacosx.cn/6546.html" target="_blank" rel="noopener"
+>http://www.imacosx.cn/6546.html&lt;/a>&lt;/p>
+&lt;h2 id="pve中-添加核显到-macos虚拟机">pve中 添加核显到 macos虚拟机
+&lt;/h2>&lt;p>添加pci设备 选择uhd630 所有功能。其他不勾选&lt;/p>
+&lt;h2 id="进阶">进阶
+&lt;/h2>&lt;p>添加钩子 ，虚拟关机后返回硬件到宿主机
+&lt;code>https://gitee.com/hellozhing/pvevm-hooks&lt;/code>
+相关说明 查看作者说明&lt;/p>
+&lt;h2 id="参考资料-和-进阶">参考资料 和 进阶
+&lt;/h2>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-install" >pve、kvm手动安装macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/pve-install-macos-Ventura" >请查看新版：在pve上直接安装macos13Ventura 初步优化并直通显卡 蓝牙 wifi 声卡给macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-opencore-to-disk" >pve、kvm安装的macos 基本优化：opencore 迁移到虚拟硬盘&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-gpu" >pve、kvm安装的macos 基本优化：显卡直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-wifi-Bluetooth" >pve、kvm安装的macos 基本优化：蓝牙和wifi直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/new/kvm-usb.md" >pve usb设备和端口直通&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="err">流程图&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">processon&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">view&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">link&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">61&lt;/span>&lt;span class="n">b325221e08534ef3f1658d&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">mfpud&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">topics&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">8076&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">github上的OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="err">，几乎可以在任何的&lt;/span>&lt;span class="n">linux系统下虚拟化安装黑苹果&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">kholia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">pve&lt;/span>&lt;span class="err">：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">pve&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">wiki&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Downloads&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个英文参考教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nicksherlock&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">2021&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">installing&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">macos&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">12&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">7&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个视频教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1uq4y1g7ui&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">这个视频教程的第二部分：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1ML411E7eH&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

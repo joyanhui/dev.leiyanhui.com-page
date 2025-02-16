@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nextcloud on 小类随手记</title><link>https://dev.leiyanhui.com/categories/nextcloud/</link><description>Recent content in Nextcloud on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 19 Apr 2023 00:01:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/nextcloud/index.xml" rel="self" type="application/rss+xml"/><item><title>nextcloud 安装和使用 以及配置文件 和避坑指南</title><link>https://dev.leiyanhui.com/nas/nextcloud/</link><pubDate>Wed, 19 Apr 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/nas/nextcloud/</guid><description>&lt;p>filerun 免费版停止更新，最后的免费版2023.1 作者看起来情绪很大，不打算继续修复了。而且他在没决定取消免费之前就删掉了旧版的docker镜像，只保留了最新不可用的7.4 和8.1两个镜像。&lt;br>
+考虑到群晖之类的还是过于折腾，而寄予厚望的 cloudreve半死不活，功能弱鸡，bug一堆作者一直不修复。 &lt;br>
+所以迁移到nextcloud， 除了卡一点 一切都安逸。&lt;/p>
+&lt;p>使用nextcloud 几个注意点，&lt;/p>
+&lt;ul>
+&lt;li>mysql要8.0 或者 MariaDB10.2 以后的版本 pgsql虽然理论性能更强，实际使用有一些小问题&lt;/li>
+&lt;li>如果内存有富裕，务必开redis&lt;/li>
+&lt;li>sftp ftp webdav协议，建议走rclone server， nextcloud的webdav一般般 有小问题，rclone的很稳&lt;/li>
+&lt;li>需要gmp扩展，宝塔直接装可能装不不上，需要先 apt install libgmp3-dev 宝塔坑更多哈&lt;/li>
+&lt;li>nextcloud 很多坑很多坑，docker版本也有一些问题。php熟悉的建议手工搭建php环境，宝塔熟悉常见坑处理的也可以跑起来。&lt;/li>
+&lt;li>setup-nextcloud.php 自动拉下来的包里面 .htaccess 有问题的，需要自己修。我对apache是不是特别熟悉，更喜欢nginx,但是官网明确说 官网之支持apache2.x 其他的web服务器只有第三方文档支持，不过还好。nginx太容易搞定了。&lt;/li>
+&lt;li>命令行模式的那个php内存提醒，需要修改php.ini ，修改完成后，如果依旧提示，需要重启php-fpm 以及 nginx&lt;/li>
+&lt;li>php-fpm.conf 需要添加一个参数&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>总的来说 nextcloud很强很强，但是 绝对不是开箱即用的方案，即便docker搭建完成后，后续也有很多小坑。php小白最好别碰。宝塔可以解决一部分环境问题&lt;/p>&lt;/blockquote>
+&lt;h1 id="需要的php扩展">需要的php扩展
+&lt;/h1>&lt;p>宝塔下额外需要安装的，这几个最好都装上。
+fileinfo opcache memcached/redis apcu imagemagick imap exif xsl gmp zstd mailparse&lt;/p>
+&lt;h1 id="安装">安装
+&lt;/h1>&lt;p>安装很简单，提前创建好mysql/mariadb数据库，环境ok的下载 setup-nextcloud.php 到 php运行目录，执行即可，如果超时 一个注意php执行时间 另外一个是它是从境外下载的，所以你需要处理加速的问题。&lt;/p>
+&lt;h1 id="启用软连接">启用软连接
+&lt;/h1>&lt;p>可以方便直接指向原来的数据目录&lt;/p>
+&lt;h2 id="配置文件添加">配置文件添加
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-php" data-lang="php">&lt;span class="line">&lt;span class="cl"> &lt;span class="s1">&amp;#39;filesystem_check_changes&amp;#39;&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="k">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s1">&amp;#39;localstorage.allowsymlinks&amp;#39;&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="k">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这里有小坑，我之前一直扫描不到文件，后来重启nginx和php-fpm 后就好了。&lt;/p>
+&lt;h2 id="软连接创建">软连接创建
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">mv /www/wwwroot/nextcloud.com/data/XXXX/files /www/wwwroot/nextcloud.com/data/XXXX/files-bak
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ln -s /mnt/sda1/myfiles/ /www/wwwroot/nextcloud.com/XXXX/yanhui/files
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意权限，宝塔是 www:www 所有，或者干脆 777 也行&lt;/p>
+&lt;h2 id="扫描一次磁盘">扫描一次磁盘
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd /www/wwwroot/nextcloud.com
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sudo -u www php occ files:scan --all
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="php-fpmconf-的修改">php-fpm.conf 的修改
+&lt;/h1>&lt;p>添加这几行，不然后台会提示env空&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">env[HOSTNAME] = $HOSTNAME
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">env[PATH] = /usr/local/bin:/usr/bin:/bin
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">env[TMP] = /tmp
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">env[TMPDIR] = /tmp
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">env[TEMP] = /tmp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="nginx-配置文件">nginx 配置文件
+&lt;/h1>&lt;p>解决了所有问题，但是没有开启https，因为我这里https 是单独由另外一个nginx管理的&lt;br>
+&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/nextcloud/nginx-site.cnf" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/nextcloud/nginx-site.cnf&lt;/a>&lt;/p>
+&lt;h1 id="nextcloud-配置文件">nextcloud 配置文件
+&lt;/h1>&lt;p>&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/nextcloud/config.php" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/nextcloud/config.php&lt;/a>&lt;br>
+注意也没开https nextcloud 后台设置会 复写 这个文件，所以里面不可以加其他语法，会被覆盖掉。&lt;/p>
+&lt;h1 id="nginx-反向代理">nginx 反向代理
+&lt;/h1>&lt;p>&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/nextcloud/nginx-proxy.conf" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/nextcloud/nginx-proxy.conf&lt;/a>&lt;br>
+这里启用了ssl,需要另外修改config.php 里面的 &lt;code> 'overwriteprotocol' =&amp;gt; 'http',&lt;/code> 为 &lt;code> 'overwriteprotocol' =&amp;gt; 'https',&lt;/code> &lt;br>
+另外此反向代理文件在 nextcloud 26.0.1 版本 后台 依旧会提示 webfinger 和 nodeinfo错误，但是不影响使用&lt;/p></description></item></channel></rss>
