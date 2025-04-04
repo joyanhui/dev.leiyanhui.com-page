@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Opwnwrt on 小类随手记</title><link>https://dev.leiyanhui.com/categories/opwnwrt/</link><description>Recent content in Opwnwrt on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 19 Sep 2023 00:01:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/opwnwrt/index.xml" rel="self" type="application/rss+xml"/><item><title>fake-ip代理的问题 ddns失效 等</title><link>https://dev.leiyanhui.com/openwrt/oc-fakeip/</link><pubDate>Tue, 19 Sep 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/oc-fakeip/</guid><description>&lt;p>fake-ip和 redir-host两者区别，哪个好？&lt;/p>
+&lt;p>在redir-host模式下，Clash先将域名进行解析，再将具体的IP地址响应给客户端，并且记录其对应关系。&lt;/p>
+&lt;p>而在fake-ip模式下则不进行DNS解析，而是直接生成一个“假IP”并响应给客户端，再记录对应关系。&lt;/p>
+&lt;p>这可以有如下两个好处：
+1、fake-ip的响应会更快(因为会马上给你一个假IP)，如果最后判定为代理，则有可能节省一次本地的DNS请求.在访问国内网站的时候，速度会提升0.1-0.3m
+2、不需要担心DNS污染（因为配置文件中的DNS仅用作规则判定）&lt;/p>
+&lt;p>坏处 就是，你ping任何域名 获得的ip的都是假的。哪怕不存在的域名。ping的超时时间也肯定是错误的。&lt;/p>
+&lt;p>日常使用不会有太大的影响，但是你在内网访问ddns的域名时候，默认请求到你的公网ip然后路由器直接环回到内网。因为这个ip是假的 就导致 无法 完成后面的操作。&lt;/p>
+&lt;p>在不配置 smartdns的情况下，使用fake-ip 也不用其它的dns插件。不代理udp（游戏），代理ipv6 。
+整体使用感受会很舒适。&lt;/p>
+&lt;p>解决方法也很简单，在openclash中 开启fake-ip 后切换到 覆写设置 dns设置 Fake-IP-Filter 里面配置你要绕过 fake-ip 直接访问的域名。&lt;/p>
+&lt;p>例如&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;span class="lnt">113
+&lt;/span>&lt;span class="lnt">114
+&lt;/span>&lt;span class="lnt">115
+&lt;/span>&lt;span class="lnt">116
+&lt;/span>&lt;span class="lnt">117
+&lt;/span>&lt;span class="lnt">118
+&lt;/span>&lt;span class="lnt">119
+&lt;/span>&lt;span class="lnt">120
+&lt;/span>&lt;span class="lnt">121
+&lt;/span>&lt;span class="lnt">122
+&lt;/span>&lt;span class="lnt">123
+&lt;/span>&lt;span class="lnt">124
+&lt;/span>&lt;span class="lnt">125
+&lt;/span>&lt;span class="lnt">126
+&lt;/span>&lt;span class="lnt">127
+&lt;/span>&lt;span class="lnt">128
+&lt;/span>&lt;span class="lnt">129
+&lt;/span>&lt;span class="lnt">130
+&lt;/span>&lt;span class="lnt">131
+&lt;/span>&lt;span class="lnt">132
+&lt;/span>&lt;span class="lnt">133
+&lt;/span>&lt;span class="lnt">134
+&lt;/span>&lt;span class="lnt">135
+&lt;/span>&lt;span class="lnt">136
+&lt;/span>&lt;span class="lnt">137
+&lt;/span>&lt;span class="lnt">138
+&lt;/span>&lt;span class="lnt">139
+&lt;/span>&lt;span class="lnt">140
+&lt;/span>&lt;span class="lnt">141
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#LAN&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">lan&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">localdomain&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">example&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">invalid&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">localhost&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">local&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">home&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">arpa&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#放行NTP服务&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">gov&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">edu&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ios&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time1&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time2&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time3&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time4&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time5&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time6&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time7&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp1&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp2&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp3&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp4&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp5&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp6&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ntp7&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">edu&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">ntp&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">org&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">pool&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">ntp&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">org&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">time1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cloud&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tencent&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#放行网易云音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">163.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">163.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="mf">126.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#百度音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">musicapi&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">taihe&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">taihe&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#酷狗音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">songsearch&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">kugou&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">trackercdn&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">kugou&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#酷我音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">kuwo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#JOOX音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">api&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">jooxtt&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sanook&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">api&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">joox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">joox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#QQ音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">y&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">y&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">streamoc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">mobileoc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">isure&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">stream&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qqmusic&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">dl&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">stream&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qqmusic&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">aqqmusic&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">amobile&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#虾米音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">xiami&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#咪咕音乐&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">migu&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">music&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">migu&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#win10本地连接检测&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">msftconnecttest&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">msftncsi&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#QQ登录&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">localhost&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">ptlogin2&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">localhost&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sec&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">qq&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">tencent&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Game&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Nintendo Switch&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">srv&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nintendo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">n&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">n&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">srv&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nintendo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Sony PlayStation&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">stun&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">playstation&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Microsoft Xbox&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">xbox&lt;/span>&lt;span class="o">.*.*.&lt;/span>&lt;span class="n">microsoft&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.*.&lt;/span>&lt;span class="n">xboxlive&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">xbox&lt;/span>&lt;span class="o">.*.&lt;/span>&lt;span class="n">microsoft&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">xnotify&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">xboxlive&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Wotgame&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">battlenet&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">wotgame&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">wggames&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">wowsgame&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">wargaming&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Golang&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">proxy&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">golang&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">org&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#STUN&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">stun&lt;/span>&lt;span class="o">.*.*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">stun&lt;/span>&lt;span class="o">.*.*.*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">stun&lt;/span>&lt;span class="o">.*.*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">stun&lt;/span>&lt;span class="o">.*.*.*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">stun&lt;/span>&lt;span class="o">.*.*.*.*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">stun&lt;/span>&lt;span class="o">.*.*.*.*.*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Linksys Router&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">heartbeat&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">belkin&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">linksys&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">linksyssmartwifi&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#ASUS Router&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">router&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">asus&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Apple Software Update Service&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">mesu&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">swscan&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">swquery&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">swdownload&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">swcdn&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">swdist&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">apple&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Google&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">lens&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">l&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">google&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">stun&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">l&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">google&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">na&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">b&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">g&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">tun&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Netflix&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">nflxvideo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#FinalFantasy XIV Worldwide Server &amp;amp; CN Server&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">square&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">enix&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">finalfantasyxiv&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">ffxiv&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">ff14&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sdo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ff&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">dorado&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sdo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Bilibili&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">*.&lt;/span>&lt;span class="n">mcdn&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilivideo&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cn&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Disney Plus&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">media&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">dssott&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#shark007 Codecs &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">shark007&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#Mijia&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">Mijia&lt;/span> &lt;span class="n">Cloud&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#招商银行&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">cmbchina&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">cmbimg&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#AdGuard&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">local&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">adguard&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">org&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#迅雷&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">sandai&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">n0808&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#自己&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">+.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>smartdns和openclash的配合</title><link>https://dev.leiyanhui.com/openwrt/smartdns-openclash/</link><pubDate>Tue, 19 Sep 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/smartdns-openclash/</guid><description>&lt;h2 id="安装配置-smartdns">安装配置 smartdns
+&lt;/h2>&lt;p>opkg install luci-app-smartdns&lt;/p>
+&lt;p>然后配置上游dns 即可&lt;/p>
+&lt;p>需要配置多个 上游dns ， 最好 几个国内的 几个境外&lt;/p>
+&lt;h2 id="openclash-配置">openclash 配置
+&lt;/h2>&lt;p>openclash 使用redir-host 模式即可，然后追加上游dns 为本地 127.0.0.1:smartdns端口&lt;/p>
+&lt;h2 id="注意">注意
+&lt;/h2>&lt;p>smartdns 并发请求 上游dns，也就是默认情况下，你访问某一个网站，多个dns 都会收到查询请求。&lt;/p>
+&lt;p>所以需要进一步调整 配置 域名列表&lt;/p>
+&lt;h2 id="一般建议">一般建议
+&lt;/h2>&lt;p>通常来说 非必要情况下 不建议 smartdns 和 openclash 一起使用，广告过滤可以 openclash规则处理掉 ，国内域名的dns加速，可以 fake-ip 处理掉。&lt;/p>
+&lt;p>mosdns 也是一个不错的选择！&lt;/p>
+&lt;h2 id="mosdns">mosdns
+&lt;/h2>&lt;p>白名单：加入的域名始终允许使用 “本地 DNS” 进行解析，且优先级最高（每个域名一行，支持域名匹配规则）
+黑名单：加入的域名将屏蔽 DNS 解析（每个域名一行，支持域名匹配规则）
+灰名单：加入的域名始终使用 “远程 DNS” 进行解析（每个域名一行，支持域名匹配规则）
+DDNS 域名：加入的域名始终使用 “本地 DNS” 进行解析，并且强制 TTL 5 秒，解析结果不会进入缓存（每个域名一行，支持域名匹配规则）
+Hosts：自定义 Hosts 重写，如：baidu.com 10.0.0.1（每个规则一行）
+重定向：重定向请求的域名。请求域名 A，但返回域名 B 的记录，如：baidu.com qq.com（每个规则一行）
+PTR 黑名单：加入的域名将阻止 PTR 请求（每个域名一行，支持域名匹配规则）&lt;/p></description></item></channel></rss>
