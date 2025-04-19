@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>K2p on 小类随手记</title><link>https://dev.leiyanhui.com/categories/k2p/</link><description>Recent content in K2p on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 10 Nov 2023 00:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/k2p/index.xml" rel="self" type="application/rss+xml"/><item><title>k2p Padavan 离线自动重启，中继模式检测主路由不在自动重启方案</title><link>https://dev.leiyanhui.com/route/k2p-ap-reboot/</link><pubDate>Fri, 10 Nov 2023 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/route/k2p-ap-reboot/</guid><description>&lt;p>k2p 刷 Padavan 中继模式，在主路由维护或者更换后，k2p无法自动连接上，并给接入的设备分配ip。&lt;/p>
+&lt;p>所以添加一个脚本来实现 1分钟检测一次和主路由的连接情况，如果连接正常，那么什么也不做，如果连接异常，那么30秒后重启。&lt;/p>
+&lt;p>ssh 登陆路由 添加一个脚本&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">cat &amp;gt; /etc/storage/auto_reboot.sh &lt;span class="s">&amp;lt;&amp;lt; \EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">default_gateway=&amp;#39;10.1.1.1&amp;#39; # 10.1.1.1 or 223.5.5.5
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">check_ip_available(){
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> ping -c 3 $1 | grep packets | awk &amp;#39;{print $4}&amp;#39;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">sleep 30
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">res=`check_ip_available $default_gateway`
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">if [ $(($res)) -eq 0 ];
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">then
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> echo &amp;#34;rebooting...&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> /sbin/reboot
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">fi
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">echo &amp;#34;nothing need todo&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chmod +x /etc/storage/auto_reboot.sh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/sbin/mtd_storage.sh save
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>自动定时运行脚本（每一分钟检测一次）：&lt;br>
+&lt;code>系统管理 - 服务 &lt;/code> 调度任务 (Crontab) 加入 &lt;code>*/1 * * * * /etc/storage/auto_reboot.sh&lt;/code>&lt;/p>&lt;/blockquote>
+&lt;p>同样也可以修改为 检测ping 一个国内稳定的公网ip .&lt;/p>
+&lt;h3 id="旁路由方案自动切换网关">旁路由方案自动切换网关
+&lt;/h3>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/auto-change-gatway/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/openwrt/auto-change-gatway/&lt;/a>&lt;/p></description></item></channel></rss>
