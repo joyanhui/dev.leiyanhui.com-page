@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Tls on 小类随手记</title><link>https://dev.leiyanhui.com/categories/tls/</link><description>Recent content in Tls on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 12 Sep 2023 08:30:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/tls/index.xml" rel="self" type="application/rss+xml"/><item><title>自签名证书的使用，以及辟谣：自签名证书其实非常安全，但是需要你处理好客户端信任的问题</title><link>https://dev.leiyanhui.com/web/ssl/</link><pubDate>Tue, 12 Sep 2023 08:30:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/ssl/</guid><description>&lt;h2 id="安全性">安全性
+&lt;/h2>&lt;p>简中很多文章说自签名证书不安全，这要看你怎么用。&lt;/p>
+&lt;p>如果你是搭建面向公众的服务，例如网站 那么肯定不够安全的。 这是因为 普通用户无法通过简单并安全的方法验证你的证书是否真的是你的。因为没有权威ca存在了。&lt;/p>
+&lt;p>而如果是面向内部使用的，我们可以通过权威ca 或者 其他加密途径分发证书。或者通过证书指纹验证的方法来确保安全。&lt;/p>
+&lt;p>当然指纹验证严格说 也不够安全，虽然指纹被伪造的可能性也几乎没有。&lt;/p>
+&lt;p>我们只要 保证 证书分发的过程是安全的，那么自签名证书的安全性 甚至可以超过 可信ca颁发的证书（参考我朝某衙）。&lt;/p>
+&lt;h2 id="碎碎念">碎碎念
+&lt;/h2>&lt;p>ca机构运营是有成本的，所有权威证书需要付费无可厚非。但是自签证书并非不安全，资本的文章看看就好，多读书。&lt;br>
+同样类似 ssh协议，默认情况下，和自签名证书的过程其实并无差距。那么ssh不安全吗？&lt;/p>
+&lt;h2 id="自签名证书的优点">自签名证书的优点
+&lt;/h2>&lt;ul>
+&lt;li>和商业收费证书同样安全性，某些方便甚至超过收费证书&lt;/li>
+&lt;li>可以灵活控制有效期，例如在某些特殊情况下，需要超长的有效期&lt;/li>
+&lt;li>自主可控&lt;/li>
+&lt;li>可以省略OCSP服务，速度会更快&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>OCSP 主要是方便检查证书是否有效的情况，也就是可以吊销掉已经签发出去的证书。但是OCSP会多了一个网络验证的操作，这也是某些在国内没有OCSP服务器的一些商业证书速度很慢的 原因。&lt;/p>&lt;/blockquote>
+&lt;h2 id="自签名ca和域名ip证书的过程">自签名ca和域名/ip证书的过程
+&lt;/h2>&lt;p>下面一个简单说一下，自己用openssl实现 自己的ca 并签发证书的过程&lt;/p>
+&lt;h3 id="ca">ca
+&lt;/h3>&lt;p>CA私钥&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl genpkey -algorithm RSA -out ca_private.key
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>CA请求文件&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl req -new -key ca_private.key -out ca_request.csr
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>CA证书&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl x509 -req -in ca_request.csr -signkey ca_private.key -out ca_certificate.crt -days &lt;span class="m">3650&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="用ca签发证书">用ca签发证书
+&lt;/h3>&lt;h4 id="生成域名-私钥和-证书请求文件">生成域名 私钥和 证书请求文件：
+&lt;/h4>&lt;p>openssl genpkey -algorithm RSA -out domain_private.key
+openssl req -new -key domain_private.key -out domain_request.csr&lt;/p>
+&lt;h4 id="从ca证书-签发证书">从ca证书 签发证书
+&lt;/h4>&lt;p>简单创建 一个 10年的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl x509 -req -in domain_request.csr -CA ca_certificate.crt -CAkey ca_private.key -CAcreateserial -out domain_certificate.crt -days &lt;span class="m">3650&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>但是这个证书里面没有域名，客户端依旧会伪造，创建一个包含域名的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl x509 -req -in domain_request.csr -CA ca_certificate.crt -CAkey ca_private.key -CAcreateserial -out domain_certificate.crt -days &lt;span class="m">3650&lt;/span> -extfile &amp;lt;&lt;span class="o">(&lt;/span>&lt;span class="nb">printf&lt;/span> &lt;span class="s2">&amp;#34;subjectAltName=DNS:*.leiyanhui.com,DNS:leiyanhui.com,DNS:*.baidu.com,DNS:baidu.com&amp;#34;&lt;/span>&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="创建一个包含域名和ip范围的">创建一个包含域名和ip范围的
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">&lt;span class="nv">IP_LIST&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$(for&lt;/span> i in &lt;span class="o">{&lt;/span>1..254&lt;span class="o">}&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">do&lt;/span> &lt;span class="nb">echo&lt;/span> -n &lt;span class="s2">&amp;#34;IP:10.1.1.&lt;/span>&lt;span class="nv">$i&lt;/span>&lt;span class="s2">,&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">done&lt;/span> &lt;span class="p">|&lt;/span> sed &lt;span class="s1">&amp;#39;s/,$//&amp;#39;&lt;/span>&lt;span class="k">)&lt;/span> &lt;span class="c1"># ip 10.1.1.1-10.1.1.254&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl x509 -req -in domain_request.csr -CA ca_certificate.crt -CAkey ca_private.key -CAcreateserial -out domain_certificate.crt -days &lt;span class="m">3650&lt;/span> -extfile &amp;lt;&lt;span class="o">(&lt;/span>&lt;span class="nb">printf&lt;/span> &lt;span class="s2">&amp;#34;subjectAltName=DNS:*.leiyanhui.com,DNS:*.shiyuxin.work,&lt;/span>&lt;span class="nv">$IP_LIST&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="域名私钥和证书合并到一个-pem">域名私钥和证书合并到一个 .pem
+&lt;/h3>&lt;p>有部分软件是使用的 all in one的 pem格式，例如monit&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cat domain_private.key domain_certificate.crt &amp;gt; domain_aio.pem
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="客户端应该如何信任">客户端应该如何信任
+&lt;/h3>&lt;p>上面命令中的 ca_certificate.crt 和 domain_certificate.crt 都是包含公钥的证书文件，服务器会自动分发给客户端。但是这个过程是无法保证安全的。&lt;/p>
+&lt;p>那么 这个两个文件，可以通过其他可信的途径分发给客户端。 例如： 可信ca的 https webdav email 甚至vpn 线下 内网 等方式&lt;/p>
+&lt;p>一般情况下，建议客户端信任 ca_certificate.crt 即可。那么所有使用 ca_certificate.crt 签发的证书，只要ip/域名 能对应 客户端就会认为是安全的。&lt;/p>
+&lt;p>如果只是信任 domain_certificate.crt 的话，那么自己的ca证书签发的别的证书就无法可信了。这个很好理解。&lt;/p>
+&lt;h3 id="那些文件是可以公开的">那些文件是可以公开的
+&lt;/h3>&lt;p>只有 ca_certificate.crt 和 domain_certificate.crt 这两个文件 可以公开的。其他文件务必妥善保管。
+尤其是 ca_private.key 这个文件，如果泄漏 就等于 天朝某衙门作恶了。&lt;/p></description></item></channel></rss>
