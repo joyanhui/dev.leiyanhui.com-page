@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Sshd on 小类随手记</title><link>https://dev.leiyanhui.com/categories/sshd/</link><description>Recent content in Sshd on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 29 Nov 2022 07:20:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/sshd/index.xml" rel="self" type="application/rss+xml"/><item><title>docker 配置一个支持sshd的debian</title><link>https://dev.leiyanhui.com/docker/debian-sshd/</link><pubDate>Tue, 29 Nov 2022 07:20:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-sshd/</guid><description>&lt;p>参考 &lt;a class="link" href="https://dev.leiyanhui.com/docker/alpine-sshd/" target="_blank" rel="noopener"
+>docker中制作alpine+sshd的基础镜像&lt;/a>&lt;/p>
+&lt;h2 id="选择基础系统镜像">选择基础系统镜像
+&lt;/h2>&lt;p>还是考虑用debian系列，docker pull debian:bullseye-slim&lt;/p>
+&lt;pre>&lt;code>docker run -itd --name debian-for-sshd -p 59010:2222 -p 59011:22 --privileged=true debian:bullseye-slim /bin/bash
+docker exec -it debian-for-sshd /bin/bash
+&lt;/code>&lt;/pre>
+&lt;h2 id="安装sshd">安装sshd
+&lt;/h2>&lt;h3 id="国内源更新安装sshd-nano-tzdata">国内源/更新/安装sshd nano tzdata
+&lt;/h3>&lt;pre>&lt;code>sudo sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list
+apt update
+apt install openssh-server nano tzdata
+cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+&lt;/code>&lt;/pre>
+&lt;h3 id="配置登录信息">配置登录信息
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sed -i &amp;#34;s/#PermitRootLogin.*/PermitRootLogin yes/g&amp;#34; /etc/ssh/sshd_config &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t dsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_dsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t rsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_rsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ecdsa -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ecdsa_key &amp;amp;&amp;amp; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssh-keygen -t ed25519 -P &amp;#34;&amp;#34; -f /etc/ssh/ssh_host_ed25519_key
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;root:root&amp;#34; | chpasswd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="打开sftp">打开sftp
+&lt;/h3>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/pve/open-sftp/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/open-sftp/&lt;/a>&lt;/p>
+&lt;h3 id="修改端口-为2222">修改端口 为2222
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/ssh/sshd_config
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/etc/init.d/ssh restart
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="测试登录">测试登录
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">ssh root@10.0.0.9 -p 59010
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置脚本自动启动">配置脚本自动启动
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">echo &amp;#34;/etc/init.d/ssh start&amp;#34; &amp;gt; /autoboot.sh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;tail -f /dev/null&amp;#34; &amp;gt;&amp;gt; /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>最后这行是防止退出的&lt;/p>
+&lt;h3 id="清理">清理
+&lt;/h3>&lt;pre>&lt;code>apt clean
+apt autoclean
+&lt;/code>&lt;/pre>
+&lt;h3 id="备份容器">备份容器
+&lt;/h3>&lt;p>在宿主机运行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="n">stop&lt;/span> &lt;span class="n">debian&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">sshd&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="k">export&lt;/span> &lt;span class="n">debian&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">sshd&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">debian11&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">sshd&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tar&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 打包压缩&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">gzip&lt;/span> &lt;span class="n">debian11&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">sshd&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tar&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#备份&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cp&lt;/span> &lt;span class="n">debian11&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">sshd&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tar&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">gz&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">mnt&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">smb&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">docker&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 删除旧的容器&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="n">rm&lt;/span> &lt;span class="n">debian&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">sshd&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="创建新容器">创建新容器
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cat debian11-for-sshd.tar.gz | docker import - debian11:sshd-autoboot.sh2222
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker run -itd --name debian-go-codeserver-git --privileged=true \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-p 59010:2222 -p 59011-59019:59011-59019 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">debian11:sshd-autoboot.sh2222 sh /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>可以直接用我放在阿里云上的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd --name debian-go-codeserver-git --privileged=true \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-p 59010:2222 -p 59011-59019:59011-59019 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">registry.cn-qingdao.aliyuncs.com/joyanhui/base-sh-debian:debian11-sshd-autoboot.sh2222 sh /autoboot.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="搞其他的">搞其他的
+&lt;/h3>&lt;p>ssh 连接上随便玩起来，如果要添加跟随容器启动的程序 就编辑 /autoboot.sh&lt;/p></description></item></channel></rss>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Maos on 小类随手记</title><link>https://dev.leiyanhui.com/tags/maos/</link><description>Recent content in Maos on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 03 Aug 2022 21:38:29 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/maos/index.xml" rel="self" type="application/rss+xml"/><item><title>linux下 可视化文件管理器</title><link>https://dev.leiyanhui.com/macos/kvm-macos-gpu/</link><pubDate>Wed, 03 Aug 2022 21:38:29 +0000</pubDate><guid>https://dev.leiyanhui.com/macos/kvm-macos-gpu/</guid><description>&lt;h1 id="pvekvm安装的macos-基本优化显卡直通到macos">pve、kvm安装的macos 基本优化：显卡直通到macos
+&lt;/h1>&lt;p>macos 在虚拟机下最要命的问题 就是 显卡性能，所以务必直通显卡或者vgpu给它。不然真的卡到崩溃&lt;/p>
+&lt;p>首先 bios要开启 VT-D&lt;/p>
+&lt;h2 id="配置-pve-打开直通">配置 pve 打开直通
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/default/grub
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>修改&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">GRUB_CMDLINE_LINUX_DEFAULT=&amp;#34;quiet intel_iommu=on&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>更新grub引导&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">update-grub
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>修改 /etc/modules&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">#nano /etc/modules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#添加
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_iommu_type1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_pc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vfio_virqfd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>检查黑名单 /etc/modprobe.d/pve-blacklist.conf&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># nano /etc/modprobe.d/pve-blacklist.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 删除下面的内容
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist i915
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist snd_hda_intel
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blacklist snd_hda_codec_hdmi
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>如果您此前将核显和声卡ID添加到vfio，请删除/etc/modprobe.d/vfio.conf&lt;/p>
+&lt;p>运行命令刷新initramfs，使以上修改生效&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">update-initramfs -u -k all
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="oc中添加核显驱动">oc中添加核显驱动
+&lt;/h2>&lt;p>要先添加驱动，不然开机就五国了&lt;/p>
+&lt;p>先安装 hackintool
+参考 &lt;a class="link" href="http://www.imacosx.cn/6546.html" target="_blank" rel="noopener"
+>http://www.imacosx.cn/6546.html&lt;/a>&lt;/p>
+&lt;h2 id="pve中-添加核显到-macos虚拟机">pve中 添加核显到 macos虚拟机
+&lt;/h2>&lt;p>添加pci设备 选择uhd630 所有功能。其他不勾选&lt;/p>
+&lt;h2 id="进阶">进阶
+&lt;/h2>&lt;p>添加钩子 ，虚拟关机后返回硬件到宿主机
+&lt;code>https://gitee.com/hellozhing/pvevm-hooks&lt;/code>
+相关说明 查看作者说明&lt;/p>
+&lt;h2 id="参考资料-和-进阶">参考资料 和 进阶
+&lt;/h2>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-install" >pve、kvm手动安装macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/pve-install-macos-Ventura" >请查看新版：在pve上直接安装macos13Ventura 初步优化并直通显卡 蓝牙 wifi 声卡给macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-opencore-to-disk" >pve、kvm安装的macos 基本优化：opencore 迁移到虚拟硬盘&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-gpu" >pve、kvm安装的macos 基本优化：显卡直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/macos/kvm-macos-wifi-Bluetooth" >pve、kvm安装的macos 基本优化：蓝牙和wifi直通到macos&lt;/a>&lt;/p>
+&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/new/kvm-usb.md" >pve usb设备和端口直通&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="err">流程图&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">processon&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">view&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">link&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">61&lt;/span>&lt;span class="n">b325221e08534ef3f1658d&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">mfpud&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">topics&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">8076&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">github上的OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>&lt;span class="err">，几乎可以在任何的&lt;/span>&lt;span class="n">linux系统下虚拟化安装黑苹果&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">kholia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">OSX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">KVM&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">pve&lt;/span>&lt;span class="err">：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">pve&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">wiki&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Downloads&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个英文参考教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nicksherlock&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">2021&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">installing&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">macos&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">12&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">monterey&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">proxmox&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">7&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">一个视频教程：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1uq4y1g7ui&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">这个视频教程的第二部分：&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bilibili&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">video&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">BV1ML411E7eH&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>
