@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Onlyoffice on 小类随手记</title><link>https://dev.leiyanhui.com/categories/onlyoffice/</link><description>Recent content in Onlyoffice on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 13 Feb 2023 07:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/onlyoffice/index.xml" rel="self" type="application/rss+xml"/><item><title>lxc alpine下使用cloudreve 和 LibreOffice 的配置</title><link>https://dev.leiyanhui.com/pve/lxc-nas-office/</link><pubDate>Mon, 13 Feb 2023 07:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/lxc-nas-office/</guid><description>&lt;p>接上一篇，在pve lxc下以cloudreve为核心搭建了nas &lt;a class="link" href="https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve&lt;/a>&lt;/p>
+&lt;p>下面需要配置 在线编辑功能，考虑到alpine的依赖问题，单独配置一个lxc容器来运行office部分&lt;/p>
+&lt;p>特权容器 安装docker 方法：&lt;a class="link" href="https://dev.leiyanhui.com/pve/docker-mini/#lxc-%E7%89%B9%E6%9D%83%E5%AE%B9%E5%99%A8-%E5%92%8C%E9%9D%9E%E7%89%B9%E6%9D%83%E5%AE%B9%E5%99%A8%E7%9A%84%E9%80%89%E6%8B%A9" target="_blank" rel="noopener"
+>查看这里&lt;/a>&lt;/p>
+&lt;p>office的选择，肯定是选大名鼎鼎的LibreOffice，另外Office Online Server微软的 ，在部分授权情况下可以免费使用，但是需要window server主机。另外一个OnlyOffice 不知为什么我这里没成功&lt;/p>
+&lt;h3 id="安装配置docker">安装配置docker
+&lt;/h3>&lt;p>基本配置和安装docker &lt;a class="link" href="https://dev.leiyanhui.com/pve/alpine-docker" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/alpine-docker&lt;/a>&lt;/p>
+&lt;h3 id="运行docker">运行docker
+&lt;/h3>&lt;p>因为Office Online Server收费，OnlyOffice的兼容性也没看到，并且我这里配置只能预览无法编辑，所以选择LibreOffice.&lt;/p>
+&lt;h4 id="尝试使用--collabora-online-libreoffice-online">尝试使用 Collabora Online (LibreOffice Online)
+&lt;/h4>&lt;p>建议用ubuntu22.04运行，直接安装 不使用docker。 创建一个lxc 至少需要2.8G 建议 5G。 内存要1G+&lt;/p>
+&lt;p>修改源 那些不用说了。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="k">export&lt;/span> &lt;span class="n">customer_hash&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">Example&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">413539&lt;/span>&lt;span class="n">ece39485afc35b4a469adfde0a279d2fd2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cd&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">keyrings&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">wget&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">collaboraoffice&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">downloads&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">gpg&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">collaboraonline&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">release&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">keyring&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">gpg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cat&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="n">EOF&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apt&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">sources&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">list&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">collaboraonline&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sources&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">Types&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">deb&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">URIs&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">collaboraoffice&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">repos&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">CollaboraOnline&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mf">22.05&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">customer&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ubuntu2204&lt;/span>&lt;span class="o">-$&lt;/span>&lt;span class="n">customer_hash&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">Suites&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">Signed&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">By&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">keyrings&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">collaboraonline&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">release&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">keyring&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">gpg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apt&lt;/span> &lt;span class="n">update&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apt&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="n">coolwsd&lt;/span> &lt;span class="n">collabora&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">online&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">brand&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker stop code &amp;amp;&amp;amp; docker rm code
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker run -t -d -p 9980:9980 --name code --hostname code \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e TZ=Asia/Shanghai \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e dictionaries=zh-CN \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e &amp;#34;aliasgroup1=https://pan.jia.leiyanhui.com:5213&amp;#34; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e &amp;#34;username=admin&amp;#34; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e &amp;#34;password=admin&amp;#34; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --restart always collabora/code
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置ssl">配置ssl
+&lt;/h3>&lt;p>我这里使用github actions集中管理的ssl证书 &lt;a class="link" href="https://dev.leiyanhui.com/web/auto-get-ssl" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/web/auto-get-ssl&lt;/a>&lt;br>
+直接下载回来 用 7z 带密码解压 （unzip部分发行版不支持密码）&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">wget https://github.com/joyanhui/ssl/raw/main/ssl.zip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk add p7zip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">7z x ssl.zip -p密码 #密码和p字母之间没有空格
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>安装nginx 处理ssl&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rc&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">update&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rc&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">service&lt;/span> &lt;span class="n">nginx&lt;/span> &lt;span class="n">start&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">nginx&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">s&lt;/span> &lt;span class="n">reload&lt;/span> &lt;span class="c1"># 重载&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">nano&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">http&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">code&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">conf&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">server&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">listen&lt;/span> &lt;span class="mi">8443&lt;/span> &lt;span class="n">ssl&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">server_name&lt;/span> &lt;span class="n">office&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ssl_certificate&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ssl&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cer&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ssl_certificate_key&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ssl&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">key&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># static files&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">location&lt;/span> &lt;span class="o">^~&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">browser&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">127.0&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">0.1&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">9980&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># WOPI discovery URL&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">location&lt;/span> &lt;span class="o">^~&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">hosting&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">discovery&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">127.0&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">0.1&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">9980&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># Capabilities&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">location&lt;/span> &lt;span class="o">^~&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">hosting&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">capabilities&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">127.0&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">0.1&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">9980&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># main websocket&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">location&lt;/span> &lt;span class="o">~&lt;/span> &lt;span class="o">^/&lt;/span>&lt;span class="n">cool&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">.*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ws&lt;/span>&lt;span class="o">$&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">127.0&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">0.1&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">9980&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Upgrade&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_upgrade&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Connection&lt;/span> &lt;span class="s2">&amp;#34;Upgrade&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_read_timeout&lt;/span> &lt;span class="mi">36000&lt;/span>&lt;span class="n">s&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># download, presentation and image upload&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">location&lt;/span> &lt;span class="o">~&lt;/span> &lt;span class="o">^/&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">c&lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="n">l&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">ool&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">127.0&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">0.1&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">9980&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># Admin Console websocket&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">location&lt;/span> &lt;span class="o">^~&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">cool&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">adminws&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">127.0&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">0.1&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">9980&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Upgrade&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_upgrade&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Connection&lt;/span> &lt;span class="s2">&amp;#34;Upgrade&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_read_timeout&lt;/span> &lt;span class="mi">36000&lt;/span>&lt;span class="n">s&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h5 id="管理">管理
+&lt;/h5>&lt;p>https://&lt;!-- raw HTML omitted -->/browser/dist/admin/admin.html&lt;/p>
+&lt;h3 id="配置cloudreve">配置cloudreve
+&lt;/h3>&lt;p>管理员登陆 ，到后台，参数设施 图像预览 WOPI 客户端 启用&lt;/p>
+&lt;h3 id="进阶">进阶
+&lt;/h3>&lt;h4 id="安装中文字体">安装中文字体
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd ~
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget -c https://ghproxy.com/https://github.com/joyanhui/file.leiyanhui.com/archive/refs/heads/windows_font.zip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">unzip windows_font.zip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mv file.leiyanhui.com-windows_font win_font
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>重建docker&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker stop code &amp;amp;&amp;amp; docker rm code
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker run -t -d -p 9980:9980 --name code --hostname code \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /root/win_font:/usr/share/fonts/win_font \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e TZ=Asia/Shanghai \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e dictionaries=zh-CN \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e &amp;#34;aliasgroup1=https://pan.jia.leiyanhui.com:5213&amp;#34; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e &amp;#34;username=admin&amp;#34; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e &amp;#34;password=admin&amp;#34; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --restart always collabora/code
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>进入docker 继续处理&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># docker exec -u 0 -it code /bin/bash #必须带 -u 0
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat /etc/issue # Ubuntu 18.04.6 LTS
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt update
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">fc-cache -fv
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">coolwsd-systemplate-setup /opt/cool/systemplate /opt/collaboraoffice
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt install collaboraofficebasis-zh-cn # 发现已经安装
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt -y install language-pack-zh-hans language-pack-zh-hans-base
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">exit
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># docker restart code
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>本文参考官方手册：https://docs.cloudreve.org/use/wopi&lt;/p>
+&lt;p>&lt;a class="link" href="https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#code-docker-image" target="_blank" rel="noopener"
+>https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#code-docker-image&lt;/a>&lt;/p></description></item><item><title>lxc alpine下使用cloudreve 和 onlyoffice 的配置 包括onlyoffice的配置</title><link>https://dev.leiyanhui.com/pve/lxc-nas-office-onlyoffice/</link><pubDate>Mon, 13 Feb 2023 07:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/lxc-nas-office-onlyoffice/</guid><description>&lt;p>因为对LibreOffice的兼容性不看好，加上Collabora Online (LibreOffice Online)的界面语言显示不知道到底和什么有关。加上网络上关于他的资料多数较老。所以继续尝试onlyoffice。&lt;br>
+onlyoffice 社区开源版本，限制20个文件同时编辑。但是因为开源，所以是可以绕过去的。我这里用不到所以没有尝试修改这个限制。&lt;br>
+本文主要内容：&lt;/p>
+&lt;ul>
+&lt;li>搭建公网环境可用的onlyoffice&lt;/li>
+&lt;li>限制仅限自己可用的onlyoffice&lt;/li>
+&lt;/ul>
+&lt;p>基于 pve7.3-4 lxc alpine3.17&lt;/p>
+&lt;h2 id="初步搭建">初步搭建。
+&lt;/h2>&lt;h3 id="lxc-alpine安装docker">lxc alpine安装docker
+&lt;/h3>&lt;p>参考之前的文章：基本配置和安装docker &lt;a class="link" href="https://dev.leiyanhui.com/pve/alpine-docker" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/alpine-docker&lt;/a>&lt;/p>
+&lt;h3 id="准备证书">准备证书
+&lt;/h3>&lt;p>我这里是 部署到github上的acme.sh，直接拉回来解压&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">wget https://github.com/joyanhui/ssl/raw/main/ssl.zip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apk add p7zip
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">7z x ssl.zip -p密码 #密码和p字母之间没有空格
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>自动更新 参考 ：&lt;a class="link" href="https://dev.leiyanhui.com/web/auto-updatessl-form-github" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/web/auto-updatessl-form-github&lt;/a>&lt;/p>
+&lt;h3 id="docker安装onlyoffice">docker安装onlyoffice
+&lt;/h3>&lt;p>onlyoffice 依赖不少，直接docker弄吧。 我这里证书用nginx处理，方便后面禁止别人使用。&lt;br>
+也可以把证书挂载到 /var/www/onlyoffice/Data/certs/ &lt;code>onlyoffice.crt onlyoffice.key&lt;/code> 直接开443。如果你有80和443的话，他好像会自动帮你申请证书。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd -p 8080:80 --name office2 -e WOPI_ENABLED=true --restart always -e TZ=Asia/Shanghai onlyoffice/documentserver
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>打开检查&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">http://10.1.1.84:8080
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>群友的,可以参考&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="n">run&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">t&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">d&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="mi">9001&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">80&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="mi">9002&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">443&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">e&lt;/span> &lt;span class="n">WOPI_ENABLED&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="bp">true&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">DocumentServer&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">logs&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nb">log&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">DocumentServer&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">data&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">www&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Data&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">DocumentServer&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">DocumentServer&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">rabbitmq&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">rabbitmq&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">DocumentServer&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">redis&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">redis&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">DocumentServer&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">db&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">postgresql&lt;/span> &lt;span class="n">onlyoffice&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">documentserver&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="nginx反代">nginx反代
+&lt;/h3>&lt;p>alpine下nginx的配置文件 是在 http.d 目录下哈&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rc&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">update&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rc&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">service&lt;/span> &lt;span class="n">nginx&lt;/span> &lt;span class="n">start&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">nginx&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">s&lt;/span> &lt;span class="n">reload&lt;/span> &lt;span class="c1"># 重载&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mv /etc/nginx/http.d/default.conf /etc/nginx/http.d/default.conf-bak #非必须
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano /etc/nginx/http.d/office.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>内容，如果你还有其他虚拟主机，记得处理 段落位置&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">upstream docservice {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server 127.0.0.1:8080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">map $http_host $this_host {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#34;&amp;#34; $host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> default $http_host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">map $http_x_forwarded_proto $the_scheme {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> default $http_x_forwarded_proto;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#34;&amp;#34; $scheme;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">map $http_x_forwarded_host $the_host {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> default $http_x_forwarded_host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#34;&amp;#34; $this_host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">map $http_upgrade $proxy_connection {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> default upgrade;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#34;&amp;#34; close;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">proxy_set_header Upgrade $http_upgrade;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">proxy_set_header Connection $proxy_connection;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">proxy_set_header X-Forwarded-Host $the_host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">proxy_set_header X-Forwarded-Proto $the_scheme;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#陷阱主机 为了拦截域名错误的请求
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">server {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 10011 ssl;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name trap.ddns.leiyanhui.com *.ddns.leiyanhui.com *.leiyanhui.com;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate /root/ssl/ddns.leiyanhui.com.cer; # fullchain.pem
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate_key /root/ssl/ddns.leiyanhui.com.key; #privkey.pem
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_verify_client off;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_tokens off;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> root /usr/share/nginx/html;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#真实主机
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">server {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 10011 ssl;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name office.ddns.leiyanhui.com;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_tokens off;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> root /usr/share/nginx/html;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # 证书位置
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate /root/ssl/ddns.leiyanhui.com.cer; # fullchain.pem
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate_key /root/ssl/ddns.leiyanhui.com.key; #privkey.pem
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_verify_client off;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_ciphers &amp;#34;EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH&amp;#34;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_session_cache builtin:1000 shared:SSL:10m;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_prefer_server_ciphers on;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> add_header Strict-Transport-Security &amp;#34;max-age=1209600; includeSubDomains&amp;#34; always;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> add_header X-Content-Type-Options nosniff;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://127.0.0.1:8080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>另外找到 nginx.conf 的 &lt;code>ssl_session_cache shared:SSL:2m;&lt;/code> 注释掉&lt;br>
+重载nginx &lt;code>nginx -s reload&lt;/code>&lt;/p>
+&lt;h3 id="测试">测试
+&lt;/h3>&lt;p>打开网站 &lt;a class="link" href="https://office.ddns.leiyanhui.com:10011/" target="_blank" rel="noopener"
+>https://office.ddns.leiyanhui.com:10011/&lt;/a> 没问题了，在cloudreve 后台面板中 图像预览中配置
+&lt;code>https://office.ddns.leiyanhui.com:10011/hosting/discovery&lt;/code> 打开office文档测试&lt;/p>
+&lt;blockquote>
+&lt;p>注意和Collabora Online (LibreOffice Online)不同的地方。onlyoffice 对 doc xsl ppt 旧版格式 是不支持的，这个困扰我好久，最后在 cloudreve作者的提醒下 才知道，必须用 docx xslx pptx&lt;/p>&lt;/blockquote>
+&lt;h2 id="限制只能自己使用">限制只能自己使用
+&lt;/h2>&lt;p>因为onlyoffice 没有验证功能，所以任何人知道你接口地址 后 都可以访问你。那么就会导致 很容易超过20个文件的限制。而且自己资源被别人白嫖你心理也不爽。&lt;/p>
+&lt;h3 id="初步解决方案">初步解决方案
+&lt;/h3>&lt;p>前面 nginx 配置的 server_name 的 域名弄一个复杂的子域名 ，例如上例中的 &lt;code>office.ddns.leiyanhui.com&lt;/code> 修改成 &lt;code>office-ankN35wvy5owLv-3JtR8cCguagRct.ddns.leiyanhui.com&lt;/code>&lt;br>
+如果要这样做，这个子域名 必须是泛域名的一个下级域名，dns解析记录里面 不应该有他。&lt;br>
+比如，我的*.ddns.leiyanhui.com cname 到ddns.leiyanhui.com，ddns.leiyanhui.com 配置了ddns。这样几乎没有被扫到可能性。&lt;/p>
+&lt;p>然后分享预览，最好也关闭。不然依旧会暴露。&lt;/p>
+&lt;h3 id="限制referers">限制referers
+&lt;/h3>&lt;p>前面的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"> location / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://127.0.0.1:8080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>修改为&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> valid_referers none blocked 调用域名.com onlyoffice的域名.com;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ($invalid_referer) {return 403;}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://127.0.0.1:8080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>同时把 cloudreve和onlyoffice 的地址添加进去即可&lt;/p>
+&lt;h3 id="限制wopisrc">限制wopisrc
+&lt;/h3>&lt;p>在前面的 location / 再添加一段&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"> location /hosting/wopi {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ( $args ~ wopisrc=https%3A%2F%2F你的域名.com%3A ) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://127.0.0.1:8080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>%3A 是冒号转义符 后面跟的端口号，如果你的没有记得删除%3A。&lt;/p>&lt;/blockquote></description></item></channel></rss>
