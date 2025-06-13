@@ -1,0 +1,937 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nginx on 小类随手记</title><link>https://dev.leiyanhui.com/categories/nginx/</link><description>Recent content in Nginx on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 12 Sep 2023 08:30:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/nginx/index.xml" rel="self" type="application/rss+xml"/><item><title>自签名证书的使用，以及辟谣：自签名证书其实非常安全，但是需要你处理好客户端信任的问题</title><link>https://dev.leiyanhui.com/web/ssl/</link><pubDate>Tue, 12 Sep 2023 08:30:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/ssl/</guid><description>&lt;h2 id="安全性">安全性
+&lt;/h2>&lt;p>简中很多文章说自签名证书不安全，这要看你怎么用。&lt;/p>
+&lt;p>如果你是搭建面向公众的服务，例如网站 那么肯定不够安全的。 这是因为 普通用户无法通过简单并安全的方法验证你的证书是否真的是你的。因为没有权威ca存在了。&lt;/p>
+&lt;p>而如果是面向内部使用的，我们可以通过权威ca 或者 其他加密途径分发证书。或者通过证书指纹验证的方法来确保安全。&lt;/p>
+&lt;p>当然指纹验证严格说 也不够安全，虽然指纹被伪造的可能性也几乎没有。&lt;/p>
+&lt;p>我们只要 保证 证书分发的过程是安全的，那么自签名证书的安全性 甚至可以超过 可信ca颁发的证书（参考我朝某衙）。&lt;/p>
+&lt;h2 id="碎碎念">碎碎念
+&lt;/h2>&lt;p>ca机构运营是有成本的，所有权威证书需要付费无可厚非。但是自签证书并非不安全，资本的文章看看就好，多读书。&lt;br>
+同样类似 ssh协议，默认情况下，和自签名证书的过程其实并无差距。那么ssh不安全吗？&lt;/p>
+&lt;h2 id="自签名证书的优点">自签名证书的优点
+&lt;/h2>&lt;ul>
+&lt;li>和商业收费证书同样安全性，某些方便甚至超过收费证书&lt;/li>
+&lt;li>可以灵活控制有效期，例如在某些特殊情况下，需要超长的有效期&lt;/li>
+&lt;li>自主可控&lt;/li>
+&lt;li>可以省略OCSP服务，速度会更快&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>OCSP 主要是方便检查证书是否有效的情况，也就是可以吊销掉已经签发出去的证书。但是OCSP会多了一个网络验证的操作，这也是某些在国内没有OCSP服务器的一些商业证书速度很慢的 原因。&lt;/p>&lt;/blockquote>
+&lt;h2 id="自签名ca和域名ip证书的过程">自签名ca和域名/ip证书的过程
+&lt;/h2>&lt;p>下面一个简单说一下，自己用openssl实现 自己的ca 并签发证书的过程&lt;/p>
+&lt;h3 id="ca">ca
+&lt;/h3>&lt;p>CA私钥&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl genpkey -algorithm RSA -out ca_private.key
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>CA请求文件&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl req -new -key ca_private.key -out ca_request.csr
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>CA证书&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl x509 -req -in ca_request.csr -signkey ca_private.key -out ca_certificate.crt -days &lt;span class="m">3650&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="用ca签发证书">用ca签发证书
+&lt;/h3>&lt;h4 id="生成域名-私钥和-证书请求文件">生成域名 私钥和 证书请求文件：
+&lt;/h4>&lt;p>openssl genpkey -algorithm RSA -out domain_private.key
+openssl req -new -key domain_private.key -out domain_request.csr&lt;/p>
+&lt;h4 id="从ca证书-签发证书">从ca证书 签发证书
+&lt;/h4>&lt;p>简单创建 一个 10年的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl x509 -req -in domain_request.csr -CA ca_certificate.crt -CAkey ca_private.key -CAcreateserial -out domain_certificate.crt -days &lt;span class="m">3650&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>但是这个证书里面没有域名，客户端依旧会伪造，创建一个包含域名的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">openssl x509 -req -in domain_request.csr -CA ca_certificate.crt -CAkey ca_private.key -CAcreateserial -out domain_certificate.crt -days &lt;span class="m">3650&lt;/span> -extfile &amp;lt;&lt;span class="o">(&lt;/span>&lt;span class="nb">printf&lt;/span> &lt;span class="s2">&amp;#34;subjectAltName=DNS:*.leiyanhui.com,DNS:leiyanhui.com,DNS:*.baidu.com,DNS:baidu.com&amp;#34;&lt;/span>&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="创建一个包含域名和ip范围的">创建一个包含域名和ip范围的
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">&lt;span class="nv">IP_LIST&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$(for&lt;/span> i in &lt;span class="o">{&lt;/span>1..254&lt;span class="o">}&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">do&lt;/span> &lt;span class="nb">echo&lt;/span> -n &lt;span class="s2">&amp;#34;IP:10.1.1.&lt;/span>&lt;span class="nv">$i&lt;/span>&lt;span class="s2">,&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">done&lt;/span> &lt;span class="p">|&lt;/span> sed &lt;span class="s1">&amp;#39;s/,$//&amp;#39;&lt;/span>&lt;span class="k">)&lt;/span> &lt;span class="c1"># ip 10.1.1.1-10.1.1.254&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl x509 -req -in domain_request.csr -CA ca_certificate.crt -CAkey ca_private.key -CAcreateserial -out domain_certificate.crt -days &lt;span class="m">3650&lt;/span> -extfile &amp;lt;&lt;span class="o">(&lt;/span>&lt;span class="nb">printf&lt;/span> &lt;span class="s2">&amp;#34;subjectAltName=DNS:*.leiyanhui.com,DNS:*.shiyuxin.work,&lt;/span>&lt;span class="nv">$IP_LIST&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="域名私钥和证书合并到一个-pem">域名私钥和证书合并到一个 .pem
+&lt;/h3>&lt;p>有部分软件是使用的 all in one的 pem格式，例如monit&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cat domain_private.key domain_certificate.crt &amp;gt; domain_aio.pem
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="客户端应该如何信任">客户端应该如何信任
+&lt;/h3>&lt;p>上面命令中的 ca_certificate.crt 和 domain_certificate.crt 都是包含公钥的证书文件，服务器会自动分发给客户端。但是这个过程是无法保证安全的。&lt;/p>
+&lt;p>那么 这个两个文件，可以通过其他可信的途径分发给客户端。 例如： 可信ca的 https webdav email 甚至vpn 线下 内网 等方式&lt;/p>
+&lt;p>一般情况下，建议客户端信任 ca_certificate.crt 即可。那么所有使用 ca_certificate.crt 签发的证书，只要ip/域名 能对应 客户端就会认为是安全的。&lt;/p>
+&lt;p>如果只是信任 domain_certificate.crt 的话，那么自己的ca证书签发的别的证书就无法可信了。这个很好理解。&lt;/p>
+&lt;h3 id="那些文件是可以公开的">那些文件是可以公开的
+&lt;/h3>&lt;p>只有 ca_certificate.crt 和 domain_certificate.crt 这两个文件 可以公开的。其他文件务必妥善保管。
+尤其是 ca_private.key 这个文件，如果泄漏 就等于 天朝某衙门作恶了。&lt;/p></description></item><item><title>aio主机上的http统一管理</title><link>https://dev.leiyanhui.com/all-in-one/lxc-nginx-proxy-mananger/</link><pubDate>Mon, 10 Apr 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/lxc-nginx-proxy-mananger/</guid><description>&lt;h2 id="前言">前言
+&lt;/h2>&lt;p>之前一直用 nginxWebUI 来管理，甚至在给作者反馈一些问题后，作者置之不理后，自己二开了一个版本。&lt;br>
+但是nginxWebUI 因为不能手动编辑配置文件，使用起来还是略微麻烦。鼠标点来点去 很烦的哈。&lt;/p>
+&lt;p>于是又拿起来Nginx-Proxy-Manager&lt;/p>
+&lt;h2 id="环境">环境
+&lt;/h2>&lt;p>pve lxc alpine 硬盘1G 内存 512M swap关闭 ip 10.1.1.51&lt;/p>
+&lt;h2 id="准备">准备
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">sed&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="s1">&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g&amp;#39;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apk&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">repositories&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">tzdata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cp&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">zoneinfo&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Asia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Shanghai&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">localtime&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;Asia/Shanghai&amp;#34;&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">timezone&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">del&lt;/span> &lt;span class="n">tzdata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">cache&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apk&lt;/span>&lt;span class="o">/*&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="安装">安装
+&lt;/h2>&lt;h3 id="docker安装">docker安装
+&lt;/h3>&lt;p>一般情况推荐docker安装，但是我可能需要修改一些地方，所以手动装，官网有推荐一个第三方安装脚本。直接开开始&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">wget --no-cache -qO - https://raw.githubusercontent.com/ej52/proxmox/main/lxc/nginx-proxy-manager/setup.sh | sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>结果在安装到python的地方出错，算了 还是docker 套娃吧。（关于特权容器 安装docker的问题请群内搜索，如果没啥必要就用非特权容器） 顺带装上sshd&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add docker
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add docker boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service docker start
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker version
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># cat /etc/docker/daemon.json
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; /etc/docker/daemon.json &amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#34;registry-mirrors&amp;#34;: [
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#34;http://hub-mirror.c.163.com&amp;#34;,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#34;https://docker.mirrors.ustc.edu.cn&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">EOF
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service docker restart
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add openssh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add sshd boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sed -i &amp;#39;s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g&amp;#39; /etc/ssh/sshd_config
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service sshd restart
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="创建">创建
+&lt;/h3>&lt;p>因为这个lxc就运行这一个，所以host模式&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name=nginx --hostname nginx \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --net=host \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> jc21/nginx-proxy-manager:2.10.2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>因为要修改&lt;/p>
+&lt;h3 id="基本配置">基本配置
+&lt;/h3>&lt;p>http://10.1.1.51:81&lt;br>
+Email: &lt;a class="link" href="mailto:admin@example.com" >admin@example.com&lt;/a>&lt;br>
+Password: changeme&lt;/p>
+&lt;h3 id="申请ssl证书的时候--zope-错误">申请ssl证书的时候 zope 错误
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker exec -it nginx /bin/bash
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pip install zope
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>参考：https://github.com/NginxProxyManager/nginx-proxy-manager/issues/2440&lt;/p>
+&lt;h3 id="手动配置nginx配置文件">手动配置nginx配置文件
+&lt;/h3>&lt;h4 id="证书目录">证书目录
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">certificate /etc/letsencrypt/live/npm-5/fullchain.pem;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssl_certificate_key /etc/letsencrypt/live/npm-5/privkey.pem;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>如果要定制一些特殊的 npm-X 这个需要自己记住&lt;/p>
+&lt;h4 id="配置文件目录">配置文件目录
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">/etc/nginx/conf.d/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/data/nginx/proxy_host/1.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="怎么用">怎么用
+&lt;/h4>&lt;p>简单的代理 直接在web界面处理就行
+需要定制的情况可以直接手写conf&lt;/p>
+&lt;h3 id="最周">最周
+&lt;/h3>&lt;p>其实 更加灵活的情况 还是 自己手写
+后期如果有时间 打算自己做一个 类似功能。&lt;/p></description></item><item><title>nginx 反向代理webdav的问题 无法创建续传 重命名 移动 等问题</title><link>https://dev.leiyanhui.com/all-in-one/nginx-proxy-webdav/</link><pubDate>Sun, 12 Feb 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/nginx-proxy-webdav/</guid><description>&lt;p>简单说，是需要 more_set_headers 这个模块，一般情况下nginx没有自带&lt;br>
+&lt;a class="link" href="https://github.com/openresty/headers-more-nginx-module" target="_blank" rel="noopener"
+>https://github.com/openresty/headers-more-nginx-module&lt;/a>&lt;/p>
+&lt;p>以alpine下载的nginx为例&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add nginx-mod-http-headers-more
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nginx -V
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>发现是动态加载的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">find / -name &amp;#34;*more*&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>找到了文件 &lt;code>/usr/lib/nginx/modules/ngx_http_headers_more_filter_module.so&lt;/code>&lt;br>
+修改配置文件 &lt;code>nginx.conf&lt;/code>添加一行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">load_module&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">modules&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ngx_http_headers_more_filter_module&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">so&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>nginx版本必须大于 1.9.11，否则需要自己编译了不能使用动态加载了&lt;/p>
+&lt;blockquote>
+&lt;p>新版alpine的nginx默认配置文件会自动加载 &lt;code>/etc/nginx/modules/&lt;/code> 这里的配置文件，不需要自己 load_module&lt;/p>&lt;/blockquote>
+&lt;h2 id="解决中文文件夹重命名问题">解决中文文件夹重命名问题
+&lt;/h2>&lt;p>将请求头Destination中的https替换为http，并解决webdav重命名中文文件夹的乱码问题：
+修改配置文件 http部分&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"> map $http_destination $webdav_dest {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ~*https://(.+) http://$1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> default $http_destination;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="上传文件大小限制问题">上传文件大小限制问题
+&lt;/h2>&lt;p>这部分内容放到server，或者http部分&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># 修改包大小上限避免上传错误
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">client_max_body_size 10G;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="其他的问题">其他的问题
+&lt;/h2>&lt;p>这部分内容放到 location&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># 解决webdav不能创建文件夹问题
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">if ($request_method = MKCOL) { rewrite ^(.*[^/])$ $1/ break; }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 解决webdav不能重命名问题
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">if (-d $request_filename) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rewrite ^(.*[^/])$ $1/;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> set $webdav_dest $webdav_dest/;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> more_set_input_headers &amp;#39;Destination: $webdav_dest&amp;#39;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 解决webdav不能复制、移动文件问题
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">if ($request_method ~ (MOVE|COPY))
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> more_set_input_headers &amp;#39;Destination: $webdav_dest&amp;#39;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="最终配置文件">最终配置文件
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;span class="lnt">72
+&lt;/span>&lt;span class="lnt">73
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">load_module&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">modules&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ngx_stream_module&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">so&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">load_module&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">modules&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ngx_http_headers_more_filter_module&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">so&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">worker_processes&lt;/span> &lt;span class="n">auto&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">events&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">worker_connections&lt;/span> &lt;span class="mi">1024&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">accept_mutex&lt;/span> &lt;span class="n">on&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">http&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">include&lt;/span> &lt;span class="n">mime&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">types&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">default_type&lt;/span> &lt;span class="n">application&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">octet&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">stream&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">keepalive_timeout&lt;/span> &lt;span class="mi">75&lt;/span>&lt;span class="n">s&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">gzip&lt;/span> &lt;span class="n">on&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">gzip_min_length&lt;/span> &lt;span class="mi">4&lt;/span>&lt;span class="n">k&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">gzip_comp_level&lt;/span> &lt;span class="mi">4&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">client_max_body_size&lt;/span> &lt;span class="mi">1024&lt;/span>&lt;span class="n">m&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">client_header_buffer_size&lt;/span> &lt;span class="mi">32&lt;/span>&lt;span class="n">k&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">client_body_buffer_size&lt;/span> &lt;span class="mi">8&lt;/span>&lt;span class="n">m&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">server_names_hash_bucket_size&lt;/span> &lt;span class="mi">512&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_headers_hash_max_size&lt;/span> &lt;span class="mi">51200&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_headers_hash_bucket_size&lt;/span> &lt;span class="mi">6400&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">gzip_types&lt;/span> &lt;span class="n">application&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">javascript&lt;/span> &lt;span class="n">application&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">x&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">javascript&lt;/span> &lt;span class="n">text&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">javascript&lt;/span> &lt;span class="n">text&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">css&lt;/span> &lt;span class="n">application&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">json&lt;/span> &lt;span class="n">application&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">xml&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">map&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_upgrade&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">connection_upgrade&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">default&lt;/span> &lt;span class="n">upgrade&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s1">&amp;#39;&amp;#39;&lt;/span> &lt;span class="n">close&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">map&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_destination&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">webdav_dest&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">~*&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">.+&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="n">http&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//$&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">default&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_destination&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">server&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">server_name&lt;/span> &lt;span class="n">alist&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">listen&lt;/span> &lt;span class="mi">50443&lt;/span> &lt;span class="n">ssl&lt;/span> &lt;span class="n">http2&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ssl_certificate&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">home&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">/.&lt;/span>&lt;span class="n">acme&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sh&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">fullchain&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cer&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ssl_certificate_key&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">home&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">/.&lt;/span>&lt;span class="n">acme&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sh&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">key&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ssl_protocols&lt;/span> &lt;span class="n">TLSv1&lt;/span> &lt;span class="n">TLSv1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mi">1&lt;/span> &lt;span class="n">TLSv1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mi">2&lt;/span> &lt;span class="n">TLSv1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">listen&lt;/span> &lt;span class="mi">50080&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">$&lt;/span>&lt;span class="n">scheme&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">http&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="mi">301&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//$&lt;/span>&lt;span class="n">host&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">50443&lt;/span>&lt;span class="o">$&lt;/span>&lt;span class="n">request_uri&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">error_page&lt;/span> &lt;span class="mi">497&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//$&lt;/span>&lt;span class="n">host&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">50443&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">#解决http到ssl端口的400错误;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">client_max_body_size&lt;/span> &lt;span class="mi">10&lt;/span>&lt;span class="n">G&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">location&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">http&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">10.1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">1.52&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Real&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="ne">IP&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">remote_addr&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">For&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">proxy_add_x_forwarded_for&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Port&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">server_port&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Proto&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">scheme&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_http_version&lt;/span> &lt;span class="mf">1.1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Upgrade&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_upgrade&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Connection&lt;/span> &lt;span class="s2">&amp;#34;upgrade&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_redirect&lt;/span> &lt;span class="n">http&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="ne">Range&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_range&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 解决webdav不能创建文件夹问题&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">$&lt;/span>&lt;span class="n">request_method&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">MKCOL&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">rewrite&lt;/span> &lt;span class="o">^&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">.*&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="o">^/&lt;/span>&lt;span class="p">])&lt;/span>&lt;span class="o">$&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="k">break&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 解决webdav不能重命名问题&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">d&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">request_filename&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rewrite&lt;/span> &lt;span class="o">^&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">.*&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="o">^/&lt;/span>&lt;span class="p">])&lt;/span>&lt;span class="o">$&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">set&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">webdav_dest&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">webdav_dest&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">more_set_input_headers&lt;/span> &lt;span class="s1">&amp;#39;Destination: $webdav_dest&amp;#39;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 解决webdav不能复制、移动文件问题&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">$&lt;/span>&lt;span class="n">request_method&lt;/span> &lt;span class="o">~&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">MOVE&lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="n">COPY&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">more_set_input_headers&lt;/span> &lt;span class="s1">&amp;#39;Destination: $webdav_dest&amp;#39;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 服务套ssl</title><link>https://dev.leiyanhui.com/pve/lxc-nas-ssl/</link><pubDate>Wed, 08 Feb 2023 07:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/lxc-nas-ssl/</guid><description>&lt;p>本文 是 pve lxc 搭建nas 的系列文章 的一部分。 因为篇幅较长，所以分开。&lt;/p>
+&lt;p>原文索引 ：&lt;a class="link" href="https://dev.leiyanhui.com/pve/lxc-nas" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/lxc-nas&lt;/a>&lt;/p>
+&lt;p>本文主要内容 webdav https-git minio s3对象储存 思源 套ssl的相关记录。&lt;/p>
+&lt;p>我这里使用 nginxwebui的修改版本，具体看看之前文章&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/" target="_blank" rel="noopener"
+>点这里&lt;/a>。这里只记录最终配置文件。&lt;/p>
+&lt;h2 id="nginx反代思源">nginx反代思源
+&lt;/h2>&lt;p>需要ws，最终配置如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">server {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name 域名;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50443 ssl http2;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate /home/nginxWebUI/.acme.sh/域名/fullchain.cer;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate_key /home/nginxWebUI/.acme.sh/域名/jia.leiyanhui.com.key;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ($scheme = http) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return 301 https://$host:50443$request_uri;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> error_page 497 https://$host:50443; #解决http到ssl端口的400错误;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://10.1.1.68/;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_redirect http:// https://;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location /ws {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://10.1.1.68;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Upgrade $http_upgrade;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Connection &amp;#34;upgrade&amp;#34;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_redirect http:// https://;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_read_timeout 60s;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="nginx反代网盘类">nginx反代网盘类
+&lt;/h2>&lt;p>需要安装模块 &lt;code>more_set_headers&lt;/code> alpine下包名称&lt;code>nginx-mod-http-headers-more&lt;/code>
+在nginx.conf配置文件的http块（注意 不是 server块）中添加map指令，将请求头Destination中的https替换为http，并解决webdav重命名中文文件夹的乱码问题：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">map $http_destination $webdav_dest {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ~*https://(.+) http://$1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> default $http_destination;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">location&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">For&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">proxy_add_x_forwarded_for&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Proto&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">scheme&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">Host&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Real&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="ne">IP&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">remote_addr&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="ne">Range&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_range&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_set_header&lt;/span> &lt;span class="n">If&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="ne">Range&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="n">http_if_range&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_redirect&lt;/span> &lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy_pass&lt;/span> &lt;span class="n">http&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="mf">127.0&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">0.1&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">5244&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># the max size of file to upload&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">client_max_body_size&lt;/span> &lt;span class="mi">20000&lt;/span>&lt;span class="n">m&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>docker运行nginx 并反代内网的一些服务2(nginxwebui修改版)</title><link>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</link><pubDate>Sat, 07 Jan 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</guid><description>&lt;p>家里路由器是openwrt x86，内外有跑一些服务。这里用路由器上配置nginx+ssl，然后内网的所有web服务都经过nginx到公网，因为家用宽带不只&lt;/p>
+&lt;p>nginxwebui是国产基于java的开源nginx配置文件生成器，用于替代死板的nginx-proxy-manage 。&lt;/p>
+&lt;p>优点是 更加灵活 强大 支持中文，几乎支持所有的nginx功能的可视化配置。&lt;/p>
+&lt;p>缺点是 略微繁琐，尤其是不能自动载入配置文件，创建项目后，要手动在webui里面，点替换和重载。&lt;/p>
+&lt;h2 id="docker安装">docker安装
+&lt;/h2>&lt;p>nginxwebui 官网docker实例是用的host模式运行，不建议。还是自定义端口映射。&lt;/p>
+&lt;p>我这里需要3个端口 nginxwebui管理端口50088，http 端口50081 https 端口50443&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd --restart=always --name=nginxwebui --hostname nginxwebui -e BOOT_OPTIONS=&amp;#34;--server.port=50088&amp;#34; -p 50081:50081 -p 50088:50088 -p 50443:50443 --privileged=true cym1102/nginxwebui:latest
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>证书目录 是保存在： &lt;code>/home/nginxWebUI/.acme.sh/&lt;/code> 下面&lt;br>
+配置文件&lt;code>/home/nginxWebUI/nginx.conf&lt;/code> 。&lt;/p>
+&lt;p>如果需要对证书单独管理，可以映射出来。也恩可以用docker cp 定时复制出来。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -itd -v /opt/docker_file/op_nginxWebUI:/home/nginxWebUI --restart=always --name=nginxwebui --hostname nginxwebui -e BOOT_OPTIONS=&amp;#34;–server.port=50088&amp;#34; -p 50081:50081 -p 50088:50088 -p 50443:50443 --privileged=true cym1102/nginxwebui:latest
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>而后在 nginxwebui 内部 再反代 管理端口出来 套上ssl 即可从外网ssl访问。&lt;/p>
+&lt;p>为了方便备份，我这里没有映射目录出来。记得自行定时清理日志：&lt;code>/home/nginxWebUI/log/nginxWebUI.log&lt;/code>&lt;/p>
+&lt;p>注意： http://10.0.0.1:50088/ web界面 打开可能会空白，这个&amp;hellip;.大概是因为java启动慢的原因，等一会 刷新一下就好了。&lt;/p>
+&lt;h2 id="一个典型的反代配置">一个典型的反代配置
+&lt;/h2>&lt;p>包括http自动跳转ssl&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">转发类型 http
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">监听端口：这个如果要开启ssl的话要输入ssl端口 50443
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">选择密码文件：这个是base的密码
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">开机ssl：是
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">选择内置证书：（提前配置）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">开启https：是
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssl协议版本：全部勾选
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">http跳转https：是
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">从该端口跳转：第一个留空 第二个输入ssl的端口后 50081
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这样就可以实现，访问http的时候自动跳转到ssl &lt;br>
+最终配置文件大概如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">server {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name 域名;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50443 ssl http2;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/fullchain.cer;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate_key /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/jia.leiyanhui.com.key;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50081;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ($scheme = http) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return 301 https://$host:50443$request_uri;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # 自己;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://10.0.0.1:50088;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Host $host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-Host $http_host;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-Port $server_port;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-Proto $scheme;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Upgrade $http_upgrade;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Connection &amp;#34;upgrade&amp;#34;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_redirect http:// https://;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="自动备份到阿里云镜像">自动备份到阿里云镜像
+&lt;/h3>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/docker/img-to-aliyun/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/docker/img-to-aliyun/&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">10 3 * * 6 sh /etc/docker_up_aliyun_nginxWebUi.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="使用nginxwebui反代-主路由的一个小问题">使用nginxWebUI反代 主路由的一个小问题
+&lt;/h2>&lt;p>如果op主路由配置了 根据域名跳转（https://dev.leiyanhui.com/openwrt/acme-ssl/），op需要绑定一个不属于最终配置文件的域名 。或者 使用下面的方法。
+另外 op里面的网页终端需要单独处理（我选择 直接弃用）。&lt;/p>
+&lt;p>还有一个方案 是 不传递host参数，然后直接访问 https://你的域名:端口/cgi-bin/luci/ 也可以解决。&lt;/p>
+&lt;h3 id="关于使用http协议访问https端口的400错误处理">关于使用http协议访问https端口的400错误处理
+&lt;/h3>&lt;p>例如我正常访问我的路由器应该是&lt;code>https://域名:50443&lt;/code>如果用&lt;code>http://域名:50443&lt;/code>访问端口还是https的端口就会提示400错误。 因为服务是家人也用。 不能指望他们理解http（S）这些。所以我采取的方法是直接拦截错误，并跳转到正确的首页地址。&lt;/p>
+&lt;p>首先这个错误是 497 错误，nginxWebUI支持参数模板，添加一个参数模板，名字随意，添加参数&lt;code>error_page 497&lt;/code> 值&lt;code>https://$host:50443; #解决http到ssl端口的400错误&lt;/code> 然后用默认配置应用到反向代理。完毕&lt;/p>
+&lt;h3 id="最好的解决方案">最好的解决方案
+&lt;/h3>&lt;p>编辑对应的ningxWebUi反向代理配置，
+添加一个 &lt;code>= / &lt;/code> 自定义localtions 添加参数 &lt;code>return&lt;/code> 值&lt;code> 301 https://$host:50443/cgi-bin/luci&lt;/code> （意思就是网址后面没有东西的情况下跳转到后面地址）即可 （注意好要清理浏览器缓存不然不会生效） &lt;br>
+最终代码如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">server {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name op.jia.leiyanhui.com;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50443 ssl http2;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate /home/nginxWebUI/.acme.sh/*.jia.leiyanhui.com/fullchain.cer;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_certificate_key /home/nginxWebUI/.acme.sh/*.jia.leiyanhui.com/*.jia.leiyanhui.com.key;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 50081;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ($scheme = http) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return 301 https://$host:50443$request_uri;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> error_page 497 https://$host:50443; #解决http到ssl端口的400错误;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location = / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # op自动跳转;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return 301 https://$host:50443/cgi-bin/luci;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> location / {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # op代理;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://10.1.1.1/;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_redirect http:// https://;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="进阶">进阶
+&lt;/h3>&lt;p>1、解决 在web界面直接点击 域名 链接打开的是不带端口的导致非标端口打不开的情况。 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+>https://github.com/joyanhui/nginxWebUI&lt;/a>
+2、解决 定时续签2点拥堵的问题，
+下载 我自己的修改的 jar，替换到docker里面&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="n">exec&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">it&lt;/span> &lt;span class="n">nginxwebui&lt;/span> &lt;span class="n">rm&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">home&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jar&lt;/span> &lt;span class="c1">#删除原版jar&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">wget&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">joyanhui&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">releases&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">download&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="n">st&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jar&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="n">cp&lt;/span> &lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jar&lt;/span> &lt;span class="n">nginxwebui&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">home&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jar&lt;/span> &lt;span class="c1"># 复制宿主机上的修改过的jar进去&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="n">restart&lt;/span> &lt;span class="n">nginxwebui&lt;/span> &lt;span class="c1">#重启&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="n">nginxWebUI&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jar&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="下载地址">下载地址
+&lt;/h4>&lt;p>&lt;a class="link" href="https://www.123pan.com/s/EqorVv-n0nPA" target="_blank" rel="noopener"
+>https://www.123pan.com/s/EqorVv-n0nPA&lt;/a> 提取码:yhjt&lt;/p>
+&lt;p>详细 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+>https://github.com/joyanhui/nginxWebUI&lt;/a>&lt;/p>
+&lt;h3 id="其他问题">其他问题
+&lt;/h3>&lt;p>nginxwebui 和 nginx-proxy-manager 都同样的问题，就是在web界面直接点击 域名 链接打开的是不带端口的。在前者的github 提交过issues但是作者没有回应。后at作者后，作者表示：&lt;code>这个界面是展示信息用，不是给你高强度使用的&lt;/code> 不知所云。&lt;/p>
+&lt;blockquote>
+&lt;p>已经自己修改 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+>https://github.com/joyanhui/nginxWebUI&lt;/a>&lt;/p>&lt;/blockquote>
+&lt;p>不过nginxwebui 相对 nginx-proxy-manager 依旧适合非标端口的
+如果是内网使用，家用宽带没有标准端口的情况下，可以通过一个简单方法实现，就是在路由器上转发跳转一次，详情：https://dev.leiyanhui.com/openwrt/acme-ssl/&lt;/p>
+&lt;p>另外 nginxwebui 的证书申请 有几个小遗憾，1 证书检查时间固定在凌晨2点不可以修改，还是很拥挤的。2 没有日志显示，如果出错你也不知道。。。只能等待。。。&lt;/p></description></item><item><title>nginx 非标端口 http强制跳转https</title><link>https://dev.leiyanhui.com/web/nginx-http-https-no443/</link><pubDate>Fri, 06 Jan 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/nginx-http-https-no443/</guid><description>&lt;p>nginx标准端口下，我们常用rewrite把80端口强制调整到https，那么在非标准端口下，应该如何处理？&lt;/p>
+&lt;p>其实也很简单&lt;/p>
+&lt;p>修改站点配置文件 大概内容如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">server
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # http端口
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 8880;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # https端口
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> listen 8443 ssl http2;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> server_name 你的域名;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> index index.php index.html index.htm default.php default.htm default.html;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> root /www/wwwroot/Sites/site-vod;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #SSL-START SSL相关配置，请勿删除或修改下一行带注释的404规则
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #error_page 404/404.html;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #HTTP_TO_HTTPS_START
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if ($server_port !~ 8443){
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rewrite ^(/.*)$ https://$host:8443$1 permanent;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #HTTP_TO_HTTPS_END
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>Nginx Proxy Manager 或者其他nginx包括宝塔ssl嵌套coderserver都1006错误</title><link>https://dev.leiyanhui.com/codeserver/nginx-proxy-err-1006/</link><pubDate>Thu, 01 Dec 2022 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/codeserver/nginx-proxy-err-1006/</guid><description>&lt;p>搭建coderserver 用于golang的开发环境&lt;/p>
+&lt;p>内网直接 http://10.0.0.100:8080 访问，外网套ssl&lt;/p>
+&lt;p>套ssl是由路由器上运行的 &lt;code>Nginx Proxy Manager&lt;/code>（NPM）统一管理， 基于nginx&lt;/p>
+&lt;p>nmp上创建站点配置ssl后，直接访问会提示 WebSocket close with status code 1006&lt;/p>
+&lt;p>edit这个站点，点击 Advanced 输入&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">location /
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_pass http://10.0.0.100:8080;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_redirect off;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Host https://code.leiyanhui.com;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header REMOTE-HOST $remote_addr;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Upgrade $http_upgrade;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_set_header Connection &amp;#34;Upgrade&amp;#34;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_connect_timeout 60;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_send_timeout 90;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_read_timeout 90;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_buffer_size 4k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_buffers 4 32k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_busy_buffers_size 64k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> proxy_temp_file_write_size 64k;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> add_header X-Cache $upstream_cache_status;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #Set Nginx Cache
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> add_header Cache-Control no-cache;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>完毕&lt;/p>
+&lt;p>宝塔 或者 其他nginx环境一样配置&lt;/p></description></item></channel></rss>

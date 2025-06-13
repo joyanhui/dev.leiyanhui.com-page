@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Gvt-G on 小类随手记</title><link>https://dev.leiyanhui.com/categories/gvt-g/</link><description>Recent content in Gvt-G on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 21 Nov 2022 19:16:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/gvt-g/index.xml" rel="self" type="application/rss+xml"/><item><title>关闭核显直通，打开vgpu，多虚拟机同时使用核显.kvm下一个核显和多个虚拟机共享使用3D加速甚至游戏</title><link>https://dev.leiyanhui.com/kvm/gvt-g-vgpu/</link><pubDate>Mon, 21 Nov 2022 19:16:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/gvt-g-vgpu/</guid><description>&lt;p>和pci直通相比，gvt-g可以吧同一个显卡 同时共享给多个虚拟机使用，并提供硬件加速。&lt;/p>
+&lt;h2 id="前置条件">前置条件
+&lt;/h2>&lt;ul>
+&lt;li>已经安装了一个 kvm &lt;a class="link" href="https://dev.leiyanhui.com/kvm/arch-install-kvm/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/arch-install-kvm/&lt;/a>&lt;/li>
+&lt;li>开启了核显直通 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="处理一些简单的操作">处理一些简单的操作
+&lt;/h2>&lt;p>删除核显的vfio绑定&lt;/p>
+&lt;pre>&lt;code>sudo nano /etc/modprobe.d/vfio.conf
+&lt;/code>&lt;/pre>
+&lt;p>删除
+sudo nano /etc/mkinitcpio.conf
+删除一些配置文件&lt;/p>
+&lt;pre>&lt;code> sudo rm -rf /etc/modprobe.d/blacklist.conf
+sudo rm -rf /etc/booster.yaml
+sudo rm -rf /etc/dracut.conf.d
+&lt;/code>&lt;/pre>
+&lt;h3 id="i915enable_guc0">i915.enable_guc=0
+&lt;/h3>&lt;pre>&lt;code>sudo nano /etc/default/grub
+&lt;/code>&lt;/pre>
+&lt;p>GRUB_CMDLINE_LINUX_DEFAULT 这行 编辑一下 确保有&lt;code>intel_iommu=on i915.enable_guc=0&lt;/code>&lt;/p>
+&lt;h2 id="重启">重启
+&lt;/h2>&lt;pre>&lt;code># pve =&amp;gt; update-initramfs -u
+sudo update-grub
+sudo mkinitcpio -P
+sudo reboot
+&lt;/code>&lt;/pre>
+&lt;h2 id="开启kernel的几个-modules">开启kernel的几个 modules
+&lt;/h2>&lt;p>kernel modules: kvmgt, vfio-iommu-type1 and mdev.&lt;/p>
+&lt;pre>&lt;code>sudo modprobe kvmgt vfio-iommu-type1 mdev
+&lt;/code>&lt;/pre>
+&lt;h2 id="配置-i915--enable_gvt1">配置 i915 enable_gvt=1
+&lt;/h2>&lt;pre>&lt;code>sudo echo &amp;quot;options i915 enable_gvt=1&amp;quot; &amp;gt;&amp;gt; /etc/modprobe.d/gvt-g.conf
+#重启
+sudo mkinitcpio -P
+sudo reboot
+&lt;/code>&lt;/pre>
+&lt;h2 id="重启后查看显卡">重启后查看显卡
+&lt;/h2>&lt;pre>&lt;code>lspci -D -nn # 查看id 核显一般情况是 0000:00:02.0
+#查看模式
+ls /sys/devices/pci0000:00/0000:00:02.0/mdev_supported_types
+&lt;/code>&lt;/pre>
+&lt;p>未完成待续&lt;/p>
+&lt;p>参考 &lt;a class="link" href="https://www.cnblogs.com/kagamirr/p/15451409.html" target="_blank" rel="noopener"
+>https://www.cnblogs.com/kagamirr/p/15451409.html&lt;/a>&lt;/p>
+&lt;h3 id="我的kvm脚本参考">我的kvm脚本参考
+&lt;/h3>&lt;p>&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a>&lt;/p></description></item></channel></rss>
