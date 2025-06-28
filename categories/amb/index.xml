@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Amb on 小类随手记</title><link>https://dev.leiyanhui.com/categories/amb/</link><description>Recent content in Amb on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 29 Nov 2022 00:40:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/amb/index.xml" rel="self" type="application/rss+xml"/><item><title>pve/debian11 开启smb和 虚拟机以及局域网其他设备共享</title><link>https://dev.leiyanhui.com/pve/open-smb/</link><pubDate>Tue, 29 Nov 2022 00:40:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/open-smb/</guid><description>&lt;blockquote>
+&lt;p>win8以后的win系统默认不支持smb1，记得添加smb1的支持后方可&lt;/p>&lt;/blockquote>
+&lt;h3 id="更新源到国内">更新源到国内
+&lt;/h3>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/pve/guonei/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/guonei/&lt;/a>&lt;/p>
+&lt;h3 id="安装smb">安装smb
+&lt;/h3>&lt;pre>&lt;code>apt-get install samba
+&lt;/code>&lt;/pre>
+&lt;h3 id="启动">启动
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">systemctl enable smbd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl start smbd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl restart smbd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="root直接使用">root直接使用
+&lt;/h3>&lt;blockquote>
+&lt;p>自己用的话，直接用root用户 就好了
+设置root用户的 smb的密码 &lt;code>smbpasswd -a root &lt;/code> 这个密码和root的管理密码无关&lt;/p>&lt;/blockquote>
+&lt;pre>&lt;code>nano /etc/samba/smb.conf
+&lt;/code>&lt;/pre>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">[nvme]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> comment = Share-rw
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> path = /nvme
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> available = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> browsable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> public = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> writable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> valid users = root
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置账号">配置账号
+&lt;/h3>&lt;pre>&lt;code>smbpasswd -a 【用户名】
+&lt;/code>&lt;/pre>
+&lt;p>需要提前新建用户&lt;/p>
+&lt;pre>&lt;code>addgroup wheel
+useradd -m -G wheel -s /bin/bash 【用户名】
+passwd 【用户名】
+#最好顺带配置一下sudo https://dev.leiyanhui.com/arch/base-install/#%E6%B7%BB%E5%8A%A0%E7%94%A8%E6%88%B7
+# 或者干脆 groupadd test -g 6000&amp;amp; useradd test -u 6000 -g 6000 -s /sbin/nologin -d /dev/null
+&lt;/code>&lt;/pre>
+&lt;h3 id="配置共享">配置共享
+&lt;/h3>&lt;pre>&lt;code>nano /etc/samba/smb.conf
+&lt;/code>&lt;/pre>
+&lt;p>添加内容&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">[shareMNT]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> comment = Share-rw
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ;共享目录全路径
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> path = /mnt
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> available = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> browsable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">;写入权限
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> public = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> writable = yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">;可访问的用户
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> valid users = yourUserName
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="可能还需要配置权限">可能还需要配置权限
+&lt;/h3>&lt;pre>&lt;code>chmod -R 777 /mnt #简单一点
+&lt;/code>&lt;/pre>
+&lt;h3 id="关闭默认主目录">关闭默认主目录
+&lt;/h3>&lt;p>把 homes 哪段删掉就好&lt;/p>
+&lt;h3 id="其他命令">其他命令
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">smbpasswd -d 冻结用户，就是这个用户不能在登录了
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">smbpasswd -e 恢复用户，解冻用户，让冻结的用户可以在使用
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">smbpasswd -n 把用户的密码设置成空.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 要在global中写入 null passwords -true
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl status nmbd // 查询SMB状态
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl status smbd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">systemctl enable smbd // 允许SMB开机启动
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

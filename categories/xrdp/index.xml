@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Xrdp on 小类随手记</title><link>https://dev.leiyanhui.com/categories/xrdp/</link><description>Recent content in Xrdp on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 15 Feb 2023 08:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/xrdp/index.xml" rel="self" type="application/rss+xml"/><item><title>pve下lxc运行archlinux桌面环境 包括输入法 远程桌面 3d加速等</title><link>https://dev.leiyanhui.com/pve/lxc-arch-desktop-xrdp/</link><pubDate>Wed, 15 Feb 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/lxc-arch-desktop-xrdp/</guid><description>&lt;h2 id="安装arch并更新到最新版">安装arch并更新到最新版
+&lt;/h2>&lt;p>&lt;a class="link" href="../lxc-archlinux" >参考之前文章&lt;/a>&lt;/p>
+&lt;h2 id="准备工作">准备工作
+&lt;/h2>&lt;p>安装yay sudo 添加新用户&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/pacman.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">----
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[archlinuxcn]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Server = https://mirrors.tuna.tsinghua.edu.cn/archlinuxcn/$arch
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">----
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pacman -Sy archlinuxcn-keyring
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pacman -S yay
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pacman -S doas
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">echo &amp;#34;permit persist :wheel&amp;#34; &amp;gt; /etc/doas.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chown -c root:root /etc/doas.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chmod -c 0400 /etc/doas.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">doas -C /etc/doas.conf &amp;amp;&amp;amp; echo &amp;#34;config ok&amp;#34; || echo &amp;#34;config error&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">useradd -m -G wheel -s /bin/bash leiyanhui
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">passwd leiyanhui
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="选择桌面和输入法">选择桌面和输入法
+&lt;/h2>&lt;p>我这里选 xorg kde 了 如果安装i3 参考 &lt;a class="link" href="https://dev.leiyanhui.com/arch/xinitc-xrdp/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/arch/xinitc-xrdp/&lt;/a>&lt;/p>
+&lt;h3 id="xorg">xorg
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">pacman -S xorg-server
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="显示管理器">显示管理器
+&lt;/h3>&lt;p>我这里用 xinitrc&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">pacman -S xorg-xinit
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp /etc/X11/xinit/xinitrc /etc/X11/xinit/xinitrc-bak
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/X11/xinit/xinitrc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#注释掉下面几行 这几乎是启动一个时钟 几个 xterm，实际上会导致xrdp无法登录
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#twm &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xclock -geometry 50x50-1+1 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xterm -geometry 80x50+494+51 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xterm -geometry 80x20+494-0 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#exec xterm -geometry 80x66+0+0 -name login
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="安装kde">安装kde
+&lt;/h3>&lt;p>我这里直接装 plasma 整个包，然后卸载开发包 。 因为plasma-desktop 其实不全，后期弄起来麻烦。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">pacman -S plasma
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pacman -Rscn plasma-sdk
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pacman -Rscn `pacman -Qqs kde games`
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="网络管理">网络管理
+&lt;/h3>&lt;p>lxc下没必要&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">systemctl enable NetworkManager
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="xrdp-处理">xrdp 处理
+&lt;/h2>&lt;blockquote>
+&lt;p>注意科学环境&lt;/p>&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">yay -S xrdp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="声音">声音
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">pacman -S pulseaudio
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>其他参考 &lt;a class="link" href="https://dev.leiyanhui.com/c/arch-install-xrdp/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/c/arch-install-xrdp/&lt;/a>&lt;/p></description></item><item><title>archlinux 各种桌面环境下的xrdp的配置</title><link>https://dev.leiyanhui.com/arch/xrdp-all/</link><pubDate>Mon, 02 Jan 2023 09:40:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/xrdp-all/</guid><description>&lt;p>xrdp 相对 vnc 以及第三方的其他的原创桌面的软件 例如 todesk rustdesk（自建） nomactione 以及 串流等，都有速度优势。&lt;/p>
+&lt;p>但是xrdp 肯定是只支持x11/xorg的，目前只有gnome自带的远程（用户级且不稳定）支持Wayland&lt;/p>
+&lt;p>在不同桌面的下 xrdp的处理也稍有差异，这里分别记录常见的&lt;/p>
+&lt;h2 id="安装配置xrdp">安装配置xrdp
+&lt;/h2>&lt;p>这里跳过桌面环境的搭建 kde、i3、xfce4 ，以及驱动部分，只记录xrdp相关的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S xorg-xinit # 一般桌面应该都带了
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S base-devel #all 一些编译要用的包
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">yay -S xrdp
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">yay -S xorgxrdp-glamor
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S xorg-xrdb
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>声卡的处理要用pulseaudio&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S pulseaudio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S sbc bluez
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">yay -S pulseaudio-module-xrdp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="处理启动脚本">处理启动脚本
+&lt;/h2>&lt;p>xrdp 使用xinit 启动&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cp /etc/X11/xinit/xinitrc ~/.xinitrc #复制一个过来
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano ~/.xinitrc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#注释掉最后的几行
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#twm &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xclock -geometry 50x50-1+1 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xterm -geometry 80x50+494+51 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xterm -geometry 80x20+494-0 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#exec xterm -geometry 80x66+0+0 -name login
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="pulseaudio">pulseaudio
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># 声音部分可能需要 有的桌面环境不需要
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">PULSE_SCRIPT=/etc/xrdp/pulse/default.pa pulseaudio --daemonize=no
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pulseaudio &amp;amp;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="添加需要启动的桌面">添加需要启动的桌面
+&lt;/h3>&lt;h4 id="i3w--dwm">i3w / dwm
+&lt;/h4>&lt;p>添加一行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">exec i3w
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="gnome">gnome
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">unset SESSION_MANAGER
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">unset DBUS_SESSION_BUS_ADDRESS
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">exec dbus-launch gnome-shell --x11
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="kde">kde
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="k">export&lt;/span> &lt;span class="n">DESKTOP_SESSION&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">plasma&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">plasma&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dbus&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">run&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">session&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">if&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">needed&lt;/span> &lt;span class="n">startplasma&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">x11&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="xfce4">xfce4
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">unset SESSION_MANAGER
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">unset DBUS_SESSION_BUS_ADDRESS
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">exec dbus-launch startxfce4
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="后续处理">后续处理
+&lt;/h2>&lt;h3 id="xwrapper">Xwrapper
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo nano /etc/X11/Xwrapper.config
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">allowed_users=anybody
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="启动xrdp">启动xrdp
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo systemctl enable xrdp
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo systemctl start xrdp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>archlinux安装xrdp，可以和方便win和ipad远程控 i3 kde dwm</title><link>https://dev.leiyanhui.com/c/arch-install-xrdp/</link><pubDate>Wed, 14 Dec 2022 13:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/c/arch-install-xrdp/</guid><description>&lt;h1 id="arch安装xrdp方便win和ipad远程控">arch安装xrdp，方便win和ipad远程控
+&lt;/h1>&lt;p>1、先安装 yay &lt;a class="link" href="https://dev.leiyanhui.com/c/archlinux-install-yay/" target="_blank" rel="noopener"
+>arch安装yay最简单的办法 - 小类随手记 (leiyanhui.com)&lt;/a>&lt;/p>
+&lt;p>2、安装&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">yay -S xrdp
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">yay -S xorgxrdp ＃用ｘｏｒｇ做后端，推荐安装，也可以不用
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>xorgxrdp 和 xorgxrdp-glamor xorgxrdp-nvidia 选一个，&lt;br>
+官网wifi的一句话&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">#将 allowed_users=anybody 添加到 /etc/X11/Xwrapper.config 以允许任何人启动 X 服务器。
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo nano /etc/X11/Xwrapper.config
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>显卡3D 加速 用这两个就不用 xorgxrdp了&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">#intel xorgxrdp-glamor 和 Nvidia GPU 安装 xorgxrdp-nvidia
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">yay -S xorgxrdp-glamor
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#或者
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">yay -S xorgxrdp-nvidia
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>声音，需要用pulseaudio&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S pulseaudio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">yay -S pulseaudio-module-xrdp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意 &lt;code>pulseaudio-module-xrdp&lt;/code> 依赖 sbc 和 bluez，如果没有安装的话，编译失败后 看一下原因&lt;/p>
+&lt;p>提示&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">Remember to pass the environment &amp;#34;PULSE_SCRIPT=/etc/xrdp/pulse/default.pa&amp;#34; to pulseaudio to make this module work
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>新版会自动添加 不用额外处理&lt;/p>&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo nano /etc/xrdp/sesman.ini
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#添加
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[SessionVariables]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">PULSE_SCRIPT=/etc/xrdp/pulse/default.pa
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>3、配置xrdp桌面，这步很重要 很重要 ,不然登录是空白&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cp /etc/X11/xinit/xinitrc ~/.xinitrc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano ~/.xinitrc
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#注释掉下面几行 这几乎是启动一个时钟 几个 xterm，实际上会导致xrdp无法登录
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#twm &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xclock -geometry 50x50-1+1 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xterm -geometry 80x50+494+51 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#xterm -geometry 80x20+494-0 &amp;amp;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">#exec xterm -geometry 80x66+0+0 -name login
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>添加内容&lt;br>
+声音部分的处理&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># 声音部分可能需要 有的桌面环境不需要
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">PULSE_SCRIPT=/etc/xrdp/pulse/default.pa pulseaudio --daemonize=no
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pulseaudio &amp;amp;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>桌面环境&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 添加 注意我的的 kde plasma 其他桌面自行处理&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">export&lt;/span> &lt;span class="n">DESKTOP_SESSION&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">plasma&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">plasma&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dbus&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">run&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">session&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">if&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">needed&lt;/span> &lt;span class="n">startplasma&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">x11&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>如果是i3的话，直接exec就可以 dwm类似&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">exec i3
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>4、启动和配置开机自动启动&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo systemctl enable xrdp
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo systemctl start xrdp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>结束&lt;/p>
+&lt;h2 id="其他问题">其他问题：
+&lt;/h2>&lt;p>从xrdp里面关机或者重启 会导致xrdp黑屏无法登录，但是不会关机。&lt;/p>
+&lt;p>解决方法 就是去ssh 处理，如果黑屏后需要重新登录xrdp就重启一下xrdp就好了 systemctl restart xrdp&lt;/p>
+&lt;p>没声音的问题，基本上 pulseaudio 没启动，或者远程桌面客户端这边 没设置声音播放&lt;/p>
+&lt;h2 id="感受">感受
+&lt;/h2>&lt;p>单纯文字办公 和写代码的话，还可以，如果要播放视频，视频可以很流畅，但是声音卡会卡。&lt;/p>
+&lt;p>xvnc 要比 xorg 流畅很多，声音也要比xorg流畅一点点&lt;/p>
+&lt;p>中间尝试过自己搭建 rustdesk 中转 ，效果也一般般。哪怕局域网内 rustdesk 有时候 也会糊，但是声音要比xrdp流畅一些。&lt;/p>
+&lt;p>另外 ibus 也有一点问题，建议用 fcitx5&lt;/p></description></item></channel></rss>
