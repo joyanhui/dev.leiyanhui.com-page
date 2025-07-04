@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Alpines on 小类随手记</title><link>https://dev.leiyanhui.com/alpine/</link><description>Recent content in Alpines on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 20 Nov 2022 19:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/alpine/index.xml" rel="self" type="application/rss+xml"/><item><title>alpine 运行几个常用的docker</title><link>https://dev.leiyanhui.com/alpine/docker-s/</link><pubDate>Sun, 20 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/alpine/docker-s/</guid><description>&lt;p>alpine 不单适合作为docker的基础包，也挺适合在部分场景下，作为docker的宿主系统、原因无它，体积小维护简单。&lt;/p>
+&lt;p>当然 alpine最大的问题 依旧是 mult的兼容性，所以说 alpine 只适合部分场景下。&lt;/p>
+&lt;p>我这里 用kvm运行了一个单独的虚拟机只用来在不污染宿主机的情况下折腾docker，所以宿主机很适合用alpine&lt;/p>
+&lt;h2 id="安装docker">安装docker
+&lt;/h2>&lt;p>ssh 到alpine&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add nano
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano /etc/apk/repositories
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>把 community 的那行注释去掉&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add docker
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add docker boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service docker start
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="v2ray">v2ray
+&lt;/h2>&lt;blockquote>
+&lt;p>nano /mnt/hdd/kvm-bak/alpine-docker/start_nogpu.sh&lt;/p>
+&lt;blockquote>
+&lt;p>编辑 -netdev 这行，添加需要端口 2017(web管理界面) 20170（sockes） 20171（http不分流） 20172（分流） 20173（备用）&lt;/p>&lt;/blockquote>&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">hostfwd=tcp::2017-:2017,hostfwd=tcp::20170-:20170,hostfwd=tcp::20171-:20171,hostfwd=tcp::20172-:20172,hostfwd=tcp::20173-:20173
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d --restart=always --privileged \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name v2raya -p 2017:2017 -p 20170-20173:20170-20173 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> mzz2017/v2raya
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配置访问 ： http://10.0.0.8:2017
+打开 透明代理 ip转发 端口分享&lt;/p>
+&lt;h3 id="阿里云盘-webdav">阿里云盘 webdav
+&lt;/h3>&lt;p>用 messense/aliyundriver-webdav 这个镜像吧 10k star，教程很多，也比较简单，主要是获取refreshToken 就好了&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d --name=aliyunpan --restart=always -p 8080:8080 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e REFRESH_TOKEN=&amp;#39;your refresh token&amp;#39; \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e WEBDAV_AUTH_USER=admin \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e WEBDAV_AUTH_PASSWORD=admin \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> messense/aliyundrive-webdav
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="nginx-主要用于处理https代理">nginx 主要用于处理https代理
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">docker&lt;/span> &lt;span class="n">run&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">d&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="mi">8081&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">80&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="mi">8443&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">443&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">--&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="n">nginxweb&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">--&lt;/span>&lt;span class="n">link&lt;/span> &lt;span class="n">answer&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">server&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">answerserver&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">local&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">docker&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">html&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">html&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">local&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">docker&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">conf&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">conf&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">conf&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">local&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">docker&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">conf&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">conf&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">conf&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span>&lt;span class="n">v&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">local&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">docker&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">logs&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nb">log&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">nginx&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="mysql-redis">mysql redis
+&lt;/h2>&lt;p>略，可以 docker 直接泡一个宝塔&lt;/p></description></item><item><title>Alpine Linux运行KVM虚拟化 和 docker</title><link>https://dev.leiyanhui.com/alpine/install-kvm-docker-sys/</link><pubDate>Mon, 31 Oct 2022 14:31:20 +0800</pubDate><guid>https://dev.leiyanhui.com/alpine/install-kvm-docker-sys/</guid><description>&lt;p>alpine的优势不用多说， 轻量小巧，还有diskless&lt;/p>
+&lt;p>kvm 也是linux 最好的虚拟机软件了，性能应该也是最好的。&lt;/p>
+&lt;p>最终目标 是搭建一个轻量的linux 里面只跑docker和kvm&lt;/p>
+&lt;p>可以直接使用QEMU来运行虚拟机，但是管理命令较为复杂，所以通常我们都会安装libvirt来帮助管理。&lt;/p>
+&lt;h2 id="alpine安装">alpine安装
+&lt;/h2>&lt;p>略 安装完成 大概需要40M左右硬盘空间&lt;/p>
+&lt;h2 id="准备安装-处理源">准备安装 处理源
+&lt;/h2>&lt;pre>&lt;code>nano /etc/apk/repositories
+&lt;/code>&lt;/pre>
+&lt;p>去掉community的那行的注释&lt;/p>
+&lt;h2 id="安装所需要的软件包">安装所需要的软件包
+&lt;/h2>&lt;h3 id="kvm-需要的">kvm 需要的
+&lt;/h3>&lt;p>kvm 还是最好用qemu来管理，还有libvirt 为了方便最好再安装一个 virt-install&lt;/p>
+&lt;pre>&lt;code>apk add libvirt-daemon qemu-img qemu-system-x86_64 qemu-modules
+apk add virt-install
+rc-update add libvirtd
+rc-service libvirtd start
+virsh list
+&lt;/code>&lt;/pre>
+&lt;p>如果diskless 还需要&lt;/p>
+&lt;pre>&lt;code>lbu ci
+&lt;/code>&lt;/pre>
+&lt;p>现在大概需要327M 硬盘&lt;/p>
+&lt;h3 id="再安装docker">再安装docker
+&lt;/h3>&lt;pre>&lt;code>apk add docker
+&lt;/code>&lt;/pre>
+&lt;p>现在 546.6M&lt;/p>
+&lt;h3 id="远程kvm所需要的">远程kvm所需要的
+&lt;/h3>&lt;pre>&lt;code>apk add dbus polkit virt-manager terminus-font rc-update add dbus
+&lt;/code>&lt;/pre></description></item></channel></rss>
