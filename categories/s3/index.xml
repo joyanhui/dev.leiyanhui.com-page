@@ -1,0 +1,526 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>S3 on 小类随手记</title><link>https://dev.leiyanhui.com/categories/s3/</link><description>Recent content in S3 on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 20 Dec 2023 18:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/s3/index.xml" rel="self" type="application/rss+xml"/><item><title>低成本高可用性异地多活跨云部署方案</title><link>https://dev.leiyanhui.com/web/mcloud/</link><pubDate>Wed, 20 Dec 2023 18:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/mcloud/</guid><description>&lt;p>在跨云异地多活部署遇到的最大的两个问题 1 是复杂度 2是成本。 一个项目想达到99.9%的高可用性，并且不依赖云厂商还是非常困难。 &lt;br>
+异地多活有很多实现方法，下面分享一种 较为简单并尽可能的降低成本的方案。以阿里云 腾讯云 华为云，分别 上海 广州 北京 三城。以阿里（上海）和腾讯（广州）为主，华为为辅。&lt;br>
+下文中所有的redis所指均为keydb6.x。&lt;/p>
+&lt;h2 id="主要内容">主要内容
+&lt;/h2>&lt;p>负载均衡 路由层 业务层 缓存层 数据层 定时备份&lt;/p>
+&lt;h2 id="负载均衡和路由层">负载均衡和路由层
+&lt;/h2>&lt;p>因为非传统web项目，有客户端，这部分内容集成到客户端。由客户端根据预置规则选择 请求到某一个机房。&lt;/p>
+&lt;h2 id="业务层">业务层
+&lt;/h2>&lt;p>要全部改造为无状态服务， 部分业务需要完全兼容华为/阿里/腾讯的函数计算，并在对应的云厂商和自己的机器上都有部署。 &lt;br>
+部分业务有读写冲突的情况，虽然多活部署，但是使用消息中间件确保只有一个实例处在运行状态，其他实例等待抢占上位。&lt;/p>
+&lt;h2 id="缓存层和数据层">缓存层和数据层
+&lt;/h2>&lt;p>应用层对数据库的读写 都在redis中，少数在pgsql。pgsql的数据只作为分析和统计使用。 &lt;br>
+其他需要储存的数据采用云厂商的对象储存。（要优化一下）&lt;/p>
+&lt;h3 id="redis-使用多个集群">redis 使用多个集群
+&lt;/h3>&lt;h4 id="核心集群跨云跨机房">核心集群跨云跨机房
+&lt;/h4>&lt;p>读多写少全局写入集群 储存核心数据 至少3主三从分散部署到 三云三城市。&lt;br>
+核心数据主要用于储存一些增长缓慢但是读取频繁的数据。例如 用户信息 物联网设备配置信息等。&lt;br>
+为了防止频繁跨云读取，应用层需要针对性的做一些改造，针对读写非常频繁的数据，本地机房应该开一个redis实例来缓存核心集群的数据降低核心集群压力。&lt;br>
+1、应用层在启动的时候从redis按需要读取数据到本地全局map，并在每次处理请求的时候或者用定时器/消息订阅等方式来判断是否需要重新从redis读取数据。&lt;br>
+2、对读取非常频繁的数据，需要在本机机房搭建一个redis实例用来作为核心集群的从库，核心集群的部分数据，降低核心集群压力，并降低核心集群公网通讯开支。&lt;br>
+3、应用层在写入数据的是，需要按需判断本地redis同步库是否已经同步成功。&lt;/p>
+&lt;h4 id="机房内部缓存">机房内部缓存
+&lt;/h4>&lt;h5 id="读缓存">读缓存
+&lt;/h5>&lt;p>上文已经提到，机房内应该增加至少一个redis实例或者集群，用来作为核心集群的从库，作为本地部分数据的读取使用。以降低核心集群的公网通讯开支。&lt;br>
+一致性要求非常高的数据，依旧是从核心集群读取。&lt;/p>
+&lt;h5 id="写缓存的实现">写缓存的实现
+&lt;/h5>&lt;p>一致性要求不高的数据，写入到本地的redis集群，并安需定时同步到核心集群。例如：设备的在线状态和传感器数据（容许1-2秒延迟，故障时容许10-15秒延迟）&lt;br>
+需要落地持久化的数据，并容许短时间丢失的数据（设备传感器的历史数据容许丢失3-5分钟的）先写入到本地的keydb 开启flash持久化，并定时同步flash文件和rdb aof文件到 本云的对象储存（因为数据庞大，后文针对此方案做了进一步优化降低开支）。
+一致性要求高的数据，直接写入到核心集群。&lt;/p>
+&lt;h4 id="redis同步">redis同步
+&lt;/h4>&lt;p>除了redis cluster之外使用阿里的RedisShake来做单向同步。&lt;/p>
+&lt;h4 id="pgsql">pgsql
+&lt;/h4>&lt;h3 id="时序数据kv持久化储存">时序数据/kv持久化储存
+&lt;/h3>&lt;h4 id="实现">实现
+&lt;/h4>&lt;p>项目以写为主，读取较少，所以这里直接使用keydb替代redis。同时部署多个集群来作为纯redis 和kv硬盘储存使用。&lt;br>
+没有引入时序数据库，是因为数量没有那么庞大，keddb的flash方案可以满足。&lt;/p>
+&lt;h4 id="容灾和数据合并">容灾和数据合并
+&lt;/h4>&lt;h5 id="数据合并">数据合并
+&lt;/h5>&lt;p>因为此项目的这部分数据都是基于设备或用户的，所以同一个设备和同一个数据的历史数据可以合并到同一个key里面 以减少RocksDB（keydb的flash功能基于RocksDB）的小文件数量降低对象储存成本。&lt;br>
+通过k8s/swarm 在阿里云和腾讯云分别 分别部署一个实例。两个实例先查询本地要处理的数据量，并协商以数据量较多的为主实例。两个实例分别合并前一天的历史数据到数组/map ，主实例在处理的时候询问从实例是否有同一个设备/用户的数据，如果有数据交付给主实例处理。如果没有从实例自己处理。 阿里云走内网数据持久到oss 腾讯云云走内网数据持久化到cos。另外一台不限制带宽的服务器同步合并两家对象储存数据保持一致。&lt;br>
+查询的时候，当日数据从keydb查询，前一日数据从对象储存查询。&lt;/p>
+&lt;h2 id="负载均衡和历史数据的处理">负载均衡和历史数据的处理
+&lt;/h2>&lt;h3 id="设备和app的负载均衡">设备和app的负载均衡
+&lt;/h3>&lt;p>设备实时数据 接受的应用层 分别部署到阿里云和腾讯云的多台机器上，由客户端先询问服务上的入口应用程序自己应该请求那台服务，并在一定周期内（未断电重启）持续请求这台服务。如果对应的机器负载较大，会通知客户端更换一个别的地址，或者地址连不同的时候客户端也会更换一个地址。（用户的app同样的规则）&lt;/p>
+&lt;h3 id="数据的储存">数据的储存
+&lt;/h3>&lt;h4 id="实时数据">实时数据
+&lt;/h4>&lt;p>因为容许部分数据丢失，所以实时数据由对应的devConn服务直接储存到map，而不写入redis。用户端app在查询的时候，会先根据核心redis的从库中的对应设备的记录获取对应设备的服务器地址，直接查询map.&lt;/p>
+&lt;h4 id="历史数据">历史数据
+&lt;/h4>&lt;p>实时数据需要及时落盘，容许丢失一小部分，但是不能产生大量碎文件，不然会导致后续储存费用太高。&lt;br>
+为了降低io,由devConn自己处理储存问题。储存后如何同步到云储存参考上文。&lt;/p>
+&lt;h2 id="其他">其他
+&lt;/h2>&lt;p>推荐阅读 &lt;a class="link" href="http://kaito-kidd.com/2021/10/15/what-is-the-multi-site-high-availability-design/" target="_blank" rel="noopener"
+>http://kaito-kidd.com/2021/10/15/what-is-the-multi-site-high-availability-design/&lt;/a>&lt;/p></description></item><item><title>个人/小团队数据中心媒体中心方案实施（pve lxc docker rclone）</title><link>https://dev.leiyanhui.com/nas/my-nas-2023-04014/</link><pubDate>Fri, 14 Apr 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/nas/my-nas-2023-04014/</guid><description>&lt;h2 id="场景和前言">场景和前言
+&lt;/h2>&lt;p>家庭和小团队数据中心，是一个相对硬性的需求。有很多解决方案，我这里只论述适合我的。实心括号内是我的选择&lt;/p>
+&lt;ul>
+&lt;li>家庭成员 照片同步 影音观看 【filerun webdav MT-Photos rclone infuse 】&lt;/li>
+&lt;li>团队 文档编辑 文件同步 代码上传 【filerun webdav rclone gitea】&lt;/li>
+&lt;li>私有git 以及自动同步github 【gitea】&lt;/li>
+&lt;li>笔记同步 【思源笔记 docker webdav/minio 】&lt;/li>
+&lt;li>虚拟机环境 容器环境 【pve lxc 】&lt;/li>
+&lt;li>android/ios开发环境【pve 黑苹果】&lt;/li>
+&lt;li>远程办公开发环境【pve ipsec winRDP remoutapp codeserver 阿里容器镜像】&lt;/li>
+&lt;li>科学环境【独立x86 openwrt 】&lt;/li>
+&lt;li>异地部分【rclone + kopia 加密备份收费的对象储存oss/cos 和 免费云盘 alist 】&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>每一个方案 都不同的解决方案。 无法一一展开。&lt;br>
+我先付费版网盘，后 折腾 群晖，ovm freenas unraid等，个人网盘程序 也经历 nginxWebdav caddy alist cloudreve seafile nextcloud 等。 最后选择一个整体适合我的方案。&lt;/p>&lt;/blockquote>
+&lt;h2 id="常用方案的对比">常用方案的对比
+&lt;/h2>&lt;h3 id="filerun-vs-nextcloud-vs-其他">filerun vs nextcloud vs 其他
+&lt;/h3>&lt;p>nextcloud 是佼佼者，但是真的卡，无论如何优化，webui都卡的难受。完全没有丝滑的感觉。
+seafile ui和理念 上个世纪的吧，文件储存放不是直接存硬盘的，给其他扩展留下的可操作空间不大。ui丑。比多数简易网盘程序的优势 就是支持wopi了。&lt;br>
+cloudreve 新版支持wopi协议，但是他的webdav 是有问题的，另外 无法直接系统操作文件，新家的文件他是看不到的。没有类似nextcloud的扫描功能，也没有filerun的实时更新功能。至于支持第三方储存，有rclone 那个网盘程序不支持呢 对吧。&lt;br>
+alist 如同他的名字，他就是一个list，优势不在这里，虽然他很强，而且支持本地储存，但是它更适合挂载rclone不支持网盘转webdav而不是完全替代一个私有云储存。我们方案里面有它的座位，但不是它来驻场负责最底层的文件系统。&lt;br>
+minio 储存好样的，但是它专业不在此。有座位不是驻场程序。&lt;br>
+filebrower 这个。。真的太简陋了，只适合在硬路由器等极端硬件资源紧张的场合用。&lt;br>
+filerun 优点，功能还可以。 缺点 非开源软件 免费版 有限制 详情查看 &lt;a class="link" href="../filerun-install" >filerun&lt;/a>&lt;/p>
+&lt;h3 id="群晖-unraid-esxi-freenas-pve--原生linux">群晖 unraid esxi freeNas pve 原生linux
+&lt;/h3>&lt;p>群晖 不单是nas更是一个虚拟化和容器平台，虽然黑群晖可以免费。但是很多地方不喜欢，比如他每个磁盘都要写入系统，固定的分区格式。无法直接接入带数据的旧硬盘等&lt;br>
+unraid 参考群晖，unraid有它优秀的地方，比如可以简单搞定pci直通，点击下就可以黑苹果等。我不觉它适合对linux/kvm有一定了解的人，但是他确实挺不错&lt;br>
+esxi 不评价，非要评价的话，就是 曾经的王者 眼下的垃圾&lt;br>
+freeNAS、ovm 参考 esxi&lt;br>
+原生linux方案，我之前也做过一个 也用过几个月，最后的感觉，灵活但是没有pve方便 所以弃用了。&lt;br>
+windowsServer 这个。。咋说呢，不说了。。。
+macos server 刚好有mac要做server的话 也行吧&lt;br>
+pve 优点 开源免费 ，比 直接 cli操作kvm lxc更加直观方便，自带的lxc方案要带docker更灵活 容易扩展，开箱即可使用。缺点：需要有一点点linux基础。而aio和nas圈子的很多人都是linux小白，新手都算不上。&lt;/p>
+&lt;h3 id="备份方案">备份方案
+&lt;/h3>&lt;p>群晖的云盘备份真的是很让人羡慕，一键搞定，还没有额外的开支。
+自己弄的话 就需要rclone加密 + kopia + rclone + alist + 不太稳妥的后端免费网盘&lt;/p>
+&lt;h2 id="搭建过程">搭建过程
+&lt;/h2>&lt;p>上述多数教程本站都有，但是可能比较零散，请用搜索引擎 搜索 &lt;code>关键词 site:dev.leiyanhuil.com&lt;/code> 查看 部分文章 我我会连接到下面&lt;/p>
+&lt;h3 id="filerun-搭建和使用">filerun 搭建和使用
+&lt;/h3>&lt;p>&lt;a class="link" href="../filerun-install" >filerun 搭建和初步使用&lt;/a>&lt;/p></description></item><item><title>lxc搭建自己的对象储存s3 mino over ssl/tls</title><link>https://dev.leiyanhui.com/pve/lxc-minio/</link><pubDate>Sun, 09 Apr 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/lxc-minio/</guid><description>&lt;h3 id="场景">场景
+&lt;/h3>&lt;p>对象储存是一个简单的网络文件储存协议，Simple Storage Service 基于http。性能要超过webdav。&lt;br>
+因为云厂商的s3价格比较贵，免费的限制很多。所以在部分情况下，还是用自己的搭建的。&lt;/p>
+&lt;h3 id="minio">minio
+&lt;/h3>&lt;p>golang写的 绿色环保 轻量 高性能 开源 免费&lt;/p>
+&lt;h3 id="环境准备">环境准备
+&lt;/h3>&lt;p>我这里是pve平台，采用lxc alpine搭建。创建以一个ct容器 id 9000 ，镜像选择alpine3.17 硬盘8g，另外直通一个物理盘进来，lxc直通教程请站内搜索。 ip 固定10.1.1.90 &lt;br>
+alpine 启动后，修改源 市区&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">sed&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="s1">&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g&amp;#39;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apk&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">repositories&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">tzdata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cp&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">zoneinfo&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Asia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Shanghai&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">localtime&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;Asia/Shanghai&amp;#34;&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">timezone&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">del&lt;/span> &lt;span class="n">tzdata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">cache&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apk&lt;/span>&lt;span class="o">/*&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="安装minio">安装minio
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add wget
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">wget https://dl.min.io/server/minio/release/linux-amd64/minio #活跃软件更新比较频繁
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">chmod +x minio
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="启动测试">启动测试
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=123456 ./minio server /mnt/data --console-address &amp;#34;:9001&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># http://10.1.1.90:9001
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 用户名：admin
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 密码： 123456
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>ctrl -c 结束&lt;/p>
+&lt;h3 id="配置证书">配置证书
+&lt;/h3>&lt;p>我的证书文件 均由 github action 托管，所以我这里直接拉取回来即可。&lt;a class="link" href="https://dev.leiyanhui.com/web/auto-get-ssl/" target="_blank" rel="noopener"
+>详情&lt;/a>&lt;br>
+minio要求 私钥为private.key，公共证书为public.crt。
+&lt;a class="link" href="https://dev.leiyanhui.com/web/auto-updatessl-form-github/" target="_blank" rel="noopener"
+>配置自动更新证书的脚本&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">cat&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">auto&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">updatessl&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">form&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sh&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="n">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cd&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rm&lt;/span> &lt;span class="n">ssl&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">zip&lt;/span>&lt;span class="o">*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">wget&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">cdn&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">jsdelivr&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">net&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">gh&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">XXXX&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">sXXXX&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">zip&lt;/span> &lt;span class="c1">#https://github.com/XXXXXXXXXXXXX.zip&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="p">[&lt;/span> &lt;span class="o">!&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">f&lt;/span> &lt;span class="s2">&amp;#34;/root/ssl.zip&amp;#34;&lt;/span> &lt;span class="p">];&lt;/span> &lt;span class="n">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">wget&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">O&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">dev&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">null&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">q&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">api&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">day&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="err">你的&lt;/span>&lt;span class="n">key&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">SSL&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">update&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">err&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">home&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">mino&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="err">?&lt;/span>&lt;span class="n">sound&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">birdsong&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">amp&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="n">isArchive&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="n">ssl&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="mi">7&lt;/span>&lt;span class="n">z&lt;/span> &lt;span class="n">x&lt;/span> &lt;span class="n">ssl&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">zip&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p密码&lt;/span> &lt;span class="c1">#密码和p之间不能有空格&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">supervisorctl&lt;/span> &lt;span class="n">restart&lt;/span> &lt;span class="n">minio&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">nginx&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">S&lt;/span> &lt;span class="n">reload&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;15 8 * * * sh /root/auto-updatessl-form-github.sh&amp;#34;&lt;/span> &lt;span class="o">&amp;gt;&amp;gt;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">crontabs&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">cat&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">crontabs&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">root&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="启用证书">启用证书
+&lt;/h3>&lt;p>minio 支持tls通讯，但是理解起来有一点困难，本着能不用脑子的时候，绝对不用的前提。
+我还是选 用nginx来搞定,下面操作依旧是基于alpine 其他linux系统注意一下 路径&lt;/p>
+&lt;blockquote>
+&lt;p>aio环境也可以集中到 nginxWebUI处理&lt;/p>&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add nginx
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add nginx boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mv /etc/nginx/http.d/default.conf /etc/nginx/http.d/default.conf-bak
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">vi /etc/nginx/http.d/mino.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>内容,&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-zed" data-lang="zed">&lt;span class="line">&lt;span class="cl">&lt;span class="n">server&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">server_name&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">s3&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">jia&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">leiyanhui&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">#管理面板&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">listen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">51443&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ssl&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">http2&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ssl_certificate&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nn">root/ssl/&lt;/span>&lt;span class="n">XXXX&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">cer&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ssl_certificate_key&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nn">root/ssl/&lt;/span>&lt;span class="n">XXX&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">key&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ssl_protocols&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">2&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">3&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">listen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">51442&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">if&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">scheme&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">http&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">301&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="o">:&lt;/span>&lt;span class="c1">//$host:51443$request_uri;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">error_page&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">497&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="o">:&lt;/span>&lt;span class="c1">//$host:51443;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Allow&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">special&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">characters&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">in&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">headers&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ignore_invalid_headers&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Allow&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">any&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">size&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">file&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">be&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uploaded&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Set&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">a&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">value&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">such&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">as&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">1000&lt;/span>&lt;span class="n">m&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">restrict&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">file&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">size&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">a&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">specific&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">value&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">client_max_body_size&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">0&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Disable&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">buffering&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_buffering&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_request_buffering&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">location&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Host&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Real&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">IP&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">remote_addr&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">For&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">proxy_add_x_forwarded_for&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Proto&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">scheme&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">NginX&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Proxy&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">true&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">This&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">is&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">necessary&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">pass&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">the&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">correct&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">IP&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">be&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">hashed&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">real_ip_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Real&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">IP&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_connect_timeout&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">300&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">To&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">support&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">websocket&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_http_version&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Upgrade&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">http_upgrade&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Connection&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">&amp;#34;&lt;/span>&lt;span class="n">upgrade&lt;/span>&lt;span class="err">&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">chunked_transfer_encoding&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_pass&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">http&lt;/span>&lt;span class="o">:&lt;/span>&lt;span class="c1">//10.1.1.90:9001/; # This uses the upstream directive definition to load balance and assumes a static Console port of 9001
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="n">server&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">server_name&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">s3api&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">域名&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nv">#api&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">listen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">51443&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ssl&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">http2&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ssl_certificate&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nn">root/ssl/&lt;/span>&lt;span class="n">XXXX&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">cer&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ssl_certificate_key&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nn">root/ssl/&lt;/span>&lt;span class="n">XXX&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">key&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ssl_protocols&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">2&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TLSv1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">3&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">listen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">51442&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">if&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">scheme&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">http&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">301&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="o">:&lt;/span>&lt;span class="c1">//$host:51443$request_uri;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">error_page&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">497&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="o">:&lt;/span>&lt;span class="c1">//$host:51443;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Allow&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">special&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">characters&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">in&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">headers&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">ignore_invalid_headers&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Allow&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">any&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">size&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">file&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">be&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uploaded&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Set&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">a&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">value&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">such&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">as&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">1000&lt;/span>&lt;span class="n">m&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">restrict&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">file&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">size&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">to&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">a&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">specific&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">value&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">client_max_body_size&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">0&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Disable&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">buffering&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_buffering&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_request_buffering&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">location&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Host&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">http_host&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Real&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">IP&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">remote_addr&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">For&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">proxy_add_x_forwarded_for&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">X&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Forwarded&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Proto&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">scheme&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_connect_timeout&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">300&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="err">#&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Default&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">is&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">HTTP/&lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">keepalive&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">is&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">only&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">enabled&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">in&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">HTTP/&lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_http_version&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="err">1&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_set_header&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Connection&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">&amp;#34;&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">chunked_transfer_encoding&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">proxy_pass&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">http&lt;/span>&lt;span class="o">:&lt;/span>&lt;span class="c1">//10.1.1.90:9000/; # This uses the upstream directive definition to load balance
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>上文参考：https://min.io/docs/minio/linux/integrations/setup-nginx-proxy-with-minio.html&lt;br>
+去掉了负载均衡部分&lt;/p>
+&lt;h4 id="测试ssl">测试ssl
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">service nginx start
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=12345678 ./minio server /mnt/data --console-address &amp;#34;:9001&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="写入服务">写入服务
+&lt;/h3>&lt;h4 id="配置和环境变量">配置和环境变量
+&lt;/h4>&lt;p>通常 都是使用 supervisorctl，使用也比较简单。但是今天准备尝试用 alpine的rc服务管理器来处理。
+minio 已经不建议用 &amp;ndash;config-dir 来管理配置文件，而是把配置文件 放到了 目录的 .minio.sys&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">ls /mnt/data/.minio.sys
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>我这里直接export 放到 start_pre
+~~
+我这里直接改环境变量
+echo &amp;ldquo;export MINIO_ROOT_USER=admin&amp;rdquo;&amp;raquo;/etc/profile&lt;br>
+echo &amp;ldquo;export MINIO_ROOT_PASSWORD=123456&amp;rdquo;&amp;raquo;/etc/profile&lt;br>
+source /etc/profile
+~~&lt;/p>
+&lt;h4 id="添加系统服务">添加系统服务
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">vi&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">init&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">minio&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">-----------------------&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#!/sbin/openrc-run&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">name&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;minio&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">command&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;/root/minio &amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">command_args&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;server /mnt/data --console-address &amp;#39;:9001&amp;#39;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">command_background&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;yes&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">pidfile&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;/run/$RC_SVCNAME.pid&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">start_pre&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">export&lt;/span> &lt;span class="n">MINIO_ROOT_USER&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">admin&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">export&lt;/span> &lt;span class="n">MINIO_ROOT_PASSWORD&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">12345678&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">depend&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">need&lt;/span> &lt;span class="n">localmount&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">need&lt;/span> &lt;span class="n">logger&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>此处有一个小坑 ，密码长度不能低于8位 用户名不能低于三位。 另外这个账户密码 是 面板 以及 mc的管理里面。面板可以禁用 mc的不确定，所以密码强度最好高一点&lt;/p>&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">chmod +x /etc/init.d/minio
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-service --list
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add minio boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service minio start
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>alpine挂载 阿里云oss 腾讯cos 亚马逊s3 等对象储存方法</title><link>https://dev.leiyanhui.com/web/alpine-s3/</link><pubDate>Thu, 23 Feb 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/alpine-s3/</guid><description>&lt;p>alpine 轻量，适合很多场景使用。但是目前除了很多人用他来做docker基础镜像之外，还是小众了一些。所以很多软件包没有提供编译好的安装包。
+而alpine的官方仓库，一直控制在10000以内，所以&amp;hellip;&lt;/p>
+&lt;p>比如 阿里云的 ossfs 腾讯的 cosfs 都不行，连s3fs 也没有。。。&lt;/p>
+&lt;p>自己编译？？？ 要装一堆依赖，，，（其实 可以docker里面编译完了删除就行）不符合 我们需求.. 还是用rclone吧。 可以用国产的alist cloudreve，我这个场景更适合rclone，因为我只是同步备份数据，不做本地储存用。&lt;/p>
+&lt;h3 id="安装获取">安装获取
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">unzip&lt;/span> &lt;span class="n">wget&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">wget&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">downloads&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">rclone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">org&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">v1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">61.1&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">rclone&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">61.1&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">linux&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">amd64&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">zip&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">unzip&lt;/span> &lt;span class="n">rclone&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">61.1&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">linux&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">amd64&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">zip&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">mv&lt;/span> &lt;span class="n">rclone&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">61.1&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">linux&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">amd64&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">rclone&lt;/span> &lt;span class="o">.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>rclone默认的配置文件 是在 ~/.config/rclone/rclone.conf ，你可以用命令 查看 &lt;code>rclone config paths &lt;/code>&lt;/p>
+&lt;p>我这里手动指定 &lt;code>./rclone config --config /root/rclone.conf&lt;/code> 是进入交互引导模式 帮你创建储存点。简单点&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cat &amp;gt; /root/rclone.conf &amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[oss]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">type = s3
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">provider = Alibaba
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">access_key_id = 你的access_key_id
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">secret_access_key = 你的secret_access_key
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">endpoint = oss-cn-地区.aliyuncs.com
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">acl = public-read
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">storage_class = STANDARD
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bucket_acl = public-read
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">EOF
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>测试&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">#./rclone ls oss:你的存储桶名称 --config /root/rclone.conf #列出所有文件
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">./rclone lsd oss:你的存储桶名称 --config /root/rclone.conf #列出指定的目录的子目录
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">./rclone lsf oss:你的存储桶名称 --config /root/rclone.conf #列出文件个目录的文件和目录
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">./rclone copy /root/rclone.conf oss:你的存储桶名称/ --config /root/rclone.conf # 复制一个文件
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">./rclone lsf oss:你的存储桶名称 --config /root/rclone.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>腾讯cos 和 亚马逊s3 同理&lt;/p>
+&lt;p>rclone 还内置 删除 sync 等操作 ，具体 ./rcone -h 查看&lt;/p>
+&lt;h3 id="挂载到本地">挂载到本地
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add fuse # 必须的，如果你在容器里面，宿主和容器 都要有fuse权限
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone mount cos:/你的存储桶名称/子目录或者不需要 /mnt/本地挂载路径 --no-check-certificate --allow-other --allow-non-empty
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>还有其他一些更丰富的参数 这里不说了&lt;/p>
+&lt;h3 id="开机自动挂载">开机自动挂载？
+&lt;/h3>&lt;p>rc-local 处理就好了。&lt;/p></description></item></channel></rss>

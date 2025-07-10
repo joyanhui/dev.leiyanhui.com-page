@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Libvirt on 小类随手记</title><link>https://dev.leiyanhui.com/categories/libvirt/</link><description>Recent content in Libvirt on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 20 Nov 2022 19:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/libvirt/index.xml" rel="self" type="application/rss+xml"/><item><title>使用libvirt 管理 qemu虚拟主机</title><link>https://dev.leiyanhui.com/kvm/libvirt-base/</link><pubDate>Sun, 20 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/libvirt-base/</guid><description>&lt;p>kvm qemu 使用命令行的方式 较为简单明了，但是有几个问题 有一些麻烦。所以最好还是搞一下virt 不然还是不好处理&lt;/p>
+&lt;ul>
+&lt;li>开机启动虚拟主机（非管理员权限）&lt;/li>
+&lt;li>虚拟机内引导顺序&lt;/li>
+&lt;li>usb sata 等设备的热拔插&lt;/li>
+&lt;li>以及一些sudo权限的处理上&lt;/li>
+&lt;/ul>
+&lt;h2 id="安装">安装
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S libvirt #服务端 自带命令行客户端 virsh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="服务">服务
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo systemctl enable libvirtd
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo systemctl start libvirtd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="用已经存在的虚拟磁盘文件创建一个虚拟机">用已经存在的虚拟磁盘文件创建一个虚拟机
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S virt-install
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>virt-install 不是必须的工具，可在 /home/yanhui/.config/libvirt/qemu/ 或者 /etc/libvirt/qemu 手动创建xml 来新建虚拟机&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">virt-install \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name alpine-dockers \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --vcpus=12 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --osinfo alpinelinux3.16 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --memory 1024 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --disk /mnt/ssd/alpinx-kvm/alpine-sys.qcow2 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --import
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>运行后 直接 ctrl+c 关闭,然后查看
+&lt;code>virsh list --all&lt;/code>&lt;/p>
+&lt;blockquote>
+&lt;p>查看支持的操作系统 virt-install &amp;ndash;osinfo list&lt;/p>&lt;/blockquote>
+&lt;h2 id="关闭虚拟机">关闭虚拟机
+&lt;/h2>&lt;pre>&lt;code>virsh shutdown alpine-dockers
+&lt;/code>&lt;/pre>
+&lt;h2 id="编辑虚拟机">编辑虚拟机
+&lt;/h2>&lt;pre>&lt;code>nano /home/yanhui/.config/libvirt/qemu/alpine-dockers.xml
+&lt;/code>&lt;/pre>
+&lt;p>大部分内容很容易理解，和unraid下 以及shell下的写法 都接近
+修改之前 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/%E4%B8%80%E4%B8%AA%E5%9F%BA%E7%A1%80%E7%9A%84libvirt-alpine.xml" target="_blank" rel="noopener"
+>传送门&lt;/a>
+我这里主要修改端口映射 以及 vnc 还有smb的处理&lt;/p>
+&lt;h3 id="vnc配置">vnc配置
+&lt;/h3>&lt;pre>&lt;code>&amp;lt;graphics type='spice' autoport='yes'&amp;gt;
+&amp;lt;listen type='address'/&amp;gt;
+&amp;lt;image compression='off'/&amp;gt;
+&amp;lt;/graphics&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>这段修改为vnc的配置&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">&amp;lt;graphics type=&amp;#39;vnc&amp;#39; port=&amp;#39;5908&amp;#39; autoport=&amp;#39;yes&amp;#39; listen=&amp;#39;0.0.0.0&amp;#39; keymap=&amp;#39;en-us&amp;#39;/&amp;gt;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;lt;listen type=&amp;#39;address&amp;#39; address=&amp;#39;0.0.0.0&amp;#39;/&amp;gt;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&amp;lt;/graphics&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="图形工具-安装">图形工具 安装
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo pacman -S virt-manager
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo pacman -S dnsmasq
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="打开x11-转发">打开x11 转发
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">yay&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">S&lt;/span> &lt;span class="n">xorg&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">xauth&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cd&lt;/span> &lt;span class="o">~&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">touch&lt;/span> &lt;span class="o">~/.&lt;/span>&lt;span class="n">Xauthority&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">chmod&lt;/span> &lt;span class="mi">600&lt;/span> &lt;span class="o">~/.&lt;/span>&lt;span class="n">Xauthority&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">sudo&lt;/span> &lt;span class="n">nano&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">ssh&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">sshd_config&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">----&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">AddressFamily&lt;/span> &lt;span class="n">inet&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">X11Forwarding&lt;/span> &lt;span class="n">yes&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">X11DisplayOffset&lt;/span> &lt;span class="mi">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">X11UseLocalhost&lt;/span> &lt;span class="n">yes&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">sudo&lt;/span> &lt;span class="n">systemctl&lt;/span> &lt;span class="n">reload&lt;/span> &lt;span class="n">sshd&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">sudo&lt;/span> &lt;span class="n">systemctl&lt;/span> &lt;span class="n">restart&lt;/span> &lt;span class="n">sshd&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="配置普通用户权限">配置普通用户权限
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">/etc/libvirt/libvirtd.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>找到这里两行 取消注释&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">unix_sock_group = &amp;#34;libvirt&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">unix_sock_ro_perms = &amp;#34;0777&amp;#34; # set to 0770 to deny non-group libvirt users
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="当前用户添加到libvirt-组">当前用户添加到libvirt 组
+&lt;/h3>&lt;pre>&lt;code>sudo usermod -a -G libvirt $(whoami)
+&lt;/code>&lt;/pre>
+&lt;h3 id="重启libvirtd">重启libvirtd
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo systemctl restart libvirtd
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="使用-virt-manager-来管虚拟机">使用 virt-manager 来管虚拟机
+&lt;/h3>&lt;p>直接在支持x11 server的ssh客户端上登录，然后运行 &lt;code>virt-manager&lt;/code> 即可&lt;/p>
+&lt;h2 id="端口转发">端口转发
+&lt;/h2>&lt;p>端口转发 可以直接在宿主机上用iptables 来处理&lt;/p>
+&lt;p>也可以用 /etc/libvirt/hooks/ 来处理&lt;/p>
+&lt;h3 id="静态ip">静态ip
+&lt;/h3>&lt;p>先查看网络情况&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo virsh net-list
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>有一个 名称为&lt;code>network&lt;/code> 是配置的nat 的网络
+处理一下 vi，我用nano替代&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo ln -s /bin/nano /bin/vi
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>编辑 dhcp 这段&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo virsh net-edit network
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>添加几行&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"> &amp;lt;host mac=&amp;#39;52:54:00:6d:77:46&amp;#39; name=&amp;#39;alpine&amp;#39; ip=&amp;#39;192.168.100.2&amp;#39;/&amp;gt;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;lt;host mac=&amp;#39;52:54:00:6d:77:10&amp;#39; name=&amp;#39;win10&amp;#39; ip=&amp;#39;192.168.100.10&amp;#39;/&amp;gt;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;lt;host mac=&amp;#39;52:54:00:6d:77:13&amp;#39; name=&amp;#39;macos13&amp;#39; ip=&amp;#39;192.168.100.13&amp;#39;/&amp;gt;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;lt;host mac=&amp;#39;52:54:00:6d:77:08&amp;#39; name=&amp;#39;archlinux&amp;#39; ip=&amp;#39;192.168.100.8&amp;#39;/&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>52:54:00:6d:77:46 是虚拟机的虚拟mac地址&lt;/p>
+&lt;h3 id="重新创建同名网络">重新创建同名网络
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo virsh net-destroy network
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo virsh net-start network
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>关闭虚拟机，然后再打开一次虚拟机，不是重启虚拟机，是关闭后重新打开&lt;/p>
+&lt;h3 id="配置转发规则">配置转发规则
+&lt;/h3>&lt;h4 id="查看本地网卡">查看本地网卡
+&lt;/h4>&lt;pre>&lt;code>ifconfig
+&lt;/code>&lt;/pre>
+&lt;p>我这里是本地网卡是enp1s0 虚拟机用的网卡是virbr1&lt;/p>
+&lt;h4 id="procsysnetipv4ip_forward">/proc/sys/net/ipv4/ip_forward
+&lt;/h4>&lt;pre>&lt;code>cat /proc/sys/net/ipv4/ip_forward
+&lt;/code>&lt;/pre>
+&lt;p>应该是1 ，如果不是修改成1，或者 编辑/etc/stsctl.conf文件，把其中的net.ipv4.ip_forward = 0修为net.ipv4.ip_forward = 1&lt;/p>
+&lt;h4 id="开启转发">开启转发
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># 添加filter 表的forward链
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -I FORWARD -m state -d 192.168.100.0/24 --state NEW,RELATED,ESTABLISHED -j ACCEPT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 规则
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2222 -j DNAT --to-destination 192.168.100.2:22
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 13389 -j DNAT --to-destination 192.168.100.10:3389
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="保存-重启后有效">保存 重启后有效
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">su&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">iptables&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">save&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">iptables&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">iptables&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">rules&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">systemctl&lt;/span> &lt;span class="n">reload&lt;/span> &lt;span class="n">iptables&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">iptables&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">restore&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">iptables&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">iptables&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">rules&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="查看和删除">查看和删除
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -nL --line # 查看
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -D PREROUTING 序号 # 删除
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="更多需要的规则">更多需要的规则
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># v2ray
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2017 -j DNAT --to-destination 192.168.100.2:2017
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20170 -j DNAT --to-destination 192.168.100.2:20170
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20171 -j DNAT --to-destination 192.168.100.2:20171
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20172 -j DNAT --to-destination 192.168.100.2:20172
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20173 -j DNAT --to-destination 192.168.100.2:20173
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 阿里云盘wedav
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 8080 -j DNAT --to-destination 192.168.100.2:8080
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="其他">其他
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">sudo mkdir /etc/libvirt/hooks
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo nano /etc/libvirt/hooks/qemu
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="o">[&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nv">1&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;alpinelinux&amp;#34;&lt;/span> &lt;span class="o">]&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">GUEST_IP&lt;/span>&lt;span class="o">=&lt;/span>192.168.100.2
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">GUEST_PORT&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="m">22&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">HOST_PORT&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="m">2222&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="o">[&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nv">2&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;stopped&amp;#34;&lt;/span> &lt;span class="o">]&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="o">[&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nv">2&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;reconnect&amp;#34;&lt;/span> &lt;span class="o">]&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> /sbin/iptables -D FORWARD -o virbr0 -p tcp -d &lt;span class="nv">$GUEST_IP&lt;/span> --dport &lt;span class="nv">$GUEST_PORT&lt;/span> -j ACCEPT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> /sbin/iptables -t nat -D PREROUTING -p tcp --dport &lt;span class="nv">$HOST_PORT&lt;/span> -j DNAT --to &lt;span class="nv">$GUEST_IP&lt;/span>:&lt;span class="nv">$GUEST_PORT&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="o">[&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nv">2&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;start&amp;#34;&lt;/span> &lt;span class="o">]&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="o">[&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nv">2&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;reconnect&amp;#34;&lt;/span> &lt;span class="o">]&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="k">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> /sbin/iptables -I FORWARD -o virbr0 -p tcp -d &lt;span class="nv">$GUEST_IP&lt;/span> --dport &lt;span class="nv">$GUEST_PORT&lt;/span> -j ACCEPT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> /sbin/iptables -t nat -I PREROUTING -p tcp --dport &lt;span class="nv">$HOST_PORT&lt;/span> -j DNAT --to &lt;span class="nv">$GUEST_IP&lt;/span>:&lt;span class="nv">$GUEST_PORT&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>kvm 自动启动vm，不使用libvirt</title><link>https://dev.leiyanhui.com/kvm/auto_start_vm/</link><pubDate>Tue, 01 Nov 2022 02:03:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/auto_start_vm/</guid><description>&lt;blockquote>
+&lt;p>不想使用libvirt 因为占用50M硬盘，然后只是提供一个简单管理功能。有洁癖不喜欢。 而且徒增学习成本&lt;/p>&lt;/blockquote>
+&lt;p>所以需要手动处理自动启动脚本&lt;/p>
+&lt;p>我这里是用的archlinux，所以 就自己创建一个脚本了。&lt;/p>
+&lt;p>也很简单 用 systemctl 创建一个服务就ok了， &lt;a class="link" href="https://dev.leiyanhui.com/arch/autostar/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/arch/autostar/&lt;/a>&lt;/p>
+&lt;h2 id="进阶功能和相关记录文章">进阶功能和相关记录文章
+&lt;/h2>&lt;h3 id="基本安装">基本安装
+&lt;/h3>&lt;p>查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/arch/install-kvm/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/arch/install-kvm/&lt;/a>&lt;/p>
+&lt;h3 id="关于efi模式启动">关于efi模式启动
+&lt;/h3>&lt;p>查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/ovmf/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/ovmf/&lt;/a>&lt;/p>
+&lt;h3 id="进阶配置桥接网络">进阶：配置桥接网络
+&lt;/h3>&lt;p>桥接网络：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/net-br/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/net-br/&lt;/a>&lt;/p>
+&lt;h3 id="硬件直通--pci-和usb">硬件直通 pci 和usb
+&lt;/h3>&lt;p>查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a>&lt;/p>
+&lt;h3 id="声卡的直通穿透">声卡的直通/穿透
+&lt;/h3>&lt;p>查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/sound-pass/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/sound-pass/&lt;/a>&lt;/p>
+&lt;h3 id="我的一些配置文件记录">我的一些配置文件记录
+&lt;/h3>&lt;p>查看这里 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a>&lt;/p>
+&lt;h3 id="kvm-开机自动启动">kvm 开机自动启动
+&lt;/h3>&lt;p>查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/auto_start_vm/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/auto_start_vm/&lt;/a>&lt;/p>
+&lt;h3 id="kvm安装macos">kvm安装macos
+&lt;/h3>&lt;p>查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a>&lt;/p>
+&lt;h4 id="kvm安装macos附加上一个win">kvm安装macos附加上一个win
+&lt;/h4>&lt;p>查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/macos_add_win10/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/kvm/macos_add_win10/&lt;/a>&lt;/p></description></item></channel></rss>
