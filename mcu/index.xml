@@ -1,0 +1,1322 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Mcus on 小类随手记</title><link>https://dev.leiyanhui.com/mcu/</link><description>Recent content in Mcus on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 22 Jan 2024 08:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/mcu/index.xml" rel="self" type="application/rss+xml"/><item><title>esp32 s2 C3 在micropython下使用内置温度传感器</title><link>https://dev.leiyanhui.com/mcu/esp32-s2-coretemp/</link><pubDate>Mon, 22 Jan 2024 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/esp32-s2-coretemp/</guid><description>&lt;p>需要自行编译固件
+下面代码基于micropython-1.22.1 和 esp-idf-v5.0.4&lt;/p>
+&lt;p>esp-idf 从4.x到5.x有一些变化 记录一下新版本的使用方法&lt;/p>
+&lt;h3 id="添加一个c模块-需要4个文件">添加一个C模块 需要4个文件
+&lt;/h3>&lt;p>cd micropython-1.22.1/ports/esp32/&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#ls cmodules/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">micropython.cmake sensorcoretemper
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ls cmodules/sensorcoretemper
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">micropython.cmake micropython.mk sensorcoretemper.c
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="sensorcoretemperc">sensorcoretemper.c
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;py/obj.h&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;py/runtime.h&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;esp_log.h&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;driver/temperature_sensor.h&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 定义一个全局变量来保存句柄
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">static&lt;/span> &lt;span class="kt">temperature_sensor_handle_t&lt;/span> &lt;span class="n">tsens&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">NULL&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="kt">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">TAG&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s">&amp;#34;sensorcoretemper&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 函数 初始化 并启动
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="n">STATIC&lt;/span> &lt;span class="kt">mp_obj_t&lt;/span> &lt;span class="nf">sensorcoretemper_init&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;Install temperature sensor, expected temp ranger range: 10~50 ℃&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">temperature_sensor_config_t&lt;/span> &lt;span class="n">temp_sensor&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nf">TEMPERATURE_SENSOR_CONFIG_DEFAULT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">50&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">//ESP_ERROR_CHECK(temperature_sensor_install(&amp;amp;temp_sensor));
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nf">temperature_sensor_install&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">temp_sensor&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">tsens&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// 注意这里的改动
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;Enable temperature sensor&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">//ESP_ERROR_CHECK(temperature_sensor_enable());
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nf">temperature_sensor_enable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tsens&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// 注意这里的改动
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_const_none&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="nf">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sensorcoretemper_init_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sensorcoretemper_init&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 函数 获取
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="n">STATIC&lt;/span> &lt;span class="kt">mp_obj_t&lt;/span> &lt;span class="nf">sensorcoretemper_getT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;Read temperature&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">float&lt;/span> &lt;span class="n">tsens_value&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">//ESP_ERROR_CHECK(temperature_sensor_get_celsius(&amp;amp;tsens_value));
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nf">temperature_sensor_get_celsius&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tsens&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">tsens_value&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;Temperature value %.02f ℃&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">tsens_value&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nf">mp_obj_new_float&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tsens_value&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="nf">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sensorcoretemper_getT_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sensorcoretemper_getT&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 函数 停止
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="n">STATIC&lt;/span> &lt;span class="kt">mp_obj_t&lt;/span> &lt;span class="nf">sensorcoretemper_stop&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">//ESP_ERROR_CHECK(temperature_sensor_disable());
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nf">temperature_sensor_disable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tsens&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// 注意这里的改动
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_const_none&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="nf">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sensorcoretemper_stop_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sensorcoretemper_stop&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="kt">mp_rom_map_elem_t&lt;/span> &lt;span class="n">sensorcoretemper_module_globals_table&lt;/span>&lt;span class="p">[]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="nf">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR___name__&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nf">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_sensorcoretemper&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="nf">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_getT&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nf">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">sensorcoretemper_getT_obj&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="nf">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_init&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nf">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">sensorcoretemper_init_obj&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="nf">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_stop&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nf">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">sensorcoretemper_stop_obj&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="nf">MP_DEFINE_CONST_DICT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sensorcoretemper_module_globals&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sensorcoretemper_module_globals_table&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">const&lt;/span> &lt;span class="kt">mp_obj_module_t&lt;/span> &lt;span class="n">sensorcoretemper_user_cmodule&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">.&lt;/span>&lt;span class="n">base&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">mp_type_module&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">.&lt;/span>&lt;span class="n">globals&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">mp_obj_dict_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">sensorcoretemper_module_globals&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">//MP_REGISTER_MODULE(MP_QSTR_sensorcoretemper, sensorcoretemper_user_cmodule, MODULE_sensorcoretemper_ENABLED);
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nf">MP_REGISTER_MODULE&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_sensorcoretemper&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sensorcoretemper_user_cmodule&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="其他三个文件">其他三个文件
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">cd&lt;/span> ~/mpy-bin/micropython-1.22.1/ports/esp32
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mkdir -p cmodules/sensorcoretemper
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 文件 ===&amp;gt; micropython.cmake&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; cmodules/micropython.cmake&lt;span class="s">&amp;lt;&amp;lt; \EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># Add sensorcoretemper.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">include(${CMAKE_CURRENT_LIST_DIR}/sensorcoretemper/micropython.cmake)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 文件 ===&amp;gt; micropython.cmake &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; cmodules/sensorcoretemper/micropython.cmake &lt;span class="s">&amp;lt;&amp;lt; \EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># Create an INTERFACE library for our C module.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">add_library(usermod_sensorcoretemper INTERFACE)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># Add our source files to the lib
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">target_sources(usermod_sensorcoretemper INTERFACE
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"> ${CMAKE_CURRENT_LIST_DIR}/sensorcoretemper.c
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># Link our INTERFACE library to the usermod target.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">target_link_libraries(usermod INTERFACE usermod_sensorcoretemper)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 文件 ===&amp;gt; micropython.mk&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cat &amp;gt; cmodules/sensorcoretemper/micropython.mk&lt;span class="s">&amp;lt;&amp;lt; \EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">sensorcoretemper_MOD_DIR := $(USERMOD_DIR)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s"># Add all C files to SRC_USERMOD.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">SRC_USERMOD_C += $(sensorcoretemper_MOD_DIR)/sensorcoretemper.c
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="编译">编译
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">make clean &lt;span class="nv">BOARD&lt;/span>&lt;span class="o">=&lt;/span>LOLIN_S2_MINI &lt;span class="nv">USER_C_MODULES&lt;/span>&lt;span class="o">=&lt;/span>../cmodules/micropython.cmake &lt;span class="c1">#esp32-s2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make submodules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make &lt;span class="nv">BOARD&lt;/span>&lt;span class="o">=&lt;/span>LOLIN_S2_MINI &lt;span class="nv">USER_C_MODULES&lt;/span>&lt;span class="o">=&lt;/span>../cmodules/micropython.cmake
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="使用方法">使用方法
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">sensorcoretemper&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">time&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">sensorcoretemper&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">init&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> &lt;span class="n">_&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="nb">range&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">print&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sensorcoretemper&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">getT&lt;/span>&lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sleep&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">sensorcoretemper&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">stop&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="技巧">技巧
+&lt;/h3>&lt;p>内置传感器温度 通常比环境温度高1-3摄氏度不等，在稳定的环境中 可以简单校准一下作为参考温度&lt;/p></description></item><item><title>micropython在usb和web的repl都添加密码，一定程度上保护密码</title><link>https://dev.leiyanhui.com/mcu/mpy-repl-psw/</link><pubDate>Tue, 18 Jul 2023 00:00:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/mpy-repl-psw/</guid><description>&lt;p>提供简单加密的mpy模块，可以放到固件内部，也可以手动上传到flash。&lt;br>
+在主程序或者boot.py调用后，会禁用repl 和 repl的文件管理功能,并在repl上提示输入密码。采用严格的密码放置爆破功能，哪怕6位数字都无法爆破。&lt;/p>
+&lt;p>兼容webrepl&lt;/p>
+&lt;h1 id="特性">特性
+&lt;/h1>&lt;ul>
+&lt;li>可以在 usb口的repl 上加上密码，同时webrepl也会增加密码&lt;/li>
+&lt;li>无密码的情况下，relp口只可以显示打印信息，无法执行python命令，更加无法查看flash内文件&lt;/li>
+&lt;li>输入密码后，不重启的情况下不需要再次输入密码&lt;/li>
+&lt;li>可以集成到固件内&lt;/li>
+&lt;li>可以随意选择在随意boot.py 或者 main.py加载&lt;/li>
+&lt;li>可以限制密码尝试间隔，并在N次后增加重试间隔时间，简单的密码也很难通过爆破来绕过&lt;/li>
+&lt;li>依赖：micropython time 和 _thread 三个库&lt;/li>
+&lt;/ul>
+&lt;h1 id="获取和使用">获取和使用
+&lt;/h1>&lt;h2 id="下载-mpy">下载 mpy
+&lt;/h2>&lt;p>放到flash 内 或者固件内部均可。 下载地址：https://github.com/joyanhui/file.leiyanhui.com/raw/main/esp32/repl_psw.mpy 暂时不开源，需要源码的请联系 &lt;a class="link" href="mailto:joyanhui@qq.com" >joyanhui@qq.com&lt;/a>&lt;/p>
+&lt;h2 id="修改你的bootpy-或mainpy">修改你的boot.py 或main.py
+&lt;/h2>&lt;p>使得代码保护在开机后可以马上运行。下面是一个 boot.py的演示&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">_thread&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 后台运行 main.py 的 run() 函数&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">background_run&lt;/span>&lt;span class="p">():&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kn">import&lt;/span> &lt;span class="nn">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">main&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">run&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">_thread&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">start_new_thread&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">background_run&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">repl_psw&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># (input正确的密码,msg请输入密码,msg密码正确,msg密码错误,msg你想干啥,参数错误无法保护了哦,msg休息一下吧,time密码错误重试间隔时间,times重试几次后强制休息,tims强制休息时间间隔)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 后面三个参数都是int哦，时间都是秒为单位的哦 其他参数都是字符串并且不能为空哦 &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 为了方便你调试，如果参数类型错误 就直接跳过 不保护了，所以务必保证参数类型都正确 &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># repl_psw模块大概需要占用1.2kb的内存 。 &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">repl_psw&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">authenticate&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;111&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;请输入密码：&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;ok密码正确&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;err密码错误，请重新输入。&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;你想干啥？&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;参数类型错误肯定就无法保护了哦&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;别试了休息一会吧&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="mi">15&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>main.py的代码应该是你的业务逻辑部分，简单的一个实例如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="kn">from&lt;/span> &lt;span class="nn">machine&lt;/span> &lt;span class="kn">import&lt;/span> &lt;span class="n">Pin&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">time&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">led&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">Pin&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">15&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">Pin&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">OUT&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">run&lt;/span>&lt;span class="p">():&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="kc">True&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">led&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sleep&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mf">0.5&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">led&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">off&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sleep&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mf">0.5&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="其他建议">其他建议
+&lt;/h2>&lt;p>上面的演示代码只是提供了一个简单的例子，实际使用的时候，密码最好与设备的mac地址或token关联 或者从单独的授权服务器获取，做到一机一密 &lt;br>
+在esp8266 等内存较少的micropython设备上，使用 _thread 可能比较奢侈，请自己选择是否使用 repl_psw模块大概需要占用1.2kb的内存 。 &lt;br>
+repl 的加密，只能一定程度上保护代码，只是提供简单灵活的方式防止别人直接窥视你的代码。无法避免绕过repl直接从物理层面下手的 &lt;br>
+建议 核心代码还是用c来写，并不是非常核心的代码 编译成mpy放到固件内部。 如果代码安全性要求非常高，还是要用加密芯片的昂。&lt;/p></description></item><item><title>micropython代码压缩和简单加密 mpy-cross</title><link>https://dev.leiyanhui.com/mcu/mpy-cross/</link><pubDate>Wed, 21 Jun 2023 20:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/mpy-cross/</guid><description>&lt;p>mpy-cross 可以压缩 python代码，也有一定的加密源码的作用（聊胜于无）。&lt;br>
+在本地没有python环境，但是有Thonny的话，可以这样安装 windows为例&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd D:\Portable\GreenSoft\Thonny\Scripts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pip install mpy-cross
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mpy-cross E:\esp\esp32s2-fish-demo\test.py
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>也可以添加到环境变量&lt;/p>
+&lt;p>另外 如果是自定义固件，调试稳定的py文件，最好放到固件里面。详情查看本站其他文章。&lt;/p>
+&lt;p>经过测试，同名的模块执行优先级依次为：&lt;/p>
+&lt;p>flash的.py =&amp;gt; flash的.mpy =&amp;gt; rom的.py =&amp;gt; rom的.c&lt;/p>
+&lt;p>python 的代码几乎无法完全加密，基本上不可能加密。&lt;br>
+核心敏感内容，建议用c来写，micropython不适合做这个事情。 或者 c模块+ mpy的方式也凑合可以。&lt;/p>
+&lt;p>无论从代码执行效率和mcu资源的利用率，还是代码的保护上 micropython 都是不是好选择。&lt;/p>
+&lt;p>但是在初期产品阶段micropython 还是非常不错的，上线前 根据情况用c写一部分模块，或者干脆重写就好了。&lt;/p></description></item><item><title>esp32、esp8266 网络共享，。usb设备网络共享 com口网络共享</title><link>https://dev.leiyanhui.com/mcu/esp32or8266-over-net/</link><pubDate>Sun, 18 Jun 2023 14:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/esp32or8266-over-net/</guid><description>&lt;p>两个软件 测试比较良好&lt;/p>
+&lt;ul>
+&lt;li>usb_network_gate 这个9.0 有破解版&lt;/li>
+&lt;li>virtualhere 一个设备 免费 多设备也不贵&lt;/li>
+&lt;/ul>
+&lt;p>软件 都是通过tcp端口转发出去，局域网内都可以自动识别到 外网需要额外出来&lt;/p>
+&lt;p>我目前在用 virtualhere，端口占用的7575 ，路由器转发后，即可远程访问。&lt;/p>
+&lt;p>这两个 软件 均支持 linux win macos （usb_network_gate仅支持寥寥几个linux发行版 virtualhere支持所有发行版）
+其中 virtualhere 支持安卓服务端，但是不支持安卓客户端
+usb_network_gate 好像都支持，但是我没有测试过。&lt;/p>
+&lt;p>但是这两个软件 最新版本 在win11 下 客户端 都不能正常工作，驱动异常。（ 随后发现 是 和nomachine 冲突，卸载nomachine 后重启 就正常了）&lt;br>
+其中 usb_network_gate 9 的服务端 在win11 下 也无法使用&lt;/p>
+&lt;p>强烈推荐 virtualhere ，它只只能同时连接一个设备，而非只能用一个。&lt;/p></description></item><item><title>esp32 micropython添加C模块(esp32 s2 c3 s3 内置温度传感器读取)</title><link>https://dev.leiyanhui.com/mcu/esp32-mpy-add-c-module/</link><pubDate>Tue, 13 Jun 2023 20:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/esp32-mpy-add-c-module/</guid><description>&lt;p>micropython 不支持 esp32 s2 c3 s3 的内置温度传感器读取。我这里尝试添加一个模块，可以用py读取。&lt;/p>
+&lt;ul>
+&lt;li>&lt;a class="link" href="../esp32-s2-mpy-smartconfig" >首先你要先学会自定编译固件&lt;/a>&lt;/li>
+&lt;li>&lt;a class="link" href="../esp32-mpy-code-to-bin" >添加基于python的模块请参考&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="arduino-先测试一下">arduino 先测试一下
+&lt;/h2>&lt;p>因为有人说 esp32的后面的芯片内置的温度传感器不能用，所以先试试&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">#include &amp;#34;driver/temp_sensor.h&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">void setup()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Serial.begin(115200);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> temp_sensor_config_t temp_sensor = {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> .dac_offset = TSENS_DAC_L2,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> .clk_div = 6,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> };
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> temp_sensor_set_config(temp_sensor);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> temp_sensor_start();
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">void loop()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> float tsens_out;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> temp_sensor_read_celsius(&amp;amp;tsens_out);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Serial.printf(&amp;#34;%f\r\n&amp;#34;, tsens_out);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> delay(500);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>测试良好，精度 ±1℃ 凑合，比环境温度略微高一点。做好主要温度范围的多点校准后，可以凑合使用。&lt;/p>
+&lt;h2 id="添加到mpy固件">添加到mpy固件
+&lt;/h2>&lt;h3 id="tempsensorc">tempSensor.c
+&lt;/h3>&lt;p>创建文件 /mpy-bin/micropython/ports/esp32/tempSensor.c&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;span class="lnt">72
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="n">import&lt;/span> &lt;span class="n">time&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="n">import&lt;/span> &lt;span class="n">tempSensor&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="n">tempSensor&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">init&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">_&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="nb">range&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="nb">print&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tempSensor&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">getT&lt;/span>&lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sleep&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="n">tempSensor&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">stop&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;py/obj.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;py/runtime.h&amp;#34; // Include MicroPython API.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;driver/temp_sensor.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#endif&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">函数&lt;/span> &lt;span class="err">初始化&lt;/span> &lt;span class="err">并启动&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">tempSensor_init&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">temp_sensor_config_t&lt;/span> &lt;span class="n">temp_sensor&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">TSENS_CONFIG_DEFAULT&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">temp_sensor&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">dac_offset&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">TSENS_DAC_DEFAULT&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="o">//&lt;/span> &lt;span class="n">DEFAULT&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">range&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">10&lt;/span>&lt;span class="err">℃&lt;/span> &lt;span class="o">~&lt;/span> &lt;span class="mi">80&lt;/span>&lt;span class="err">℃&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">error&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="err">℃&lt;/span>&lt;span class="o">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">temp_sensor_set_config&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">temp_sensor&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">temp_sensor_start&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#endif&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_const_none&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">定义参数&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tempSensor_init_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">tempSensor_init&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">函数&lt;/span> &lt;span class="err">获取&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">tempSensor_getT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="ne">float&lt;/span> &lt;span class="n">tsens_out&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">temp_sensor_read_celsius&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">tsens_out&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">//&lt;/span>&lt;span class="n">temp_sensor_stop&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_obj_new_float&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tsens_out&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#endif&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_const_none&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">定义参数&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tempSensor_getT_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">tempSensor_getT&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">函数&lt;/span> &lt;span class="err">停止&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">tempSensor_stop&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">temp_sensor_stop&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#endif&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_const_none&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">定义参数&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tempSensor_stop_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">tempSensor_stop&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">定义模块的所有属性。&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">表条目是属性名称（字符串）的键&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="err">值对&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">和&lt;/span> &lt;span class="n">MicroPython&lt;/span> &lt;span class="err">对象引用。&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">所有的标识符和字符串都写成&lt;/span> &lt;span class="n">MP_QSTR_xxx&lt;/span> &lt;span class="err">并且会被&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">由构建系统优化为字大小的整数（驻留字符串）&lt;/span>&lt;span class="o">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">mp_rom_map_elem_t&lt;/span> &lt;span class="n">tempSensor_module_globals_table&lt;/span>&lt;span class="p">[]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR___name__&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_tempSensor&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_getT&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">tempSensor_getT_obj&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_init&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">tempSensor_init_obj&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span> &lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_stop&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">tempSensor_stop_obj&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_DICT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tempSensor_module_globals&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">tempSensor_module_globals_table&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">定义模块对象&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">const&lt;/span> &lt;span class="n">mp_obj_module_t&lt;/span> &lt;span class="n">tempSensor_user_cmodule&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">.&lt;/span>&lt;span class="n">base&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">mp_type_module&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">.&lt;/span>&lt;span class="n">globals&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">mp_obj_dict_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">tempSensor_module_globals&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">//&lt;/span> &lt;span class="err">注册模块以使其在&lt;/span> &lt;span class="n">Python&lt;/span> &lt;span class="err">中可用&lt;/span> &lt;span class="err">这行&lt;/span> &lt;span class="err">最好条件编译&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">MP_REGISTER_MODULE&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_tempSensor&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">tempSensor_user_cmodule&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="添加到模块">添加到模块
+&lt;/h3>&lt;p>ports/esp32/main/CMakeLists.txt 搜索 machine_sdcard.c 比这添加一行tempSensor.c&lt;/p>
+&lt;p>编译，更多编译教程 查看本站其他文章&lt;/p>
+&lt;h2 id="py测试">py测试
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">import time
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import tempSensor
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tempSensor.init()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">for _ in range(10):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(tempSensor.getT())
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep(1)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tempSensor.stop()
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>esp32自行编译micropython固件并添加基于python的模块</title><link>https://dev.leiyanhui.com/mcu/esp32-mpy-code-to-bin/</link><pubDate>Mon, 12 Jun 2023 20:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/esp32-mpy-code-to-bin/</guid><description>&lt;p>添加自定义py文件到bin 有三个优点&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>在编译固件的时候编译py文件到中间代码，可以节省大量内存&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>中间代码在bin里面，比mpy文件更难泄露&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>方便量产&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a class="link" href="../esp32-s2-mpy-smartconfig" >首先你要先学会自定编译固件&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a class="link" href="../esp32-mpy-add-c-module" >添加基于C的模块请参考&lt;/a>&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="modules-添加py文件的方法">modules 添加py文件的方法
+&lt;/h1>&lt;p>然后知道 modules 目录 就是 我们需要添加自定义py文件的地方&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd ~/mpy-bin/micropython/ports/esp32/modules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nano test.py
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-----------------
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import time
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">def hello():
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(&amp;#34;hello world&amp;#34;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">def hw(str):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(str)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">def cycle(str):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> while True:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(str)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep(1)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>重新编译，烧录新固件测试&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">import test
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">test.hw(&amp;#39;123&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">test.cycle(&amp;#39;cycle me&amp;#39;)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这就完成了。&lt;/p>
+&lt;p>同名的模块执行优先级依次为：
+flash的.py =&amp;gt; flash的.mpy =&amp;gt; rom的.py =&amp;gt; rom的.c&lt;/p>
+&lt;h1 id="固件-简单-自定义-bootpy-和-mainpy">固件 简单 自定义 boot.py 和 main.py
+&lt;/h1>&lt;p>如果想自定义 开机启动启动的 boot.py 和 main.py 需要编辑 ~/mpy-bin/micropython/ports/esp32/modules 这个目录下的 inisetup.py 即可。
+可以在boot.py 里面完成联网 和下载 main.py 功能完成自动更新&lt;/p>
+&lt;h1 id="其他代码的保护">其他代码的保护
+&lt;/h1>&lt;p>micropython 官方提供了 mpy方法，可以把 py文件转成中间代码 ，有一点类似pythone的pyc文件。但是 因为在单片机这种场景下，会节省很多内存也会提升一些性能。只是代码保护功能 和 pyc差不多了，基本没啥用。
+加密 本身不一定是单纯的保护代码，有时候是保护算法和api参数，增加搞事情的时间成本。&lt;br>
+较为靠谱的方法 核心内容用C来完成。 这样机器码转汇编工作量是最大的。&lt;br>
+再次 就是 核心的程序 写成类，放到固件modules里面&lt;br>
+其他功能 全部拆分到 mpy文件里面，然后main.py调用，同时 main.py 尽量少些逻辑了哦。 主要逻辑都放到 类里面去。&lt;/p>
+&lt;p>另外就是咋测试成功后，最后的固件 禁用usb功能&lt;/p></description></item><item><title>esp32自行编译micropython固件并支持smartconfig方法 以及代码保护</title><link>https://dev.leiyanhui.com/mcu/esp32-s2-mpy-smartconfig/</link><pubDate>Mon, 12 Jun 2023 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/esp32-s2-mpy-smartconfig/</guid><description>&lt;p>micropython 自己编译固件有几个好处&lt;/p>
+&lt;ul>
+&lt;li>只加入自己需要的模块降低硬件资源占用&lt;/li>
+&lt;li>.py文件可以修改中中间码，并烧录到固件内部，&lt;/li>
+&lt;li>
+&lt;ul>
+&lt;li>可以方便量产&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;ul>
+&lt;li>可一定程度保护代码&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;ul>
+&lt;li>更加省略了编译过程节省内存&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>我这里 只记录 添加 smartconfig的方法，并以S2 mini为例，其他esp32 同理。&lt;br>
+简中网络上，几乎没有相关资料，有一些资料也是错的或无法使用。所以这里单独记录分享一下。
+你可以直接下载 我编译好的&lt;br>
+&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/&lt;/a>&lt;/p>
+&lt;h1 id="准备">准备
+&lt;/h1>&lt;ul>
+&lt;li>linux系统，我这里是pve lxc运行的ubuntu22.04&lt;/li>
+&lt;li>科学工具 因为需要拉github&lt;/li>
+&lt;li>基本的linux基础&lt;/li>
+&lt;/ul>
+&lt;h1 id="环境配置-和-依赖">环境配置 和 依赖
+&lt;/h1>&lt;p>修改到国内源，这个自己处理&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apt install git wget curl make gcc cmake rsync
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># ppa安装pythone 3.11 Ubuntu自带的版本太低
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt install software-properties-common
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">add-apt-repository ppa:deadsnakes/ppa
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt install python3.11 python-is-python3
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># pip3
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">python get-pip.py --force-reinstall
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pip install mpy-cross-v6
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="克隆代码">克隆代码
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir mpy-bin &amp;amp;&amp;amp; cd mpy-bin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="esp-idf">esp-idf
+&lt;/h2>&lt;p>注意 不同的esp32平台 micropython支持的esp-idf版本不同，详情参考 &lt;a class="link" href="https://github.com/micropython/micropython/tree/master/ports/esp32#readme" target="_blank" rel="noopener"
+>https://github.com/micropython/micropython/tree/master/ports/esp32#readme&lt;/a>&lt;br>
+linux小白 一步一步操作，注意里面的警告信息&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">git clone -b v4.4.5 --recursive https://github.com/espressif/esp-idf.git esp-idf-v4.4.5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd esp-idf-v4.4.5/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git checkout v4.4.5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git submodule update --init --recursive
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>处理环境变量&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="o">./&lt;/span>&lt;span class="n">install&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sh&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">source&lt;/span> &lt;span class="k">export&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sh&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="micropython">micropython
+&lt;/h2>&lt;p>本文基于 1.20 版本，如果新版失效，请 直接去下载 &lt;a class="link" href="https://github.com/micropython/micropython/releases/download/v1.20.0/micropython-1.20.0.zip" target="_blank" rel="noopener"
+>https://github.com/micropython/micropython/releases/download/v1.20.0/micropython-1.20.0.zip&lt;/a> 不要 git clone最新的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd ..
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git clone https://github.com/micropython/micropython.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd micropython
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make -C mpy-cross
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd ports/esp32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="测试默认编译micropython固件">测试默认编译micropython固件
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">make submodules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make # make BOARD=LOLIN_S2_MINI
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>直接make的话 是 esp32 ，我这里是 s2 ，并且是 esp32 s2 mini开发板 所以添加参数 BOARD=LOLIN_S2_MINI
+这样就可以编译 了,编译后 会有提示 ./build-XXXX/
+firmware.bin 这个文件是合并后的，可以直接烧到0x1000&lt;/p>
+&lt;h2 id="推送到-nas">推送到 nas
+&lt;/h2>&lt;p>我这里推送到nas里面，方便其他机器使用&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">rsync -avzut --progress ./build-LOLIN_S2_MINI/firmware.bin root@10.1.1.200:/mnt/nas/temp/firmware-my.bin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="烧录">烧录
+&lt;/h2>&lt;p>在连接esp32的机器上从nas复制bin文件过来然后下入&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">esptool&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">port&lt;/span> &lt;span class="n">COM3&lt;/span> &lt;span class="n">erase_flash&lt;/span> &lt;span class="c1">#擦除&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">esptool&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">port&lt;/span> &lt;span class="n">COM3&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">baud&lt;/span> &lt;span class="mi">1000000&lt;/span> &lt;span class="n">write_flash&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">z&lt;/span> &lt;span class="mh">0x1000&lt;/span> &lt;span class="n">firmware&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">my&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bin&lt;/span> &lt;span class="c1"># 写入从nas 拷贝过来的 新固件&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>烧录完成后，重启板，thonny 链接上，输入 help(&amp;lsquo;modules&amp;rsquo;) 查看模块&lt;/p>
+&lt;h1 id="添加-smartconfig模块">添加 smartconfig模块
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd ~/mpy-bin/micropython/ports/esp32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>需要两个地方，1是 添加一个smarconfig.c文件，2 是修改还 ports/esp32/main/CMakeLists.txt 把 smarconfig.c 加进去&lt;/p>
+&lt;h2 id="cmakeliststxt">CMakeLists.txt
+&lt;/h2>&lt;p>查看 cat ~/mpy-bin/micropython/ports/esp32/main/CMakeLists.txt 目前版本1.20版本 需要修改的内容在 54-92行 格式如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">set(MICROPY_SOURCE_PORT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> main.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ....
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> machine_sdcard.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>我们需要在 machine_sdcard.c 后面添加一个 smarconfig.c，然后在 machine_sdcard.c的同目录下 创建一个 smarconfig.c (内容查看后文)&lt;br>
+修改后的 CMakeLists.txt 内容格式如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">set(MICROPY_SOURCE_PORT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> main.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ....
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> machine_sdcard.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> smarconfig.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>同理，可以在这里删掉不用的模块&lt;/p>&lt;/blockquote>
+&lt;h2 id="smarconfigc">smarconfig.c
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano ~/mpy-bin/micropython/ports/esp32/machine_sdcard.c
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>内容参考后文。 找&lt;/p>
+&lt;h1 id="重新编译">重新编译
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">make submodules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make BOARD=LOLIN_S2_MINI
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="上级测试">上级测试
+&lt;/h1>&lt;p>新固件烧录后，烧录完成后，重启板，thonny 链接上，输入 &lt;code>help('modules')&lt;/code> 查看模块 已经有 smarconfig
+运行一个 main.py 测试，测试代码参考后文。
+启动后，找一个支持smarconfig的手机app或者微信小程序 配网测试
+我用的微信小程序&lt;code>#小程序://一键配网/047fob5XqOB14hk&lt;/code> 复制发送到手机微信，聊天窗口点开即可。配网成功&lt;/p>
+&lt;h1 id="添加自定义py文件">添加自定义py文件
+&lt;/h1>&lt;p>优点：1 保护代码 2 方便量产
+内容单独另起一一个文章 &lt;a class="link" href="../esp32-mpy-code-to-bin" >添加自定义py文件到固件&lt;/a>&lt;/p>
+&lt;h1 id="内容">内容
+&lt;/h1>&lt;h2 id="smarconfigc-1">smarconfig.c
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;span class="lnt">113
+&lt;/span>&lt;span class="lnt">114
+&lt;/span>&lt;span class="lnt">115
+&lt;/span>&lt;span class="lnt">116
+&lt;/span>&lt;span class="lnt">117
+&lt;/span>&lt;span class="lnt">118
+&lt;/span>&lt;span class="lnt">119
+&lt;/span>&lt;span class="lnt">120
+&lt;/span>&lt;span class="lnt">121
+&lt;/span>&lt;span class="lnt">122
+&lt;/span>&lt;span class="lnt">123
+&lt;/span>&lt;span class="lnt">124
+&lt;/span>&lt;span class="lnt">125
+&lt;/span>&lt;span class="lnt">126
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;py/obj.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;py/runtime.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;lt;string.h&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;lt;stdlib.h&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;freertos/FreeRTOS.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;freertos/task.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;freertos/event_groups.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_wifi.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_event.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_log.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_smartconfig.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">EventGroupHandle_t&lt;/span> &lt;span class="n">s_wifi_event_group&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="ne">int&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">BIT1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">TAG&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;smartconfig&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="ne">int&lt;/span> &lt;span class="n">found_ssid_and_password&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">ssid&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">33&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">password&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">65&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">token&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">smartconfig_task&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="n">parm&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">event_handler&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">arg&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">esp_event_base_t&lt;/span> &lt;span class="n">event_base&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">int32_t&lt;/span> &lt;span class="n">event_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">void&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">event_data&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">event_base&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">event_id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT_SCAN_DONE&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;Scan done&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">event_base&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">event_id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT_FOUND_CHANNEL&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;Found channel&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">event_base&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">event_id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT_GOT_SSID_PSWD&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;Got SSID and password&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">smartconfig_event_got_ssid_pswd_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">evt&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_event_got_ssid_pswd_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">event_data&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">memcpy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sizeof&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">memcpy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sizeof&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">type&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">token&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">token&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;SSID:&lt;/span>&lt;span class="si">%s&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ssid&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;PASSWORD:&lt;/span>&lt;span class="si">%s&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">password&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;TYPE:&lt;/span>&lt;span class="si">%d&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">type&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;TOKEN:&lt;/span>&lt;span class="si">%d&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">token&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">found_ssid_and_password&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">xEventGroupSetBits&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">s_wifi_event_group&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">initialise_wifi&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">s_wifi_event_group&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">xEventGroupCreate&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_event_loop_create_default&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_event_handler_register&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_EVENT&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ESP_EVENT_ANY_ID&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">event_handler&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">NULL&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">xTaskCreate&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_task&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;smartconfig_task&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">4096&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">NULL&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">NULL&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">smartconfig_task&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="n">parm&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">EventBits_t&lt;/span> &lt;span class="n">uxBits&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_smartconfig_set_type&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_TYPE_ESPTOUCH_AIRKISS&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">smartconfig_start_config_t&lt;/span> &lt;span class="n">cfg&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">SMARTCONFIG_START_CONFIG_DEFAULT&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_smartconfig_start&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">cfg&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uxBits&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">xEventGroupWaitBits&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">s_wifi_event_group&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="bp">true&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="bp">false&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">portMAX_DELAY&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">uxBits&lt;/span> &lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;smartconfig over&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_smartconfig_stop&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">vTaskDelete&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">NULL&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">smartconfig_start&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">initialise_wifi&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_const_none&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_start_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_start&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">smartconfig_success&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_obj_new_bool&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">found_ssid_and_password&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_success_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_success&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">smartconfig_info&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">info&lt;/span>&lt;span class="p">[]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_str&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">strlen&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">)),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_str&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">strlen&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">)),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">type&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">token&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_obj_new_tuple&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">info&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_info_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_info&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">mp_rom_map_elem_t&lt;/span> &lt;span class="n">smartconfig_module_globals_table&lt;/span>&lt;span class="p">[]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR___name__&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_smartconfig&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_start&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_start_obj&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_success&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_success_obj&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_info&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_info_obj&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_TYPE_UNKNOWN&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_INT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_TYPE_ESPTOUCH&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_INT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_TYPE_ESPTOUCH&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_TYPE_AIRKISS&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_INT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_TYPE_AIRKISS&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_DICT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_module_globals&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_module_globals_table&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">const&lt;/span> &lt;span class="n">mp_obj_module_t&lt;/span> &lt;span class="n">smartconfig_user_cmodule&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">.&lt;/span>&lt;span class="n">base&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">mp_type_module&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">.&lt;/span>&lt;span class="n">globals&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">mp_obj_dict_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_module_globals&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">MP_REGISTER_MODULE&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_smartconfig&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_user_cmodule&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="mainpy">main.py
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;span class="lnt">72
+&lt;/span>&lt;span class="lnt">73
+&lt;/span>&lt;span class="lnt">74
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">import network
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import socket
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import smartconfig
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import time
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">def inet_pton(ip_str:str):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#39;&amp;#39;&amp;#39;convert ip address from string to bytes&amp;#39;&amp;#39;&amp;#39;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ip_bytes = b&amp;#39;&amp;#39;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ip_segs = ip_str.split(&amp;#39;.&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> for seg in ip_segs:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ip_bytes += int(seg).to_bytes(1, &amp;#39;little&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return ip_bytes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">def send_ack(local_ip, local_mac):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#39;&amp;#39;&amp;#39;sent ack_done event to phone&amp;#39;&amp;#39;&amp;#39;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> data = smartconfig.info()[3].to_bytes(1, &amp;#39;little&amp;#39;) + local_mac
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> port = 10000 # airkiss port
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if smartconfig.info()[2] == smartconfig.TYPE_ESPTOUCH:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> data += inet_pton(local_ip)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> port = 18266 # esptouch port
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">f&amp;#34;&amp;#34;&amp;#34;- sending ack:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> type: {&amp;#39;esptouch&amp;#39; if smartconfig.info()[2] == smartconfig.TYPE_ESPTOUCH else &amp;#39;airkiss&amp;#39;}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> port: {port}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> data: {data}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> length: {len(data)}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&amp;#34;&amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> )
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> for _ in range(20):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(100)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> try:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> udp.sendto(data, (&amp;#39;255.255.255.255&amp;#39;, port))
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> except OSError:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> pass
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(&amp;#39;- ack was sent&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">station = network.WLAN(network.STA_IF)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">station.active(True)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- start smartconfig...&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">smartconfig.start()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- waiting for success...&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">while not smartconfig.success():
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(500)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- got smartconfig info&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssid, password, sc_type, token = smartconfig.info()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(smartconfig.info())
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- connecting to wifi...&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">station.connect(ssid, password)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">while not station.isconnected():
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(500)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- wifi connected&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">while station.ifconfig()[0] == &amp;#39;0.0.0.0&amp;#39;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(500)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- got ip&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(station.ifconfig())
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">send_ack(station.ifconfig()[0], station.config(&amp;#39;mac&amp;#39;))
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>
