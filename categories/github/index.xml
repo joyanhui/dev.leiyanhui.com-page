@@ -1,0 +1,697 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Github on 小类随手记</title><link>https://dev.leiyanhui.com/categories/github/</link><description>Recent content in Github on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 15 Nov 2023 01:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/github/index.xml" rel="self" type="application/rss+xml"/><item><title>关于跨云部署的一些思路和困扰</title><link>https://dev.leiyanhui.com/web/clouds-migrate/</link><pubDate>Wed, 15 Nov 2023 01:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/clouds-migrate/</guid><description>&lt;p>阿里云在这次（2023年11月12日）大规模故障时间中，可以说给所有人迎头一击。&lt;br>
+得益处这些年遇到的太多灾难，我们在业务开展初期就考虑到了跨地区跨机房跨云跨域名跨dns跨主体,但是依旧有部分业务被影响。&lt;/p>
+&lt;h2 id="各种跨的必要性和方案">各种跨的必要性和方案
+&lt;/h2>&lt;h3 id="跨云厂商">跨云厂商
+&lt;/h3>&lt;p>必要性这个不用说了，这次事情都知道了。&lt;br>
+一般情况下，核心业务最好一律跨厂商多活部署。&lt;br>
+尤其是是核心数据 在隐藏好ip的情况下（能上ipv6一定上ipv6）,公网加密主从同步自动切换是必须的。&lt;br>
+对于redis数据库来说来Cluster是一开始就要准备的&lt;/p>
+&lt;h3 id="跨地区和机房">跨地区和机房
+&lt;/h3>&lt;p>在同一家云厂商，尽量跨地区/机房部署多活部署。&lt;/p>
+&lt;h3 id="跨域名跨dns">跨域名跨dns
+&lt;/h3>&lt;p>数年前的dnspod时间不知道还有人记得吗？&lt;br>
+域名被暂停解析不知道有多少人遇到过，数年前更有人遇到域名过户/转移等奇葩事件。&lt;br>
+所以 除非是网站的网址，其他地方一定有多个域名&lt;br>
+另外域名的dns不要只使用一家的&lt;/p>
+&lt;h3 id="跨主体">跨主体
+&lt;/h3>&lt;p>因为国内目前的政策因素，即便是你合法合规的运营，能100%确定自己不会遇到备案吊销域名暂停解析。单一主体依旧存在风险。&lt;br>
+因为备案制度，任何人都可以查到你公司或者个人名下的所有域名，进一步拿到你部分api地址，更是可以直接看到你域名dns地址（dns一锅端也是可以的）。&lt;/p>
+&lt;h3 id="关于无状态服务">关于无状态服务
+&lt;/h3>&lt;p>微服务在规划的时候，注意能无状态服务的就用无状态的。&lt;/p>
+&lt;h3 id="和域名相关的">和域名相关的
+&lt;/h3>&lt;h4 id="用谁的域名">用谁的域名
+&lt;/h4>&lt;p>如果不会产生额外的费用，并且接口地址你可以随时更换的的情况下，尽量用云厂商送的域名（例如阿里云函数计算的http触发器域名）。&lt;br>
+因为云厂商的域名dns防护程度都比较高，免费的在某些时候比你花钱的更好。&lt;br>
+当然如果你没有办法随时切换接口的地址，那么还是用自己有控制权的域名。&lt;/p>
+&lt;h4 id="泛域名">泛域名
+&lt;/h4>&lt;p>对于可以捆绑域名的http类业务，泛域名解析虽然不能避免解析记录泄露，但是可以避免通过域名dns历史解析记录拿到接口绑定的hostname。而且这个操作并不麻烦。&lt;br>
+例如你 一个 接口 为 &lt;a class="link" href="http://usercenter-aliyun.leiyanhui.com" target="_blank" rel="noopener"
+>http://usercenter-aliyun.leiyanhui.com&lt;/a> ，原来cname或者A记录 usercenter-aliyun，之需要修改为 *.usercenter-aliyun 同时在业务上绑定的域名修改为 &lt;a class="link" href="http://run1.usercenter-aliyun.leiyanhui.com" target="_blank" rel="noopener"
+>http://run1.usercenter-aliyun.leiyanhui.com&lt;/a>（不要绑定泛域名） 如果发生针对这个地址的一些攻击，去业务那边修改为 &lt;a class="link" href="http://run2.usercenter-aliyun.leiyanhui.com" target="_blank" rel="noopener"
+>http://run2.usercenter-aliyun.leiyanhui.com&lt;/a> 即可临时规避一下&lt;/p>
+&lt;h2 id="关于entrypoint">关于entrypoint
+&lt;/h2>&lt;p>这里定义的项目的entrypoint 主要是面向客户端的（app/物联网设备/html内的api）。即客户端需要先连接entrypoint查询后端api接口，再连接api处理后续工作。&lt;/p>
+&lt;p>entrypoint应该跨云跨域名跨主体部署 。 相关业务在运行中或如果和其他业务通信故障，去这些地址里面查询可用的节点。&lt;/p>
+&lt;p>比较经典的例子，比如一般情况 app的后端api地址为 &lt;a class="link" href="http://api.app.com" target="_blank" rel="noopener"
+>http://api.app.com&lt;/a> ，一般可能还会预留一个 &lt;a class="link" href="http://api2.app.com" target="_blank" rel="noopener"
+>http://api2.app.com&lt;/a> 作为备用地址。&lt;/p>
+&lt;p>修改后的方案为&lt;/p>
+&lt;p>app应该 &lt;a class="link" href="http://entrypoint1.url.com" target="_blank" rel="noopener"
+>http://entrypoint1.url.com&lt;/a> &lt;a class="link" href="http://entrypoint.url2.com" target="_blank" rel="noopener"
+>http://entrypoint.url2.com&lt;/a> &lt;a class="link" href="http://entrypoint.url3.com" target="_blank" rel="noopener"
+>http://entrypoint.url3.com&lt;/a> &lt;a class="link" href="http://entrypoint.urlNNN.com" target="_blank" rel="noopener"
+>http://entrypoint.urlNNN.com&lt;/a> 等多个地址并发查询 a 通过上面的entrypoint返回的 api地址，再继续操作。&lt;/p>
+&lt;p>entrypoint 虽然多地跨云跨域名甚至跨主体部署，但是因为只是一个简单的json静态文件服务器，甚至可以部署到cdn，以及servless 所以维护成本很低。&lt;/p>
+&lt;p>另外 entrypoint的地址，最好其中有预留1-3个云厂商/大厂的域名，例如 阿里云的 函数计算 的url， 以及 各个云厂商的对象储存的文件访问地址，因为他们的域名都做好了dns防护，可用性要比我们的dns高很多。 为了节省开支放置servless和对象储存被刷，平时禁止访问即可，在需要的时候开启允许公网访问即可。&lt;br>
+不过华为云函数计算就算了，他给的域名公网访问次数限制1000次/天&lt;/p>
+&lt;h2 id="困扰">困扰
+&lt;/h2>&lt;p>跨云部署最大的困扰 就是 成本，带宽占用 服务器闲置 管理成本。&lt;br>
+尤其是大量数据 在 公网上加密同步。。。&lt;/p></description></item><item><title>利用github的actions 编译openwrt</title><link>https://dev.leiyanhui.com/openwrt/github-to-build/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/github-to-build/</guid><description>&lt;p>优势：免去自己搭建环境，利用GitHub的带宽&lt;/p>
+&lt;p>本次使用灯大的源,并借鉴KFERMercer的ci&lt;/p>
+&lt;pre>&lt;code>https://github.com/coolsnowwolf/lede
+https://github.com/KFERMercer/OpenWrt-CI
+&lt;/code>&lt;/pre>
+&lt;h2 id="复制fork-coolsnowwolf的源">复制Fork coolsnowwolf的源
+&lt;/h2>&lt;p>Fork Openwrt&lt;/p>
+&lt;p>&lt;a class="link" href="https://github.com/coolsnowwolf/lede/fork" target="_blank" rel="noopener"
+>https://github.com/coolsnowwolf/lede/fork&lt;/a>&lt;/p>
+&lt;h2 id="编辑action文件">编辑action文件
+&lt;/h2>&lt;p>复制 &lt;a class="link" href="https://github.com/KFERMercer/OpenWrt-CI/blob/master/openwrt-ci.yml" target="_blank" rel="noopener"
+>https://github.com/KFERMercer/OpenWrt-CI/blob/master/openwrt-ci.yml&lt;/a> 的内容编辑&lt;/p>
+&lt;p>放置到你fork的仓库的 .github/workflows/openwrt-ci.yml&lt;/p>
+&lt;h2 id="其中需要修改的">其中需要修改的
+&lt;/h2>&lt;h3 id="启动">启动
+&lt;/h3>&lt;pre>&lt;code>on:
+push:
+branches:
+- master
+&lt;/code>&lt;/pre>
+&lt;p>改为手动执行&lt;/p>
+&lt;pre>&lt;code>on:
+workflow_dispatch:
+&lt;/code>&lt;/pre>
+&lt;h3 id="自定义包">自定义包
+&lt;/h3>&lt;p>找到你需要安装的包名，官方https://openwrt.org/packages/index/start
+Lean/coolsnowwolf 的软件包可以从 make defconfig 配置文件 .config 中找到
+添加包到openwrt-ci.yml 中 cat &amp;raquo; .config &amp;laquo;EOF后面&lt;/p>
+&lt;h3 id="手动开始">手动开始
+&lt;/h3>&lt;p>先更新你的OpenWrt源-&amp;gt; Fetch upstream -&amp;gt; Fetch Merge&lt;/p>
+&lt;p>手动开始编译 Action -&amp;gt; OpenWrt-CI -&amp;gt; Run workflow&lt;/p>
+&lt;p>大概需要2-3小时，然后下载 ，下载OpenWrt_firmware即可&lt;/p>
+&lt;h3 id="初始内容">初始内容
+&lt;/h3>&lt;p>&lt;a class="link" href="https://github.com/KFERMercer/OpenWrt-CI/blob/master/openwrt-ci.yml" target="_blank" rel="noopener"
+>https://github.com/KFERMercer/OpenWrt-CI/blob/master/openwrt-ci.yml&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;span class="lnt">113
+&lt;/span>&lt;span class="lnt">114
+&lt;/span>&lt;span class="lnt">115
+&lt;/span>&lt;span class="lnt">116
+&lt;/span>&lt;span class="lnt">117
+&lt;/span>&lt;span class="lnt">118
+&lt;/span>&lt;span class="lnt">119
+&lt;/span>&lt;span class="lnt">120
+&lt;/span>&lt;span class="lnt">121
+&lt;/span>&lt;span class="lnt">122
+&lt;/span>&lt;span class="lnt">123
+&lt;/span>&lt;span class="lnt">124
+&lt;/span>&lt;span class="lnt">125
+&lt;/span>&lt;span class="lnt">126
+&lt;/span>&lt;span class="lnt">127
+&lt;/span>&lt;span class="lnt">128
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># This is free software, lisence use MIT.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># Copyright (C) 2019 P3TERX &amp;lt;https://p3terx.com&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># Copyright (C) 2020 KFERMercer &amp;lt;KFER.Mercer@gmail.com&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># &amp;lt;https://github.com/KFERMercer/OpenWrt-CI&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">CI&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">on&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">push&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">branches&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">master&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># schedule:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># - cron: 0 20 * * *&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">release&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">types&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="n">published&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">jobs&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">build_openwrt&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Build&lt;/span> &lt;span class="n">OpenWrt&lt;/span> &lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">runs&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">ubuntu&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">latest&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">event&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">repository&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">owner&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">event&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sender&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">id&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">steps&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Checkout&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">checkout&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ref&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">master&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Space&lt;/span> &lt;span class="n">cleanup&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">env&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">DEBIAN_FRONTEND&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">noninteractive&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">docker&lt;/span> &lt;span class="n">rmi&lt;/span> &lt;span class="err">`&lt;/span>&lt;span class="n">docker&lt;/span> &lt;span class="n">images&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">q&lt;/span>&lt;span class="err">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">dotnet&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mysql&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">php&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apt&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">sources&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">list&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">local&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">android&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">y&lt;/span> &lt;span class="n">purge&lt;/span> &lt;span class="n">azure&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">cli&lt;/span> &lt;span class="n">ghc&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">zulu&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">hhvm&lt;/span> &lt;span class="n">llvm&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">firefox&lt;/span> &lt;span class="n">google&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">dotnet&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">powershell&lt;/span> &lt;span class="n">openjdk&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">adoptopenjdk&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">mysql&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">php&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">mongodb&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">dotnet&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">moby&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">snapd&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="bp">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="n">update&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">y&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="n">build&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">essential&lt;/span> &lt;span class="n">asciidoc&lt;/span> &lt;span class="n">binutils&lt;/span> &lt;span class="n">bzip2&lt;/span> &lt;span class="n">gawk&lt;/span> &lt;span class="n">gettext&lt;/span> &lt;span class="n">git&lt;/span> &lt;span class="n">libncurses5&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">libz&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">patch&lt;/span> &lt;span class="n">python3&lt;/span> &lt;span class="n">unzip&lt;/span> &lt;span class="n">zlib1g&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">lib32gcc1&lt;/span> &lt;span class="n">libc6&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">i386&lt;/span> &lt;span class="n">subversion&lt;/span> &lt;span class="n">flex&lt;/span> &lt;span class="n">uglifyjs&lt;/span> &lt;span class="n">gcc&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">multilib&lt;/span> &lt;span class="n">g&lt;/span>&lt;span class="o">++-&lt;/span>&lt;span class="n">multilib&lt;/span> &lt;span class="n">p7zip&lt;/span> &lt;span class="n">p7zip&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">full&lt;/span> &lt;span class="n">msmtp&lt;/span> &lt;span class="n">libssl&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">texinfo&lt;/span> &lt;span class="n">libglib2&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">xmlto&lt;/span> &lt;span class="n">qemu&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">utils&lt;/span> &lt;span class="n">upx&lt;/span> &lt;span class="n">libelf&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">autoconf&lt;/span> &lt;span class="n">automake&lt;/span> &lt;span class="n">libtool&lt;/span> &lt;span class="n">autopoint&lt;/span> &lt;span class="n">device&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">tree&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">compiler&lt;/span> &lt;span class="n">antlr3&lt;/span> &lt;span class="n">gperf&lt;/span> &lt;span class="n">swig&lt;/span> &lt;span class="n">libtinfo5&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">y&lt;/span> &lt;span class="n">autoremove&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">purge&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="n">clean&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># sudo mkdir -p -m 777 /mnt/openwrt/bin /mnt/openwrt/build_dir/host /mnt/openwrt/build_dir/hostpkg /mnt/openwrt/dl /mnt/openwrt/feeds /mnt/openwrt/staging_dir&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/bin ./bin&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># mkdir -p ./build_dir&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s -f /mnt/openwrt/build_dir/host ./build_dir/host&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s -f /mnt/openwrt/build_dir/hostpkg ./build_dir/hostpkg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/dl ./dl&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/feeds ./feeds&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/staging_dir ./staging_dir&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">df&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Update&lt;/span> &lt;span class="n">feeds&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">./&lt;/span>&lt;span class="n">scripts&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">feeds&lt;/span> &lt;span class="n">update&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">a&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">./&lt;/span>&lt;span class="n">scripts&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">feeds&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">a&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Generate&lt;/span> &lt;span class="n">configuration&lt;/span> &lt;span class="n">file&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">f&lt;/span> &lt;span class="o">./.&lt;/span>&lt;span class="n">config&lt;/span>&lt;span class="o">*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">touch&lt;/span> &lt;span class="o">./.&lt;/span>&lt;span class="n">config&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 在 cat &amp;gt;&amp;gt; .config &amp;lt;&amp;lt;EOF 到 EOF 之间粘贴你的编译配置, 需注意缩进关系&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 例如:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cat&lt;/span> &lt;span class="o">&amp;gt;&amp;gt;&lt;/span> &lt;span class="o">.&lt;/span>&lt;span class="n">config&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span>&lt;span class="n">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_TARGET_IMAGES_GZIP&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_KERNEL_BUILD_USER&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;OpenWrt-CI&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_KERNEL_BUILD_DOMAIN&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s2">&amp;#34;Azure&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ===============================================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sed&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="s1">&amp;#39;s/^[ &lt;/span>&lt;span class="se">\t&lt;/span>&lt;span class="s1">]*//g&amp;#39;&lt;/span> &lt;span class="o">./.&lt;/span>&lt;span class="n">config&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">make&lt;/span> &lt;span class="n">defconfig&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Make&lt;/span> &lt;span class="n">download&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">make&lt;/span> &lt;span class="n">download&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j8&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="n">make&lt;/span> &lt;span class="n">download&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j1&lt;/span> &lt;span class="n">V&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">s&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">dl&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">size&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="mi">1024&lt;/span>&lt;span class="n">c&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">df&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Compile&lt;/span> &lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">make&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j&lt;/span>&lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">nproc&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="n">make&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j1&lt;/span> &lt;span class="n">V&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">s&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;=======================&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;Space usage:&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;=======================&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">df&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;=======================&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">du&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span> &lt;span class="o">./&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="nb">max&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">depth&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">du&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">mnt&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">openwrt&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="nb">max&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">depth&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="bp">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Prepare&lt;/span> &lt;span class="n">artifact&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mkdir&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mkdir&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">package&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mkdir&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">buildinfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">d&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;packages&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cp&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">f&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">firmware&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cp&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">packages&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">f&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;*.ipk&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">package&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cp&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">f&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;*.buildinfo&amp;#34;&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">o&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;*.manifest&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">buildinfo&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Deliver&lt;/span> &lt;span class="n">buildinfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt_buildinfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">path&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">buildinfo&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Deliver&lt;/span> &lt;span class="n">package&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt_package&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">path&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">package&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Deliver&lt;/span> &lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt_firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">path&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Upload&lt;/span> &lt;span class="n">release&lt;/span> &lt;span class="n">asset&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">event&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s1">&amp;#39;release&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">svenstaro&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">release&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">action&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">repo_token&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">{{&lt;/span> &lt;span class="n">secrets&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">YOURTOKEN&lt;/span> &lt;span class="p">}}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">file&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">firmware&lt;/span>&lt;span class="o">/*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">tag&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">{{&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">ref&lt;/span> &lt;span class="p">}}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">file_glob&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="bp">true&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="一个例子">一个例子
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;span class="lnt">113
+&lt;/span>&lt;span class="lnt">114
+&lt;/span>&lt;span class="lnt">115
+&lt;/span>&lt;span class="lnt">116
+&lt;/span>&lt;span class="lnt">117
+&lt;/span>&lt;span class="lnt">118
+&lt;/span>&lt;span class="lnt">119
+&lt;/span>&lt;span class="lnt">120
+&lt;/span>&lt;span class="lnt">121
+&lt;/span>&lt;span class="lnt">122
+&lt;/span>&lt;span class="lnt">123
+&lt;/span>&lt;span class="lnt">124
+&lt;/span>&lt;span class="lnt">125
+&lt;/span>&lt;span class="lnt">126
+&lt;/span>&lt;span class="lnt">127
+&lt;/span>&lt;span class="lnt">128
+&lt;/span>&lt;span class="lnt">129
+&lt;/span>&lt;span class="lnt">130
+&lt;/span>&lt;span class="lnt">131
+&lt;/span>&lt;span class="lnt">132
+&lt;/span>&lt;span class="lnt">133
+&lt;/span>&lt;span class="lnt">134
+&lt;/span>&lt;span class="lnt">135
+&lt;/span>&lt;span class="lnt">136
+&lt;/span>&lt;span class="lnt">137
+&lt;/span>&lt;span class="lnt">138
+&lt;/span>&lt;span class="lnt">139
+&lt;/span>&lt;span class="lnt">140
+&lt;/span>&lt;span class="lnt">141
+&lt;/span>&lt;span class="lnt">142
+&lt;/span>&lt;span class="lnt">143
+&lt;/span>&lt;span class="lnt">144
+&lt;/span>&lt;span class="lnt">145
+&lt;/span>&lt;span class="lnt">146
+&lt;/span>&lt;span class="lnt">147
+&lt;/span>&lt;span class="lnt">148
+&lt;/span>&lt;span class="lnt">149
+&lt;/span>&lt;span class="lnt">150
+&lt;/span>&lt;span class="lnt">151
+&lt;/span>&lt;span class="lnt">152
+&lt;/span>&lt;span class="lnt">153
+&lt;/span>&lt;span class="lnt">154
+&lt;/span>&lt;span class="lnt">155
+&lt;/span>&lt;span class="lnt">156
+&lt;/span>&lt;span class="lnt">157
+&lt;/span>&lt;span class="lnt">158
+&lt;/span>&lt;span class="lnt">159
+&lt;/span>&lt;span class="lnt">160
+&lt;/span>&lt;span class="lnt">161
+&lt;/span>&lt;span class="lnt">162
+&lt;/span>&lt;span class="lnt">163
+&lt;/span>&lt;span class="lnt">164
+&lt;/span>&lt;span class="lnt">165
+&lt;/span>&lt;span class="lnt">166
+&lt;/span>&lt;span class="lnt">167
+&lt;/span>&lt;span class="lnt">168
+&lt;/span>&lt;span class="lnt">169
+&lt;/span>&lt;span class="lnt">170
+&lt;/span>&lt;span class="lnt">171
+&lt;/span>&lt;span class="lnt">172
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># This is free software, lisence use MIT.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># Copyright (C) 2019 P3TERX &amp;lt;https://p3terx.com&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># Copyright (C) 2020 KFERMercer &amp;lt;KFER.Mercer@gmail.com&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># &amp;lt;https://github.com/KFERMercer/OpenWrt-CI&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">CI&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">on&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">workflow_dispatch&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#push:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># branches: &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># - master&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># schedule:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># - cron: 0 20 * * *&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">release&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">types&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="n">published&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">jobs&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">build_openwrt&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Build&lt;/span> &lt;span class="n">OpenWrt&lt;/span> &lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">runs&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">on&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">ubuntu&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">latest&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">event&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">repository&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">owner&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">event&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sender&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">id&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">steps&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Checkout&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">checkout&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ref&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">master&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Space&lt;/span> &lt;span class="n">cleanup&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">env&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">DEBIAN_FRONTEND&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">noninteractive&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">docker&lt;/span> &lt;span class="n">rmi&lt;/span> &lt;span class="err">`&lt;/span>&lt;span class="n">docker&lt;/span> &lt;span class="n">images&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">q&lt;/span>&lt;span class="err">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">dotnet&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mysql&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">php&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apt&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">sources&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">list&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">d&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">local&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">lib&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">android&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">y&lt;/span> &lt;span class="n">purge&lt;/span> &lt;span class="n">azure&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">cli&lt;/span> &lt;span class="n">ghc&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">zulu&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">hhvm&lt;/span> &lt;span class="n">llvm&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">firefox&lt;/span> &lt;span class="n">google&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">dotnet&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">powershell&lt;/span> &lt;span class="n">openjdk&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">adoptopenjdk&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">mysql&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">php&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">mongodb&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">dotnet&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">moby&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">snapd&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="bp">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="n">update&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">y&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="n">build&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">essential&lt;/span> &lt;span class="n">asciidoc&lt;/span> &lt;span class="n">binutils&lt;/span> &lt;span class="n">bzip2&lt;/span> &lt;span class="n">gawk&lt;/span> &lt;span class="n">gettext&lt;/span> &lt;span class="n">git&lt;/span> &lt;span class="n">libncurses5&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">libz&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">patch&lt;/span> &lt;span class="n">python3&lt;/span> &lt;span class="n">unzip&lt;/span> &lt;span class="n">zlib1g&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">lib32gcc1&lt;/span> &lt;span class="n">libc6&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">i386&lt;/span> &lt;span class="n">subversion&lt;/span> &lt;span class="n">flex&lt;/span> &lt;span class="n">uglifyjs&lt;/span> &lt;span class="n">gcc&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">multilib&lt;/span> &lt;span class="n">g&lt;/span>&lt;span class="o">++-&lt;/span>&lt;span class="n">multilib&lt;/span> &lt;span class="n">p7zip&lt;/span> &lt;span class="n">p7zip&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">full&lt;/span> &lt;span class="n">msmtp&lt;/span> &lt;span class="n">libssl&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">texinfo&lt;/span> &lt;span class="n">libglib2&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">xmlto&lt;/span> &lt;span class="n">qemu&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">utils&lt;/span> &lt;span class="n">upx&lt;/span> &lt;span class="n">libelf&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dev&lt;/span> &lt;span class="n">autoconf&lt;/span> &lt;span class="n">automake&lt;/span> &lt;span class="n">libtool&lt;/span> &lt;span class="n">autopoint&lt;/span> &lt;span class="n">device&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">tree&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">compiler&lt;/span> &lt;span class="n">antlr3&lt;/span> &lt;span class="n">gperf&lt;/span> &lt;span class="n">swig&lt;/span> &lt;span class="n">libtinfo5&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">y&lt;/span> &lt;span class="n">autoremove&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">purge&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sudo&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">E&lt;/span> &lt;span class="n">apt&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">get&lt;/span> &lt;span class="n">clean&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># sudo mkdir -p -m 777 /mnt/openwrt/bin /mnt/openwrt/build_dir/host /mnt/openwrt/build_dir/hostpkg /mnt/openwrt/dl /mnt/openwrt/feeds /mnt/openwrt/staging_dir&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/bin ./bin&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># mkdir -p ./build_dir&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s -f /mnt/openwrt/build_dir/host ./build_dir/host&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s -f /mnt/openwrt/build_dir/hostpkg ./build_dir/hostpkg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/dl ./dl&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/feeds ./feeds&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ln -s /mnt/openwrt/staging_dir ./staging_dir&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">df&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Update&lt;/span> &lt;span class="n">feeds&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;src-git helloworld https://github.com/fw876/helloworld.git&amp;#34;&lt;/span> &lt;span class="o">&amp;gt;&amp;gt;&lt;/span> &lt;span class="s2">&amp;#34;feeds.conf.default&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">./&lt;/span>&lt;span class="n">scripts&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">feeds&lt;/span> &lt;span class="n">update&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">a&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">./&lt;/span>&lt;span class="n">scripts&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">feeds&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">a&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Generate&lt;/span> &lt;span class="n">configuration&lt;/span> &lt;span class="n">file&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">f&lt;/span> &lt;span class="o">./.&lt;/span>&lt;span class="n">config&lt;/span>&lt;span class="o">*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">touch&lt;/span> &lt;span class="o">./.&lt;/span>&lt;span class="n">config&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 在 cat &amp;gt;&amp;gt; .config &amp;lt;&amp;lt;EOF 到 EOF 之间粘贴你的编译配置, 需注意缩进关系&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 例如:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cat&lt;/span> &lt;span class="o">&amp;gt;&amp;gt;&lt;/span> &lt;span class="o">.&lt;/span>&lt;span class="n">config&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span>&lt;span class="n">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_LUCI_LANG_en&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_LUCI_LANG_zh&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">cn&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">baidupcs&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">web&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">cifs&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">mount&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">wireguard&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dns&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">proxy&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">netdata&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">p910nd&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ssr&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">plus&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ssr&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">plus_INCLUDE_Hysteria&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ssr&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">plus_INCLUDE_IPT2Socks&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ssr&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">plus_INCLUDE_Trojan&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">turboacc_INCLUDE_DNSFORWARDER&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">turboacc_INCLUDE_DNSPROXY&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">uugamebooster&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">app&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">syncdial&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># CONFIG_PACKAGE_luci-app-unblockmusic is not set&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># CONFIG_PACKAGE_luci-app-ttyd is not set&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># CONFIG_PACKAGE_luci-app-xlnetacc is not set&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">theme&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">argon&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">theme&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">bootstrap&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">theme&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">material&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_luci&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">theme&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">netgear&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_ddns&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">scripts_cloudflare&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v4&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_ddns&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">scripts_no&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ip_com&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_ddns&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">scripts_route53&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v1&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_bind&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">dig&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_nano&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_qrencode&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_open&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">vm&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">tools&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_whois&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_nmap&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ssl&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">CONFIG_PACKAGE_ipv6helper&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">y&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># ===============================================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sed&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="s1">&amp;#39;s/^[ &lt;/span>&lt;span class="se">\t&lt;/span>&lt;span class="s1">]*//g&amp;#39;&lt;/span> &lt;span class="o">./.&lt;/span>&lt;span class="n">config&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">make&lt;/span> &lt;span class="n">defconfig&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Make&lt;/span> &lt;span class="n">download&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">make&lt;/span> &lt;span class="n">download&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j8&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="n">make&lt;/span> &lt;span class="n">download&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j1&lt;/span> &lt;span class="n">V&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">s&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">dl&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">size&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="mi">1024&lt;/span>&lt;span class="n">c&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">df&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Compile&lt;/span> &lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">make&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j&lt;/span>&lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">nproc&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="n">make&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">j1&lt;/span> &lt;span class="n">V&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">s&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;=======================&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;Space usage:&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;=======================&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">df&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;=======================&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">du&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span> &lt;span class="o">./&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="nb">max&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">depth&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">du&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">h&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">mnt&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">openwrt&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="nb">max&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">depth&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="bp">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Prepare&lt;/span> &lt;span class="n">artifact&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mkdir&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mkdir&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">package&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mkdir&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">p&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">buildinfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">d&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;packages&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cp&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">f&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">firmware&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cp&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">packages&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">f&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;*.ipk&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">package&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cp&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">find&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">type&lt;/span> &lt;span class="n">f&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;*.buildinfo&amp;#34;&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">o&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="s2">&amp;#34;*.manifest&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">buildinfo&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Deliver&lt;/span> &lt;span class="n">buildinfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt_buildinfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">path&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">buildinfo&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Deliver&lt;/span> &lt;span class="n">package&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt_package&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">path&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">package&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Deliver&lt;/span> &lt;span class="n">firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">OpenWrt_firmware&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">path&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">targets&lt;/span>&lt;span class="o">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Upload&lt;/span> &lt;span class="n">release&lt;/span> &lt;span class="n">asset&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">event&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s1">&amp;#39;release&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">svenstaro&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">upload&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">release&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">action&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">v2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">with&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">repo_token&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">{{&lt;/span> &lt;span class="n">secrets&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">YOURTOKEN&lt;/span> &lt;span class="p">}}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">file&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">./&lt;/span>&lt;span class="n">artifact&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">firmware&lt;/span>&lt;span class="o">/*&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">tag&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="o">$&lt;/span>&lt;span class="p">{{&lt;/span> &lt;span class="n">github&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">ref&lt;/span> &lt;span class="p">}}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">file_glob&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="bp">true&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>本文参考：https://github.com/P3TERX/Actions-OpenWrt&lt;/p></description></item></channel></rss>

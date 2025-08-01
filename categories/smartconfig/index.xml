@@ -1,0 +1,650 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Smartconfig on 小类随手记</title><link>https://dev.leiyanhui.com/categories/smartconfig/</link><description>Recent content in Smartconfig on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 12 Jun 2023 17:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/smartconfig/index.xml" rel="self" type="application/rss+xml"/><item><title>esp32自行编译micropython固件并支持smartconfig方法 以及代码保护</title><link>https://dev.leiyanhui.com/mcu/esp32-s2-mpy-smartconfig/</link><pubDate>Mon, 12 Jun 2023 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mcu/esp32-s2-mpy-smartconfig/</guid><description>&lt;p>micropython 自己编译固件有几个好处&lt;/p>
+&lt;ul>
+&lt;li>只加入自己需要的模块降低硬件资源占用&lt;/li>
+&lt;li>.py文件可以修改中中间码，并烧录到固件内部，&lt;/li>
+&lt;li>
+&lt;ul>
+&lt;li>可以方便量产&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;ul>
+&lt;li>可一定程度保护代码&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;ul>
+&lt;li>更加省略了编译过程节省内存&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>我这里 只记录 添加 smartconfig的方法，并以S2 mini为例，其他esp32 同理。&lt;br>
+简中网络上，几乎没有相关资料，有一些资料也是错的或无法使用。所以这里单独记录分享一下。
+你可以直接下载 我编译好的&lt;br>
+&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/&lt;/a>&lt;/p>
+&lt;h1 id="准备">准备
+&lt;/h1>&lt;ul>
+&lt;li>linux系统，我这里是pve lxc运行的ubuntu22.04&lt;/li>
+&lt;li>科学工具 因为需要拉github&lt;/li>
+&lt;li>基本的linux基础&lt;/li>
+&lt;/ul>
+&lt;h1 id="环境配置-和-依赖">环境配置 和 依赖
+&lt;/h1>&lt;p>修改到国内源，这个自己处理&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apt install git wget curl make gcc cmake rsync
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># ppa安装pythone 3.11 Ubuntu自带的版本太低
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt install software-properties-common
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">add-apt-repository ppa:deadsnakes/ppa
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">apt install python3.11 python-is-python3
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># pip3
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">python get-pip.py --force-reinstall
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">pip install mpy-cross-v6
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="克隆代码">克隆代码
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">mkdir mpy-bin &amp;amp;&amp;amp; cd mpy-bin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="esp-idf">esp-idf
+&lt;/h2>&lt;p>注意 不同的esp32平台 micropython支持的esp-idf版本不同，详情参考 &lt;a class="link" href="https://github.com/micropython/micropython/tree/master/ports/esp32#readme" target="_blank" rel="noopener"
+>https://github.com/micropython/micropython/tree/master/ports/esp32#readme&lt;/a>&lt;br>
+linux小白 一步一步操作，注意里面的警告信息&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">git clone -b v4.4.5 --recursive https://github.com/espressif/esp-idf.git esp-idf-v4.4.5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd esp-idf-v4.4.5/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git checkout v4.4.5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git submodule update --init --recursive
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>处理环境变量&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="o">./&lt;/span>&lt;span class="n">install&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sh&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">source&lt;/span> &lt;span class="k">export&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sh&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="micropython">micropython
+&lt;/h2>&lt;p>本文基于 1.20 版本，如果新版失效，请 直接去下载 &lt;a class="link" href="https://github.com/micropython/micropython/releases/download/v1.20.0/micropython-1.20.0.zip" target="_blank" rel="noopener"
+>https://github.com/micropython/micropython/releases/download/v1.20.0/micropython-1.20.0.zip&lt;/a> 不要 git clone最新的&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd ..
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">git clone https://github.com/micropython/micropython.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd micropython
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make -C mpy-cross
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cd ports/esp32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="测试默认编译micropython固件">测试默认编译micropython固件
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">make submodules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make # make BOARD=LOLIN_S2_MINI
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>直接make的话 是 esp32 ，我这里是 s2 ，并且是 esp32 s2 mini开发板 所以添加参数 BOARD=LOLIN_S2_MINI
+这样就可以编译 了,编译后 会有提示 ./build-XXXX/
+firmware.bin 这个文件是合并后的，可以直接烧到0x1000&lt;/p>
+&lt;h2 id="推送到-nas">推送到 nas
+&lt;/h2>&lt;p>我这里推送到nas里面，方便其他机器使用&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">rsync -avzut --progress ./build-LOLIN_S2_MINI/firmware.bin root@10.1.1.200:/mnt/nas/temp/firmware-my.bin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="烧录">烧录
+&lt;/h2>&lt;p>在连接esp32的机器上从nas复制bin文件过来然后下入&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">esptool&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">port&lt;/span> &lt;span class="n">COM3&lt;/span> &lt;span class="n">erase_flash&lt;/span> &lt;span class="c1">#擦除&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">esptool&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">port&lt;/span> &lt;span class="n">COM3&lt;/span> &lt;span class="o">--&lt;/span>&lt;span class="n">baud&lt;/span> &lt;span class="mi">1000000&lt;/span> &lt;span class="n">write_flash&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">z&lt;/span> &lt;span class="mh">0x1000&lt;/span> &lt;span class="n">firmware&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">my&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">bin&lt;/span> &lt;span class="c1"># 写入从nas 拷贝过来的 新固件&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>烧录完成后，重启板，thonny 链接上，输入 help(&amp;lsquo;modules&amp;rsquo;) 查看模块&lt;/p>
+&lt;h1 id="添加-smartconfig模块">添加 smartconfig模块
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cd ~/mpy-bin/micropython/ports/esp32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>需要两个地方，1是 添加一个smarconfig.c文件，2 是修改还 ports/esp32/main/CMakeLists.txt 把 smarconfig.c 加进去&lt;/p>
+&lt;h2 id="cmakeliststxt">CMakeLists.txt
+&lt;/h2>&lt;p>查看 cat ~/mpy-bin/micropython/ports/esp32/main/CMakeLists.txt 目前版本1.20版本 需要修改的内容在 54-92行 格式如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">set(MICROPY_SOURCE_PORT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> main.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ....
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> machine_sdcard.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>我们需要在 machine_sdcard.c 后面添加一个 smarconfig.c，然后在 machine_sdcard.c的同目录下 创建一个 smarconfig.c (内容查看后文)&lt;br>
+修改后的 CMakeLists.txt 内容格式如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">set(MICROPY_SOURCE_PORT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> main.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ....
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> machine_sdcard.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> smarconfig.c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>同理，可以在这里删掉不用的模块&lt;/p>&lt;/blockquote>
+&lt;h2 id="smarconfigc">smarconfig.c
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano ~/mpy-bin/micropython/ports/esp32/machine_sdcard.c
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>内容参考后文。 找&lt;/p>
+&lt;h1 id="重新编译">重新编译
+&lt;/h1>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">make submodules
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make BOARD=LOLIN_S2_MINI
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h1 id="上级测试">上级测试
+&lt;/h1>&lt;p>新固件烧录后，烧录完成后，重启板，thonny 链接上，输入 &lt;code>help('modules')&lt;/code> 查看模块 已经有 smarconfig
+运行一个 main.py 测试，测试代码参考后文。
+启动后，找一个支持smarconfig的手机app或者微信小程序 配网测试
+我用的微信小程序&lt;code>#小程序://一键配网/047fob5XqOB14hk&lt;/code> 复制发送到手机微信，聊天窗口点开即可。配网成功&lt;/p>
+&lt;h1 id="添加自定义py文件">添加自定义py文件
+&lt;/h1>&lt;p>优点：1 保护代码 2 方便量产
+内容单独另起一一个文章 &lt;a class="link" href="../esp32-mpy-code-to-bin" >添加自定义py文件到固件&lt;/a>&lt;/p>
+&lt;h1 id="内容">内容
+&lt;/h1>&lt;h2 id="smarconfigc-1">smarconfig.c
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;span class="lnt">113
+&lt;/span>&lt;span class="lnt">114
+&lt;/span>&lt;span class="lnt">115
+&lt;/span>&lt;span class="lnt">116
+&lt;/span>&lt;span class="lnt">117
+&lt;/span>&lt;span class="lnt">118
+&lt;/span>&lt;span class="lnt">119
+&lt;/span>&lt;span class="lnt">120
+&lt;/span>&lt;span class="lnt">121
+&lt;/span>&lt;span class="lnt">122
+&lt;/span>&lt;span class="lnt">123
+&lt;/span>&lt;span class="lnt">124
+&lt;/span>&lt;span class="lnt">125
+&lt;/span>&lt;span class="lnt">126
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;py/obj.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;py/runtime.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;lt;string.h&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;lt;stdlib.h&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;freertos/FreeRTOS.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;freertos/task.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;freertos/event_groups.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_wifi.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_event.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_log.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#include &amp;#34;esp_smartconfig.h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">EventGroupHandle_t&lt;/span> &lt;span class="n">s_wifi_event_group&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="ne">int&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">BIT1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">TAG&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;smartconfig&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="ne">int&lt;/span> &lt;span class="n">found_ssid_and_password&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">ssid&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">33&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">password&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">65&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">uint8_t&lt;/span> &lt;span class="n">token&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">smartconfig_task&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="n">parm&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">event_handler&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">arg&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">esp_event_base_t&lt;/span> &lt;span class="n">event_base&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">int32_t&lt;/span> &lt;span class="n">event_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">void&lt;/span>&lt;span class="o">*&lt;/span> &lt;span class="n">event_data&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">event_base&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">event_id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT_SCAN_DONE&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;Scan done&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">event_base&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">event_id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT_FOUND_CHANNEL&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;Found channel&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">event_base&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">event_id&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">SC_EVENT_GOT_SSID_PSWD&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;Got SSID and password&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">smartconfig_event_got_ssid_pswd_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">evt&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_event_got_ssid_pswd_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">event_data&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">memcpy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sizeof&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">memcpy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sizeof&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">type&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">token&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">evt&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">token&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;SSID:&lt;/span>&lt;span class="si">%s&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ssid&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;PASSWORD:&lt;/span>&lt;span class="si">%s&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">password&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;TYPE:&lt;/span>&lt;span class="si">%d&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">type&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;TOKEN:&lt;/span>&lt;span class="si">%d&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">token&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">found_ssid_and_password&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">xEventGroupSetBits&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">s_wifi_event_group&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">initialise_wifi&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">s_wifi_event_group&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">xEventGroupCreate&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_event_loop_create_default&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_event_handler_register&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_EVENT&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ESP_EVENT_ANY_ID&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">event_handler&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">NULL&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">xTaskCreate&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_task&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;smartconfig_task&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">4096&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">NULL&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">NULL&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">static&lt;/span> &lt;span class="n">void&lt;/span> &lt;span class="n">smartconfig_task&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="n">parm&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">EventBits_t&lt;/span> &lt;span class="n">uxBits&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_smartconfig_set_type&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_TYPE_ESPTOUCH_AIRKISS&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">smartconfig_start_config_t&lt;/span> &lt;span class="n">cfg&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">SMARTCONFIG_START_CONFIG_DEFAULT&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_smartconfig_start&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">cfg&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">uxBits&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">xEventGroupWaitBits&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">s_wifi_event_group&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="bp">true&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="bp">false&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">portMAX_DELAY&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">uxBits&lt;/span> &lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">ESPTOUCH_DONE_BIT&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_LOGI&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TAG&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;smartconfig over&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ESP_ERROR_CHECK&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">esp_smartconfig_stop&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">vTaskDelete&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">NULL&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">smartconfig_start&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">initialise_wifi&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_const_none&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_start_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_start&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">smartconfig_success&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_obj_new_bool&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">found_ssid_and_password&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_success_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_success&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">smartconfig_info&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_t&lt;/span> &lt;span class="n">info&lt;/span>&lt;span class="p">[]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_str&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">strlen&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">ssid&lt;/span>&lt;span class="p">)),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_str&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">strlen&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">char&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="n">password&lt;/span>&lt;span class="p">)),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">type&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mp_obj_new_int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">token&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">mp_obj_new_tuple&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">info&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_FUN_OBJ_0&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_info_obj&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_info&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">mp_rom_map_elem_t&lt;/span> &lt;span class="n">smartconfig_module_globals_table&lt;/span>&lt;span class="p">[]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR___name__&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_smartconfig&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_start&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_start_obj&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_success&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_success_obj&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_info&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_PTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_info_obj&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_TYPE_UNKNOWN&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_INT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_TYPE_ESPTOUCH&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_INT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_TYPE_ESPTOUCH&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="n">MP_ROM_QSTR&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_TYPE_AIRKISS&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">MP_ROM_INT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">SC_TYPE_AIRKISS&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STATIC&lt;/span> &lt;span class="n">MP_DEFINE_CONST_DICT&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">smartconfig_module_globals&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_module_globals_table&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">const&lt;/span> &lt;span class="n">mp_obj_module_t&lt;/span> &lt;span class="n">smartconfig_user_cmodule&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">.&lt;/span>&lt;span class="n">base&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">mp_type_module&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">.&lt;/span>&lt;span class="n">globals&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">mp_obj_dict_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">smartconfig_module_globals&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">MP_REGISTER_MODULE&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">MP_QSTR_smartconfig&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">smartconfig_user_cmodule&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="mainpy">main.py
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;span class="lnt">72
+&lt;/span>&lt;span class="lnt">73
+&lt;/span>&lt;span class="lnt">74
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">import network
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import socket
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import smartconfig
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">import time
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">def inet_pton(ip_str:str):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#39;&amp;#39;&amp;#39;convert ip address from string to bytes&amp;#39;&amp;#39;&amp;#39;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ip_bytes = b&amp;#39;&amp;#39;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ip_segs = ip_str.split(&amp;#39;.&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> for seg in ip_segs:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ip_bytes += int(seg).to_bytes(1, &amp;#39;little&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return ip_bytes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">def send_ack(local_ip, local_mac):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &amp;#39;&amp;#39;&amp;#39;sent ack_done event to phone&amp;#39;&amp;#39;&amp;#39;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> data = smartconfig.info()[3].to_bytes(1, &amp;#39;little&amp;#39;) + local_mac
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> port = 10000 # airkiss port
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if smartconfig.info()[2] == smartconfig.TYPE_ESPTOUCH:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> data += inet_pton(local_ip)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> port = 18266 # esptouch port
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">f&amp;#34;&amp;#34;&amp;#34;- sending ack:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> type: {&amp;#39;esptouch&amp;#39; if smartconfig.info()[2] == smartconfig.TYPE_ESPTOUCH else &amp;#39;airkiss&amp;#39;}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> port: {port}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> data: {data}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> length: {len(data)}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&amp;#34;&amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> )
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> for _ in range(20):
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(100)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> try:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> udp.sendto(data, (&amp;#39;255.255.255.255&amp;#39;, port))
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> except OSError:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> pass
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> print(&amp;#39;- ack was sent&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">station = network.WLAN(network.STA_IF)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">station.active(True)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- start smartconfig...&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">smartconfig.start()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- waiting for success...&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">while not smartconfig.success():
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(500)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- got smartconfig info&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ssid, password, sc_type, token = smartconfig.info()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(smartconfig.info())
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- connecting to wifi...&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">station.connect(ssid, password)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">while not station.isconnected():
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(500)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- wifi connected&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">while station.ifconfig()[0] == &amp;#39;0.0.0.0&amp;#39;:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> time.sleep_ms(500)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(&amp;#39;- got ip&amp;#39;)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">print(station.ifconfig())
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">send_ack(station.ifconfig()[0], station.config(&amp;#39;mac&amp;#39;))
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

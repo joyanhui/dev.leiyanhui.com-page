@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Duplicati on 小类随手记</title><link>https://dev.leiyanhui.com/categories/duplicati/</link><description>Recent content in Duplicati on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 08 Feb 2023 07:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/duplicati/index.xml" rel="self" type="application/rss+xml"/><item><title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 异地备份</title><link>https://dev.leiyanhui.com/pve/lxc-nas-autobackup/</link><pubDate>Wed, 08 Feb 2023 07:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/lxc-nas-autobackup/</guid><description>&lt;p>本文 是 pve lxc 搭建nas 的系列文章 的一部分。 因为篇幅较长，所以分开。&lt;/p>
+&lt;p>原文索引 ：&lt;a class="link" href="https://dev.leiyanhui.com/pve/lxc-nas" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/lxc-nas&lt;/a>&lt;/p>
+&lt;p>本文主要内容 本地重要数据的异地备份 的相关记录。&lt;/p>
+&lt;p>duplicati 不支持alpine 直接安装，官网的包用的 zst 压缩的deb，alpine下的dpkg 弄不死&lt;/p>
+&lt;h3 id="alpine-容器的创建和基本配置">alpine 容器的创建和基本配置
+&lt;/h3>&lt;p>原文索引 ：&lt;a class="link" href="https://dev.leiyanhui.com/pve/lxc-nas" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/lxc-nas&lt;/a>&lt;br>
+硬盘要分2G，duplicati体积不小&lt;/p>
+&lt;h3 id="挂载物理硬盘">挂载物理硬盘
+&lt;/h3>&lt;p>查看前面的alpine 容器的创建和基本配置,简单说就一行命令&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">pct set 10081 -mp0 /dev/sda1,mp=/mnt/sda1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="安装docker">安装docker
+&lt;/h3>&lt;p>特权容器安装docker 需要打开嵌套，并手动修改一下cnf文件
+原文索引 ：&lt;a class="link" href="https://dev.leiyanhui.com/pve/lxc-docker-err" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/pve/lxc-docker-err&lt;/a>&lt;/p>
+&lt;h3 id="alist-挂载网盘">alist 挂载网盘
+&lt;/h3>&lt;p>支持很多网盘的一个小程序，适合把网盘转webdav。目录列表功能可以加密。 alist具体安装过程掠过，官网文档很全。&lt;/p>
+&lt;h3 id="docker-运行">docker 运行
+&lt;/h3>&lt;p>我这里选择duplicati，比自己写shell脚本简单很多，而且支持可视化界面，支持加密备份。&lt;br>
+缺点是体积比较大，不算轻量。 这个lxc要&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">docker run -d \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --name=duplicati --hostname=duplicati \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e PUID=1000 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e PGID=1000 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -e TZ=Asia/Shanghai \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -p 80:8200 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /root/config-duplicati:/config \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /root/backups-duplicati:/backups \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> -v /mnt/sda1:/mnt/sda1 \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --restart unless-stopped \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> linuxserver/duplicati:latest
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>backups 这个目录是本地存放备份的目录，因为我主要是异地备份到 阿里云盘 和 对象储存，所以这里就保持默认 &lt;br>
+source 是原始目录。可以配置为在前面挂载过来的物理硬盘. &lt;br>
+因为这个lxc只运行这一个docker，所以80端口直接分给他&lt;/p>&lt;/blockquote>
+&lt;h3 id="配置duplicati">配置duplicati
+&lt;/h3>&lt;p>打开网页 http://lxc的ip+端口 例如 http://10.1.1.213/ 刚刚加载进来页面是英文的，先提示创建密码，点yes。然后界面就自动转换中文了。&lt;/p>
+&lt;p>设置完成密码后 重新登录，而后 新增备份即可。&lt;/p>
+&lt;p>文件可加密后备份，也可以分卷 也可以定时清理过期数据 还是很方便的。&lt;/p></description></item></channel></rss>
