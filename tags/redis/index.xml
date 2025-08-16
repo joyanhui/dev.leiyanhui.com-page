@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Redis on 小类随手记</title><link>https://dev.leiyanhui.com/tags/redis/</link><description>Recent content in Redis on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 07 Sep 2022 19:56:11 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/redis/index.xml" rel="self" type="application/rss+xml"/><item><title>mysql 内存表替代redis的完整方案记录</title><link>https://dev.leiyanhui.com/c/mysql-cp-memory-innodb/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/mysql-cp-memory-innodb/</guid><description>&lt;h1 id="mysql-内存表替代redis的完整方案记录">mysql 内存表替代redis的完整方案记录
+&lt;/h1>&lt;p>内存表替代redis的完整方案记&lt;/p>
+&lt;p>redis很强很轻量，但是对于结构化数据 mysql具有天然优势。&lt;/p>
+&lt;p>这里只记录 使用mysql内存表替代redis的一个方案，只适用于某些特殊情况&lt;/p>
+&lt;p>但是 mysql 内存表有几个天然缺陷 Memory不支持行锁只支持表锁，只有InnoDB支持行锁。这就导致了大并发的时候，尤其是并发写入的时候 mysql的Memory引擎效率并不高&lt;/p>
+&lt;p>另外Memory不支持持久化储存，在宕机重启的情况下，虽然可以导入新数据。但是如果配置了主从同步会出现更多复杂问题。&lt;/p>
+&lt;p>为了规避这些问题，可以在以下场景式 使用。&lt;/p>
+&lt;p>最后采取的理想方式：&lt;/p>
+&lt;p>1、分库处理，库A 所有表使用InnoDB，配置好主从同步并用户储存所有数据。库B 只有部分表从库A复制的表，且全部是内存表，不进行主从同步。&lt;/p>
+&lt;p>2、mysql启动的时，库A部分表数据 完整复制到库B，或者应用端在查询不到数据的时候，自动复制数据过来。&lt;/p>
+&lt;p>3、定时同步库B数据到库A 以持久化保存&lt;/p>
+&lt;p>其他要注意的：&lt;/p>
+&lt;p>1、频繁写入的数据，依旧还是使用redis，这是redis的天然优势&lt;/p>
+&lt;p>2、关闭库B的 查询缓存（没有太大必要使用）&lt;/p>
+&lt;p>3、大量数据非经常查询的数据，放在&lt;/p>
+&lt;p>先看一个创建一个表 和复制一个表的基本语法&lt;/p>
+&lt;p>另外一个简单的解决方法 是使用 ramdisk (tmpfs)，然后使用InnoDB 或者 MyISAM即可&lt;/p>
+&lt;p>然后定时备份 ramdisk（最好关停mysql后备份）&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-mysql" data-lang="mysql">&lt;span class="line">&lt;span class="cl">&lt;span class="k">CREATE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">TABLE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="n">fish_api&lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="n">mem&lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="n">mem&lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">INT&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">NOT&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="no">NULL&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kp">ENGINE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">MEMORY&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="k">CREATE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">TABLE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetTable&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">LIKE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">sourceTable&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="k">INSERT&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">INTO&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetTable&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">SELECT&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">FROM&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">sourceTable&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="c1">#完整代码
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">#DROP TABLE user_mem;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">CREATE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">TABLE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">user_mem&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">LIKE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">user&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="k">ALTER&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">TABLE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">user_mem&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kp">ENGINE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">MEMORY&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="k">INSERT&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">INTO&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">user_mem&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">SELECT&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">FROM&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">user&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>其实需要的是 优化mysql&lt;/p>
+&lt;p>频繁查询 较少写入的表的查询操作 开启查询缓存 这个比较好理解&lt;/p></description></item><item><title>用户和api操作的限制</title><link>https://dev.leiyanhui.com/c/114/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/114/</guid><description>&lt;h1 id="用户和api操作的限制">用户和api操作的限制
+&lt;/h1>&lt;h2 id="用户身份">用户身份
+&lt;/h2>&lt;blockquote>
+&lt;p>IP 设备序号 用户id 用户手机设备cid 可伪造 不用于识别用户&lt;/p>&lt;/blockquote>
+&lt;h3 id="硬件设备">硬件设备
+&lt;/h3>&lt;h4 id="根据ip限制">根据ip限制
+&lt;/h4>&lt;blockquote>
+&lt;p>单ip 单位分钟只可以查询 N次数据库 单i 单位时间内 只可以查询N次 redis &amp;lt;&amp;gt; 包括上传数据&lt;/p>&lt;/blockquote>
+&lt;h3 id="根据mac限制">根据mac限制
+&lt;/h3>&lt;blockquote>
+&lt;p>即便是有效的mac 单位时间内只可以操作N次redis&lt;/p>&lt;/blockquote>
+&lt;h3 id="用户app">用户app
+&lt;/h3>&lt;h4 id="根据ip">根据IP
+&lt;/h4>&lt;blockquote>
+&lt;p>单ip 单位时间内 只可以查询N次数据库检查用户密码 单ip 单位时间内 只可以查询N次redis检查用户密码&lt;/p>&lt;/blockquote>
+&lt;h4 id="根据用户id">根据用户id
+&lt;/h4>&lt;blockquote>
+&lt;p>单用户 单位时间内只可以查N次redis 单用户 单位时间内只可以查N次redis&lt;/p>&lt;/blockquote>
+&lt;h2 id="根据设备和app区分">根据设备和app区分
+&lt;/h2>&lt;h3 id="设备上报日志-获取返回值">设备上报日志 获取返回值
+&lt;/h3>&lt;blockquote>
+&lt;p>查询redis 根据ip 限制 1分钟内400次 limit.dev.redis.ip.xxx.m. 根据mac 限制 1分钟内40次 limit.dev.redis.mac.xxx.m. 查询数据库 根据ip限制 1分钟内60次 limit.dev.mysql.ip.xxx.m. 根据mac 限制 1分钟内1次 limit.dev.mysql.mac.xxx.m.&lt;/p>&lt;/blockquote>
+&lt;h3 id="app---登录-和-用id-token检查登录">APP = &amp;gt; 登录 和 用id token检查登录
+&lt;/h3>&lt;blockquote>
+&lt;p>查询redis 根据ip 限制 1分钟内120次 limit.app.login.redis.ip.xxx.m. 查询数据库 根据ip限制 1分钟内100次 limit.app.login.mysql.ip.xxx.m.&lt;/p>&lt;/blockquote>
+&lt;h3 id="app--获取手机验证码">APP =&amp;gt; 获取手机验证码
+&lt;/h3>&lt;blockquote>
+&lt;p>手机号要先存在&lt;br>
+查询数据库 根据ip 限制 1分钟内120次 limit.app.sms.mysql.ip.xxx.m. 发送SMS&lt;br>
+1分钟内1次 limit.app.sms.phone.xxx.m. 1天3次 limit.app.sms.phone.xxx.day.&lt;/p>&lt;/blockquote>
+&lt;h3 id="app--获取设备日志">App =&amp;gt; 获取设备日志
+&lt;/h3>&lt;blockquote>
+&lt;p>根据IP 查询用户日志 1分钟限制600次 limit.app.getlog.redis.ip.xxx.m. 1小时限制3600次 limit.app.getlog.redis.ip.xxx.hour. 根据用户id 1分钟限制600次 limit.app.getlog.redis.userid.xxx.m.&lt;/p>&lt;/blockquote>
+&lt;h3 id="app--常规操作">App =&amp;gt; 常规操作
+&lt;/h3>&lt;blockquote>
+&lt;p>根据IP 查询操作redis&lt;br>
+1分钟600次 limit.other.redis.ip.xxx.m. 1小时3600次 limit.other.redis.ip.xxx.hour. 查询操作数据库 1分钟600次 limit.other.mysql.ip.xxx.m. 1小时3600次 limit.other.mysql.ip.xxx.m.&lt;/p>&lt;/blockquote></description></item></channel></rss>

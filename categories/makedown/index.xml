@@ -1,0 +1,514 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Makedown on 小类随手记</title><link>https://dev.leiyanhui.com/categories/makedown/</link><description>Recent content in Makedown on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 29 Nov 2022 00:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/makedown/index.xml" rel="self" type="application/rss+xml"/><item><title>hugo、hexo、mdbook自动部署到GitHub私有库和阿里云oss 并嵌套腾讯cdn的完整方案</title><link>https://dev.leiyanhui.com/mdbook/hugo-to-oss/</link><pubDate>Tue, 29 Nov 2022 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mdbook/hugo-to-oss/</guid><description>&lt;p>本文以hugo为例，hexo同理
+实现目的，&lt;/p>
+&lt;ul>
+&lt;li>无服务器 如同本站&lt;/li>
+&lt;li>接近0费用 只有cdn和oss费用 cdn本身费用很低 oss 那边看cdn配置和文章更新频繁程度&lt;/li>
+&lt;li>搭建文章网站。实现博客或者帮助文档在线公开浏览。&lt;/li>
+&lt;li>国外访客直接走githubpage 国内访客 走腾讯-&amp;gt; 阿里云oss&lt;/li>
+&lt;li>&lt;code>.md&lt;/code>原文件 不暴露到公网&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>部署到 oss 会增加大概100多秒的actions执行时间，也会导致oss那边产生一些写入费用。
+我的actions 从一开始的18-25秒执行时间，变成2m30s左右。单独上传到alioss 差不多需要2分钟。&lt;/p>&lt;/blockquote>
+&lt;h3 id="github上部署hugo-或者mdbook-hexo到私有库">GitHub上部署hugo 或者mdbook hexo到私有库
+&lt;/h3>&lt;p>hugo ： &lt;a class="link" href="https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/&lt;/a>&lt;/p>
+&lt;p>mdbook: &lt;a class="link" href="https://dev.leiyanhui.com/mdbook/siyou/" target="_blank" rel="noopener"
+>https://dev.leiyanhui.com/mdbook/siyou/&lt;/a>&lt;/p>
+&lt;p>hexo 已经弃用很久，自己搞定 都差不多。&lt;/p>
+&lt;h3 id="在阿里云创建oss和相关key">在阿里云创建oss和相关key
+&lt;/h3>&lt;p>详细步骤略，主要是 拿到 &lt;code>AccessKey ID &lt;/code>和 &lt;code>AccessKey Secret&lt;/code>, 对应的Bucket 权限 应该是所有人可读
+我创建了一个 青岛 &lt;code>mydev-bolg.oss-cn-qingdao.aliyuncs.com&lt;/code>&lt;/p>
+&lt;p>在对应的Bucket的配置 域名配置 里面绑定一个临时域名 &lt;code>oss.dev.leiyanhui.com&lt;/code>&lt;/p>
+&lt;p>然后在数据管理静态页面中设置 首页 index.html 打开子目录首页 Redirect 404页面 404.html&lt;/p>
+&lt;h3 id="域名解析部分">域名解析部分
+&lt;/h3>&lt;ul>
+&lt;li>dev.leiyanhui.com 境外到xxx.gitHub.io&lt;/li>
+&lt;li>dev.leiyanhui.com 境内到cdn，我这里到腾讯cdn&lt;/li>
+&lt;/ul>
+&lt;h3 id="修改github私有库上的自动部署脚本">修改GitHub私有库上的自动部署脚本
+&lt;/h3>&lt;p>以下操作在github的私有库上操作&lt;/p>
+&lt;h4 id="先配置环境变量">先配置环境变量
+&lt;/h4>&lt;p>依次点击 &lt;code>/settings/secrets/actions&lt;/code> 添加变量&lt;code>OSS_ACCESS_KEY_ID&lt;/code> &lt;code>OSS_ACCESS_KEY_SERCRET&lt;/code> 对应阿里云的 &lt;code>AccessKey ID &lt;/code>和 &lt;code>AccessKey Secret&lt;/code>
+原来的变量&lt;code>FOR_PAGE_SSHKEY&lt;/code> 参考上面私有库配置的文章。&lt;br>
+这样做是为了防止在编译过程日志里面显示敏感信息&lt;/p>
+&lt;h4 id="编辑github-actions文件">编辑github actions文件
+&lt;/h4>&lt;p>&lt;code>/.github/workflows/deploy.yml&lt;/code> 原始文件内容参考 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-whis-theme-deploy.yml" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-whis-theme-deploy.yml&lt;/a>&lt;/p>
+&lt;p>添加内容 就是增加一段到alioss的配置 我们用&lt;code>manyuanrong/setup-ossutil@v1.0&lt;/code> 这个
+注意run 那行我们是 复制 public 文件到 &lt;code>oss://Bucket名称/&lt;/code>（Bucket名称） 如果你用其他程序，需要自己修改以下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"> - name: setup aliyun oss
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> uses: manyuanrong/setup-ossutil@master
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> with:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> endpoint: oss-cn-qingdao.aliyuncs.com
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SERCRET }}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - name: cp files to aliyun
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> run: |
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rm -rf .git*
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rm -rf public/.git*
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ossutil cp -rf public oss://mydev-bolg/ # 将mydev-bolg改为创建的Bucket名称，-rf表示覆盖
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>完整文件：&lt;a class="link" href="https://dev.leiyanhui.com/" target="_blank" rel="noopener"
+>https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-to-Alioss-whis-theme-deploy.yml&lt;/a>&lt;/p>
+&lt;h3 id="测试">测试
+&lt;/h3>&lt;p>actions 执行完成后，打开域名&lt;code>mydev-bolg.oss-cn-qingdao.aliyuncs.com&lt;/code> 测试，可以打开&lt;/p>
+&lt;h3 id="推送到腾讯cos的配置">推送到腾讯cos的配置
+&lt;/h3>&lt;p>没有买cos，感觉贵一些,所以这里没相关配置，实际和上面操作 大同小异&lt;/p>
+&lt;h3 id="配置cdn">配置cdn
+&lt;/h3>&lt;p>我这里cdn用的腾讯的，之所以套一个cdn 而不是直接用alioss 静态页面功能，当然是为了省钱。。。&lt;/p>
+&lt;p>阿里oss 删掉这个域名，或者直接添加一个 域名 dev.leiyanhui.com&lt;/p>
+&lt;p>在腾讯cdn 域名管理中 添加 回源地址 GitHub作为 热备源站，主站用&lt;code>oss-cn-qingdao.aliyuncs.com&lt;/code>&lt;/p>
+&lt;h3 id="进阶">进阶
+&lt;/h3>&lt;h4 id="节省oss费用降低写入次数--设置为定时执行">节省oss费用，降低写入次数。 设置为定时执行
+&lt;/h4>&lt;p>默认的情况是 当向master分支push代码或提交pull request的时候触发&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">on:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> push:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> branches: [ master ]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> pull_request:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> branches: [ master ]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>看手册 &lt;a class="link" href="https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows" target="_blank" rel="noopener"
+>https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows&lt;/a>
+如果想要实现，push 并且距离上次时间 超过1小时，因为cron 不支持这个操作，而我们acions内的脚本 无法持久保存文件。所以不好实现。&lt;/p>
+&lt;h5 id="schedule-cron的方式">schedule cron的方式
+&lt;/h5>&lt;p>手册：https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">on:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> schedule:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - cron: &amp;#39;30 5,17 * * *&amp;#39;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>可以定时执行，但是也和我们预期效果不一样。因为我们不是每天或者每小时都要更新内容。&lt;/p>
+&lt;h5 id="手动执行发方法">手动执行发方法
+&lt;/h5>&lt;p>最简单 办法 是用 workflow_dispatch，想同步的时候，手动执行一次&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">on:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> workflow_dispatch:
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h5 id="定时和手动结合">定时和手动结合
+&lt;/h5>&lt;p>手动加定时任务&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">on:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> workflow_dispatch:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> schedule:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # 第二位小时数，要北京时间-8 后输入 比如 2是10点
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - cron: &amp;#34;16 5 */3 * *&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>手动触发 ，或者 每间隔3天的13点16分自动执行一次&lt;/p>
+&lt;h5 id="完美添加时间戳的方法">完美：添加时间戳的方法
+&lt;/h5>&lt;p>原理：在阿里云oss上创建一个文本记录上次同步到阿里云的时间戳，然后每次同步到阿里云之前比较一下时间戳，如果超过指定的时间&lt;code>3600&lt;/code> 那么就同步一次，否则 不执行。
+新建一个文件&lt;code>last_update.txt&lt;/code>内容&lt;code>last_update=0&lt;/code> 手动上传到阿里云oss&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"> - name: setup aliyun oss
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> uses: manyuanrong/setup-ossutil@master
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> with:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> endpoint: oss-cn-qingdao.aliyuncs.com
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SERCRET }}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - name: cp files to aliyun
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> run: |
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #获取当前时间戳
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> current=`date &amp;#34;+%Y-%m-%d %H:%M:%S&amp;#34;`
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> timeStamp=`date -d &amp;#34;$current&amp;#34; +%s`
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> currentTimeStamp=$(((timeStamp*1000+10#`date &amp;#34;+%N&amp;#34;`/1000000)/1000)) #将current转换为时间戳，精确到秒
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> #获取上次更新的时间戳到变量last_update
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> curl -o last_update.txt https://你的地址.oss-cn-qingdao.aliyuncs.com/last_update.txt?$GITHUB_SHA
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> source last_update.txt
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Time_over_val=`expr $currentTimeStamp - $last_update`
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> if [ &amp;#34;$Time_over_val&amp;#34; -ge &amp;#34;3600&amp;#34; ];then
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> echo &amp;#34;阿里oss 记录时间&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> echo &amp;#34;last_update=$currentTimeStamp&amp;#34; &amp;gt; public/last_update.txt
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rm -rf .git*
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> rm -rf public/.git*
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ossutil cp -rf public oss://你的Bucket/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> else
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> echo &amp;#34;跳过更新阿里oss&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> fi
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>同时 修改触发条件为，每次改动，或手动,并添加定时，防止最后一次push后未同步的情况下 不能自动提交给阿里云的情况。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">on:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> workflow_dispatch:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> schedule:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # 第二位小时数，要北京时间-8 后输入 比如 2是10点
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - cron: &amp;#34;33 2 * * *&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> push:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> branches: [master]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> pull_request:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> branches: [master]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>最终文件 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/%E9%97%B4%E9%9A%94%E5%90%8C%E6%AD%A5%E5%88%B0%E9%98%BF%E9%87%8C%E4%BA%91oss%E5%92%8C%E8%87%AA%E5%8A%A8%E5%90%8C%E6%AD%A5%E5%88%B0%E7%A7%81%E6%9C%89%E5%BA%93.yaml" target="_blank" rel="noopener"
+>点击这里&lt;/a>&lt;/p>
+&lt;h5 id="小问题">小问题
+&lt;/h5>&lt;p>&lt;code>manyuanrong/setup-ossutil@master&lt;/code> 是从 &lt;code> http://gosspublic.alicdn.com/ossutil/1.7.7/ossutil64&lt;/code> 下载安装，git去下载话 有时候偶尔抽风速度不是很理想。有时候需要4分钟。。占用actions时间。&lt;/p></description></item><item><title>github 私有库 创建pages的 最简单的保姆级教程</title><link>https://dev.leiyanhui.com/mdbook/siyou/</link><pubDate>Mon, 12 Sep 2022 00:00:00 +0000</pubDate><guid>https://dev.leiyanhui.com/mdbook/siyou/</guid><description>&lt;h1 id="github-私有库-创建pages的-最简单的保姆级教程">github 私有库 创建pages的 最简单的保姆级教程
+&lt;/h1>&lt;p>本站 使用的mdbook ，其他 hexo 或者gitbook 都一样 一样&lt;/p>
+&lt;blockquote>
+&lt;p>2022-10-22 最终放弃简单易用的mdbook 换到 golang开发的 hugo上，&lt;/p>&lt;/blockquote>
+&lt;blockquote>
+&lt;p>关于 hugo私有库存 部署脚本 请查看 &lt;a class="link" href="hugo-install-nolocal" >在github上快速部署一个基于hugo的个人博客&lt;/a>&lt;/p>&lt;/blockquote>
+&lt;p>首先第一步 是 创建一个 私有库，用来存放md文件 &lt;code>dev.leiyanhui.com-src&lt;/code> 分支也只需要一个main&lt;/p>
+&lt;p>再创建一个公开库 &lt;code>dev.leiyanhui.com-page&lt;/code> 用来存放 生成后的html&lt;/p>
+&lt;p>这两个库 可以在不同的帐号下，后面你自己替换这两个库名称，还有邮箱和用户名&lt;/p>
+&lt;h2 id="原理">原理
+&lt;/h2>&lt;p>在 &lt;code>dev.leiyanhui.com-page&lt;/code> 打开github page 服务&lt;/p>
+&lt;p>在 &lt;code>dev.leiyanhui.com-src&lt;/code> 用 github actions 自动生成html并推送到 &lt;code>dev.leiyanhui.com-src&lt;/code>&lt;/p>
+&lt;h2 id="首先你可能需要先搞定自动生产">首先你可能需要先搞定自动生产
+&lt;/h2>&lt;p>先搞定 md到html的静态生成，无论是mdbook 还是 hexo，文章末尾 有提供 mdbook的 自动脚本 &lt;code>mdbook-公开库自己部署到自己.yml &lt;/code>&lt;/p>
+&lt;p>放到 &lt;code>dev.leiyanhui.com-src/.github/workflows/&lt;/code> 文件后缀为yml 文件名无所谓&lt;/p>
+&lt;p>本文默认 你已经会弄这个，如果不明白查看&lt;a class="link" href="https://dev.leiyanhui.com/mdbook/auto-github.html" target="_blank" rel="noopener"
+>这个文章&lt;/a>&lt;/p>
+&lt;h2 id="然后准备自动推送相关的">然后准备自动推送相关的
+&lt;/h2>&lt;p>经过我测试https 推送 目前是存在问题的，还是建议 使用ssh推送&lt;/p>
+&lt;h3 id="在本机-先弄一套密钥">在本机 先弄一套密钥
+&lt;/h3>&lt;pre>&lt;code> ssh-keygen -t rsa -C &amp;quot;joyanhui@qq.com&amp;quot;
+cd ~/.ssh
+cat id_rsa #这是私钥 记好
+cat id_rsa.pub #这是公钥 记好
+&lt;/code>&lt;/pre>
+&lt;p>win环境下自己搞定&lt;/p>
+&lt;h3 id="再公开库-添加公钥">再公开库 添加公钥
+&lt;/h3>&lt;p>打开 公开库 &lt;code>dev.leiyanhui.com-page&lt;/code> setting Deploy keys&lt;/p>
+&lt;p>链接： &lt;a class="link" href="https://github.com/joyanhui/dev.leiyanhui.com-page/settings/keys" target="_blank" rel="noopener"
+>https://github.com/joyanhui/dev.leiyanhui.com-page/settings/keys&lt;/a>&lt;/p>
+&lt;p>添加一个 Add new ，把前面 公钥 id_rsa.pub 的内容粘贴进来 名称随意&lt;/p>
+&lt;h3 id="在私有库-添加一个环境变量-存-私钥">在私有库 添加一个环境变量 存 私钥
+&lt;/h3>&lt;p>打开 私有库 &lt;code>dev.leiyanhui.com-page&lt;/code> setting secrets actions&lt;/p>
+&lt;p>链接： &lt;a class="link" href="https://github.com/joyanhui/dev.leiyanhui.com-src/settings/secrets/actions" target="_blank" rel="noopener"
+>https://github.com/joyanhui/dev.leiyanhui.com-src/settings/secrets/actions&lt;/a>&lt;/p>
+&lt;p>添加一个 New repository secret 大概意思 就是 加密变量&lt;/p>
+&lt;p>名称随意，我这里使用 名称 &lt;code>FOR_PAGE_SSHKEY&lt;/code> 内容填写 私钥id_rsa的内容&lt;/p>
+&lt;h3 id="修改私有库的自动部署actions-workflows文件">修改私有库的自动部署actions workflows文件
+&lt;/h3>&lt;p>编辑 私有库 &lt;code>mdbook-共有库自己部署到自己.yml&lt;/code> 文件
+在 env:添加 一个环境变量&lt;/p>
+&lt;pre>&lt;code> FOR_PAGE_SSHKEY: ${{ secrets.FOR_PAGE_SSHKEY }}
+&lt;/code>&lt;/pre>
+&lt;p>在 git commit 后面添加几行命令 自动部署私钥&lt;/p>
+&lt;pre>&lt;code> mkdir -p ~/.ssh/
+echo &amp;quot;$FOR_PAGE_SSHKEY&amp;quot; &amp;gt; ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_rsa
+ssh-keyscan github.com &amp;gt;&amp;gt; ~/.ssh/known_hosts
+&lt;/code>&lt;/pre>
+&lt;p>在 git push origin 前面添加一个远程git&lt;/p>
+&lt;pre>&lt;code> git remote rm origin
+git remote add origin git@github.com:joyanhui/dev.leiyanhui.com-page.git
+&lt;/code>&lt;/pre>
+&lt;p>这就可以了&lt;/p>
+&lt;p>在合适的位置 还要 添加一个 删除 &lt;code>rm -rf .github&lt;/code> 不然 公开库 也自动执行这个yml了，然后肯定会失败&lt;/p>
+&lt;p>完整的配置文件 参考文末 &lt;code>mdbook-私有库自动部署到公开库pages.yml&lt;/code>&lt;/p>
+&lt;h2 id="进阶">进阶
+&lt;/h2>&lt;ul>
+&lt;li>提升国内网访问
+&lt;ul>
+&lt;li>网站访问&lt;br>
+我用的dnspods 境外解析到 xxx.github.com 境内解析到 国内cdn cdn再指向xxx.github.com&lt;/li>
+&lt;li>src文件在线编辑和上传
+&lt;ul>
+&lt;li>gitcode 也有 DevOps 可以用&lt;/li>
+&lt;li>gitee 自动推送到 github
+gitee默认提供 同步功能，目前还是免费的，但是gitee的md编辑器有点难用！&lt;/li>
+&lt;li>coding 自动推送到 github
+coding 有集成服务Jenkins 并且有香港和美国服务器让你运行集成服务代码，每个提供免费300分钟的执行时间，出发你一天24小时都在写都在提交 不然其实也够用。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="hugo的自动部署">hugo的自动部署
+&lt;/h2>&lt;p>&lt;a class="link" href="https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/" target="_blank" rel="noopener"
+>查看这里&lt;/a>&lt;/p>
+&lt;h2 id="我在用的-githubworkflows-actions-脚本">我在用的 github/workflows actions 脚本
+&lt;/h2>&lt;p>&lt;code>dev.leiyanhui.com-src/.github/workflows/mdbook-公开库自己部署到自己.yml &lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-mysql" data-lang="mysql">&lt;span class="line">&lt;span class="cl">&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="k">on&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">push&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">branches&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">main&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="n">jobs&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook_build&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">runs&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">on&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ubuntu&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">latest&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">steps&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">checkout&lt;/span>&lt;span class="o">@&lt;/span>&lt;span class="n">v2&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">with&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">fetch&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">depth&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">安装&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mkdir&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">curl&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">sSL&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">rust&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">lang&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mdBook&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">releases&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">download&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">v0&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">14&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v0&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">14&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">x86_64&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">unknown&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">linux&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">gnu&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">tar&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">gz&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">tar&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">xz&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">--&lt;/span>&lt;span class="n">directory&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="n">pwd&lt;/span>&lt;span class="o">`/&lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">&amp;gt;&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">GITHUB_PATH&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">编译&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;编译&amp;#34;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">build&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;分支到 gh-pages&amp;#34;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">git&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">worktree&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">add&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">gh&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">pages&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="c1">#mkdir gh-pages
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">cd&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">gh&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">pages&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;删除 ref 以避免保留历史记录&amp;#34;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">git&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">update&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ref&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">d&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">refs&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">heads&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">gh&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">pages&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">rm&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mv&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">book&lt;/span>&lt;span class="cm">/* .
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;处理独立域名的绑定 CNAME文件&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;dev.leiyanhui.com&amp;#34; &amp;gt;&amp;gt; CNAME
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;推送到分支&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git config user.name &amp;#34;joyanhui&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git config user.email &amp;#34;joyanhui@qq.com&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git init
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> #git checkout -b main
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git add -A
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git commit -m &amp;#34;自动生成 $GITHUB_SHA to gh-pages&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;推送 &amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git push origin gh-pages -f -q
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>dev.leiyanhui.com-src/.github/workflows/mdbook-私有库自动部署到公开库pages.yml &lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-mysql" data-lang="mysql">&lt;span class="line">&lt;span class="cl">&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="k">on&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">push&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">branches&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">main&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="n">jobs&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook_build&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">runs&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">on&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ubuntu&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">latest&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">steps&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uses&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">actions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">checkout&lt;/span>&lt;span class="o">@&lt;/span>&lt;span class="n">v2&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">with&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">fetch&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">depth&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">安装&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mkdir&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">curl&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="k">sSL&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">github&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">com&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">rust&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">lang&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mdBook&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">releases&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">download&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">v0&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">14&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v0&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="mi">14&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">x86_64&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">unknown&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">linux&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">gnu&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">tar&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">gz&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">tar&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">xz&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">--&lt;/span>&lt;span class="n">directory&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">`&lt;/span>&lt;span class="n">pwd&lt;/span>&lt;span class="o">`/&lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">&amp;gt;&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">$&lt;/span>&lt;span class="n">GITHUB_PATH&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">编译&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">env&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">FOR_PAGE_SSHKEY&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">${{&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">secrets&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">FOR_PAGE_SSHKEY&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="err">}}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">run&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">|&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;编译&amp;#34;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mdbook&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">build&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;分支到 gh-pages&amp;#34;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">git&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">worktree&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">add&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">gh&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">pages&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="c1">#mkdir gh-pages
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">cd&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">gh&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">pages&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">echo&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;删除 ref 以避免保留历史记录&amp;#34;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">git&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">update&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">ref&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">d&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">refs&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">heads&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">gh&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">pages&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">rm&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">mv&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">book&lt;/span>&lt;span class="cm">/* .
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;处理独立域名的绑定 CNAME文件&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;dev.leiyanhui.com&amp;#34; &amp;gt;&amp;gt; CNAME
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;推送到分支&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git config user.name &amp;#34;joyanhui&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git config user.email &amp;#34;joyanhui@qq.com&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git init
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> #git checkout -b main
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git add -A
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git commit -m &amp;#34;自动生成 $GITHUB_SHA to gh-pages&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;远程&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> mkdir -p ~/.ssh/
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> echo &amp;#34;$FOR_PAGE_SSHKEY&amp;#34; &amp;gt; ~/.ssh/id_rsa
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> chmod 600 ~/.ssh/id_rsa
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> ssh-keyscan github.com &amp;gt;&amp;gt; ~/.ssh/known_hosts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git remote rm origin
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git remote add origin git@github.com:joyanhui/dev.leiyanhui.com-page.git
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> #推送
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> git push origin gh-pages:main -f -q
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

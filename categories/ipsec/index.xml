@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>IPSec on 小类随手记</title><link>https://dev.leiyanhui.com/categories/ipsec/</link><description>Recent content in IPSec on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 07 Jan 2023 04:40:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/ipsec/index.xml" rel="self" type="application/rss+xml"/><item><title>openwrt 下配置IPSec</title><link>https://dev.leiyanhui.com/openwrt/ipsec-server/</link><pubDate>Sat, 07 Jan 2023 04:40:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/ipsec-server/</guid><description>&lt;p>openwrt下配置ipsec,基于&lt;code>luci-app-ipsec-vpnd&lt;/code> 注意不是&lt;code>luci-app-ipsec-server&lt;/code> 后者有一些奇奇怪怪问题。&lt;/p>
+&lt;p>默认设置发现 外网无法拨上来。随后发现内网也无法拨上来。&lt;/p>
+&lt;h2 id="配置文件">配置文件
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">nano /etc/ipsec.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>找到&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># strictcrlpolicy=yes
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>取消注释，然后重启ipsec 就好了。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">/etc/init.d/ipsec restart
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="启动脚本">启动脚本
+&lt;/h3>&lt;p>如果重启后 这个上面的文件自动恢复，那就是有其它脚本处理过这个文件。经过检查 发现 是 /etc/init.d/ipsec 这个脚本，。找到 &lt;code>start_service() &lt;/code> 这段 的&lt;code>config setup&lt;/code>&lt;/p>
+&lt;p>修改下面的内容&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">config setup
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # strictcrlpolicy=yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> # edit this form /etc/init.d/ipsec
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> strictcrlpolicy=yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> uniqueids=never
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>其他无法访问内网 等其他问题 没发现。都正常。&lt;/p>
+&lt;h2 id="防火墙处理">防火墙处理
+&lt;/h2>&lt;p>另外 网络-防火墙-转发 将拒绝改为接受 ， 检查 通讯规则里面 应该有自动添加的 500 和4500 两个端口&lt;/p>
+&lt;p>如果是二级路由器 还需要在主路由做端口转发，这个不用多说了。&lt;/p>
+&lt;p>另外防火墙规则，我vpn网段是 10.10.10.2/24 添加如下内容（非必须）&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">tables -t nat -I POSTROUTING -s 10.10.10.0/24 -j MASQUERADE
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tables -I FORWARD -i vpn -s 10.10.10.0/24 -j ACCEPT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ptables -I INPUT -i vpn -s 10.10.10.0/24 -j ACCEPT
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>如果想让vpn客户端也可以 科学上网，需要在对应的科学软件里面配置。 比如：ssrp的话，默认配置的情况下，只从访问控制 接口控制里面 选中两个vpn接口即可&lt;/p>
+&lt;h2 id="启动ipsec-vpn">启动ipsec vpn
+&lt;/h2>&lt;p>系统，启动项，找到 ipsec 重启 或者启动&lt;/p></description></item></channel></rss>
