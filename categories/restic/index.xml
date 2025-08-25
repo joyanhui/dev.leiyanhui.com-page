@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Restic on 小类随手记</title><link>https://dev.leiyanhui.com/categories/restic/</link><description>Recent content in Restic on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 03 Apr 2023 08:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/restic/index.xml" rel="self" type="application/rss+xml"/><item><title>nas的自动备份工具的选择 Restic rclone duplicati等</title><link>https://dev.leiyanhui.com/all-in-one/auto-back/</link><pubDate>Mon, 03 Apr 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/auto-back/</guid><description>&lt;h3 id="场景">场景
+&lt;/h3>&lt;p>既然是nas 就需要做异地备份。&lt;/p>
+&lt;h3 id="备份目的地">备份目的地
+&lt;/h3>&lt;p>一般备份到网盘或对象储存比较划算。
+如果数据量比较大，还是要备份到免费的网盘，比如阿里云盘 1-2T 123pan 2T，还有od gd等容量更大的选择。
+用alist挂载后，只要不滥用，账号不会被封。&lt;br>
+数据量不大话，尤其核心数据，可以备份到对象储存，比如 alioss也不贵 七牛还有免费的10G kodo&lt;br>
+部分敏感数据需要加密储存。为了防止网盘删文件，尤其是小姐姐们，也需要加密储存。&lt;br>
+部分数据 需要按照版本储存。&lt;br>
+部分数据 需要按照原目录储存，方便在网盘可以直接访问。比如小姐姐们 可以直接存到pikpak&lt;/p>
+&lt;h3 id="关于duplicati">关于duplicati
+&lt;/h3>&lt;p>也是我第一个使用的备份程序&lt;br>
+duplicati 是.net写的，可以装到pc 也可以装到服务器，支持linux(mono) ，也有docker版本&lt;br>
+支持加密储存，支持增量，支持版本储存。&lt;br>
+使用中发现的问题：&lt;/p>
+&lt;ul>
+&lt;li>不支持按照原始目录储存方式&lt;/li>
+&lt;li>备份过程中会占用很大的本地硬盘空间&lt;/li>
+&lt;li>虽然他是基于rclone的，但不算是一个轻量化工具&lt;/li>
+&lt;/ul>
+&lt;h3 id="关于rclone">关于rclone
+&lt;/h3>&lt;p>可以用sysnc方式实现同步，可以不占用本地磁盘，但不支持的&lt;/p>
+&lt;ul>
+&lt;li>没有图形界面&lt;/li>
+&lt;li>不支持按照版本保存&lt;/li>
+&lt;/ul>
+&lt;h3 id="restic">restic
+&lt;/h3>&lt;p>支持常见的储存模式，也支持rclone挂载的储存。也就是alist挂载的网盘也没问题。
+rclone是文件同步，也就是和大部分网盘软件一样，来源文件是什么样的，目的文件就是什么样的。restic是面向文件的专业备份工具，其在备份文件前将会先进行加密再传输，而且是增量备份，只备份变化的部分。&lt;br>
+rclone并不记录文件版本，无法回溯特定时间点上的文件。restic会对每次备份生成一个快照，记录该时间点文件变化和存储结构，可以随时回溯到特定时间点的文件。&lt;/p>
+&lt;h3 id="最终的考量">最终的考量
+&lt;/h3>&lt;p>考虑到 我要备份的文件主要有以下几种&lt;/p>
+&lt;ul>
+&lt;li>文档类 修改频繁&lt;/li>
+&lt;li>代码类 gitea+github处理，不需要nas备份&lt;/li>
+&lt;li>minio 思源笔记 修改频繁&lt;/li>
+&lt;li>影音视频 只需要同步&lt;/li>
+&lt;li>不合规的影音视频 需要单独同步备份到 境外网盘 或者加密同步到境内网盘&lt;/li>
+&lt;li>私人相册视频 加密同步到境内网盘
+restic 不太熟悉需要时间看文档踩坑，最终决定 使用rclone+压缩包增量的方式，更底层 更轻量！&lt;/li>
+&lt;/ul>
+&lt;h3 id="最终">最终
+&lt;/h3>&lt;p>单独一个lxc（pve）平台运行rclone，配置文件中挂载了包括alist 私有minio 阿里云对象储存 在内的我常用的储存&lt;br>
+并把部分储存挂载到本地，
+然后用crontab 定时处理 ，全手动管理&lt;/p>
+&lt;h3 id="关于网盘的选择">关于网盘的选择
+&lt;/h3>&lt;p>简单的说，核心文件 还是加密放到 收费的对象储存 。&lt;br>
+无关紧要的文件 ，放到哪家网盘都一样。&lt;br>
+免费的网盘的话，依旧是阿里云盘比较良心，而且官方已提供api不滥用的话是完全合规的。&lt;/p>
+&lt;p>我这里也只有一个 904G 的账号，不存太多电影视频的话 足够用了。&lt;br>
+百度网盘上传速度其实也还好，下载速度嘛没办法，如果需要取回的时候，开个会员就好。&lt;br>
+123pan虽然有2T容量，但是实际测试 限制还是有一些。单个目录下文件数量不可以超过99个。&lt;/p>
+&lt;h3 id="准备工作">准备工作
+&lt;/h3>&lt;h4 id="宿主系统选择">宿主系统选择
+&lt;/h4>&lt;p>alpine 够轻量，创建一个lxc 10009，去掉 非特权容器的勾号，选择 alpine镜像，磁盘空间，选择 默认 8G 。因为部分tar需要临时缓存&lt;br>
+创建完成后 在选项 功能里面 勾选上 嵌套 NFS SMB fuse&lt;/p>
+&lt;h5 id="修改源和时区">修改源和时区
+&lt;/h5>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">sed&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="s1">&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g&amp;#39;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apk&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">repositories&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">tzdata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cp&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">share&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">zoneinfo&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Asia&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">Shanghai&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">localtime&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">echo&lt;/span> &lt;span class="s2">&amp;#34;Asia/Shanghai&amp;#34;&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">etc&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">timezone&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">del&lt;/span> &lt;span class="n">tzdata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="k">var&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">cache&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">apk&lt;/span>&lt;span class="o">/*&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="安装ssh">安装ssh
+&lt;/h4>&lt;p>这个不是必须的 不装了，要装的话&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">apk add openssh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rc-update add sshd boot
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sed -i &amp;#39;s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g&amp;#39; /etc/ssh/sshd_config
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">service sshd restart
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="准备所需软件">准备所需软件
+&lt;/h4>&lt;p>我考虑了一下，还是选择用 7zip作为增量备份工具，而不是xz ，因为不想学。。。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">p7zip&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">apk&lt;/span> &lt;span class="n">add&lt;/span> &lt;span class="n">wget&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">wget&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">c&lt;/span> &lt;span class="n">https&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="o">//&lt;/span>&lt;span class="n">downloads&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">rclone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">org&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">v1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">62.2&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">rclone&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">v1&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="mf">62.2&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">linux&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">amd64&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">zip&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="mi">7&lt;/span>&lt;span class="n">z&lt;/span> &lt;span class="n">x&lt;/span> &lt;span class="n">rclone&lt;/span>&lt;span class="o">*.&lt;/span>&lt;span class="n">zip&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">cp&lt;/span> &lt;span class="n">rclone&lt;/span>&lt;span class="o">-*/&lt;/span>&lt;span class="n">rclone&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="n">usr&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="n">bin&lt;/span>&lt;span class="o">/&lt;/span> &lt;span class="c1">#复制到bin目录&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rm&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="n">rf&lt;/span> &lt;span class="n">rclone&lt;/span>&lt;span class="o">*&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="准备rclone配置文件">准备rclone配置文件
+&lt;/h3>&lt;p>可以直接用&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">rclone config --config /root/rclone.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配置，也可以手写，配置文件可以存到自己的笔记里面。不再多说&lt;br>
+这里要 rclone 挂载了 自己的nas，我这里用webdav挂载的 cloudreve
+然后挂载 alist 阿里云 对象储存等&lt;/p>
+&lt;h3 id="最终rclone内的节点如下">最终rclone内的节点如下
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">Name Type
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">==== ====
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">alist webdav #公网
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">alist-local webdav #内网
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cloudreve webdav #公网
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cloudreve-local webdav #内网
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">oss-qd s3 #公网
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">oss-sh s3 #公网
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>*-local的是用内网链接的&lt;/p>
+&lt;h4 id="测试">测试
+&lt;/h4>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">rclone lsd alist:/ --config /root/rclone.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone lsd alist-local:/ --config /root/rclone.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone lsd cloudreve:/ --config /root/rclone.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone lsd cloudreve-local:/ --config /root/rclone.conf --no-check-certificate #忽略证书检查
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone lsd minio:/note --config /root/rclone.conf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone lsd minio-local:/note --config /root/rclone.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="关于minio的一点补充">关于minio的一点补充
+&lt;/h3>&lt;p>Minio目前并不支持所有的S3特性。特别是它不支持MD5校验（ETag）或者是元数据。这就表示Rclone不能通过MD5SUMs进行校验或者保存最后修改时间。不过你可以用Rclone的—size-only flag。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">rclone lsd minio: #查看储存桶
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone mkdir minio:bucket #创建一个储存桶
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone --size-only copy /path/to/files minio:bucket #复制
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone --size-only --dry-run sync /path/to/files minio:bucket #测试同步
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">rclone --size-only sync /path/to/files minio:bucket #标准同步
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>
