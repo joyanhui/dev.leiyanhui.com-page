@@ -1,0 +1,298 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="旁路由/网关在维护的时候导致断网或其他一些地方肯定不是够稳定，所以需要一个更加智能无感的自动切换方案。 传统dhcp切换网关的方式相应速度慢，掉线时间长。爱快分流方案虽然可以无感切换但是需要一个x86设备运行不开源有过黑历史的爱快。\n于是想到想到了一个新的方案，我姑且称之为 主路由自动切换ip接位网关方案\n旧的旁路由自动方案 目前主要有两种\n传统的旁网关形式，内外设备单独配置一个网关设备。在这个网关设备失效的后，通过自动脚本配合dhcp等方式实现切换，需要下游设备断开重连，或重启主路由切换时间较长。这是效果最差的一种启动切换方案。 主路由用爱快根据ip和域名通过运营商配置绑定wan2的分流方案，也就是 ikuai-bypass，使用体验上要比上一种方式好非常多，不存在短时断网，堪称完美，但是需要x86做主路由并刷闭源的爱快。切换时间最少1分钟，但是切换期间不会导致断网。如果您用 ikuai-bypass 方案，也期待能给我点一个star。 思路 新方案使用主路由和旁路由 ip轮替的方式，原理： 旁路由用桥接/别名或虚拟网卡的方式配置两个ip 第一个ip我们暂且称之为工作ip，第二个ip姑且叫辅助ip。\n主路由不断ping旁路由的第二个ip，如果ping不通，那么主路由把自己的ip修改为旁路有工作ip接替旁路由的工作。旁路路由正常再把自己改回去。这样就实现免重连切换。\n新方案优点 原理简单维护也简单。切换速度快（3-10秒以内），不需要内网设备断网后重联，主路由不需要是x86设备，不需要闭源的爱快。\n各方面体验远高于dhcp切换方案，缺点是不如ikuai-bypass的完全无缝切换，切换期间会有3-10秒断网。\n切换和配置 我们为了便于理解和管理方式，干脆给两个设备规划4个ip，分别为：\n主路由 默认IP(10.1.1.1) 主路由辅助ip(10.1.1.11，用来登录主路由的web管理界面)\n旁路由 工作IP(10.1.1.2) 旁路路由辅助ip(10.1.1.22，用来检测是否旁路由在线)\n主路由负责dhcp服务，旁路由关闭dhcp。dhcp指定下游设备的网关均为旁路由工作IP(10.1.1.2)。\n下文以openwrt为例（文末有Padavan/梅林的兼容实现），内核为5.15.148 版本git-25.050.75038-257d60d 使用 openwrt.ai 的在线编译固件 感谢 supes\n主路由为一个4口ramips硬路由 旁路有为vm内的x86路由 已经配置好低调上网插件以及dns分流 广告屏蔽等。\n双ip的实现 openwrt网络-接口面板，新建一个接口 和lan口一样 桥接 br-lan 然后静态ip配置为另外一个ip即可。参考/etc/config/network 中lan部分如下\n主路由 正常工作状态 （主路由是一个四口硬路由） 用桥接方式配置了两个ip\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 config device option name 'br-lan' option type 'bridge' list ports 'lan1' list ports 'lan2' list ports 'lan3' list ports 'lan4' option promisc '1' config interface 'lan' option device 'br-lan' option proto 'static' option ipaddr '10.1.1.1' option netmask '255.255.255.0' option ip6assign '60' option dns '223.5.5.5 114.114.114.114' config interface 'lanManager' option proto 'static' option device 'br-lan' option ipaddr '10.1.1.11' option netmask '255.255.255.0' 旁路由正常工作状态 旁路由是一个单口虚拟机的openwrt 用桥接方式配置了两个ip\n"><title>旁路由-主路由自动替代旁路由的自动切换方案</title><link rel=canonical href=https://dev.leiyanhui.com/openwrt/replacebypass/><link rel=stylesheet href=/scss/style.min.663803bebe609202d5b39d848f2d7c2dc8b598a2d879efa079fa88893d29c49c.css><meta property='og:title' content="旁路由-主路由自动替代旁路由的自动切换方案"><meta property='og:description' content="旁路由/网关在维护的时候导致断网或其他一些地方肯定不是够稳定，所以需要一个更加智能无感的自动切换方案。 传统dhcp切换网关的方式相应速度慢，掉线时间长。爱快分流方案虽然可以无感切换但是需要一个x86设备运行不开源有过黑历史的爱快。\n于是想到想到了一个新的方案，我姑且称之为 主路由自动切换ip接位网关方案\n旧的旁路由自动方案 目前主要有两种\n传统的旁网关形式，内外设备单独配置一个网关设备。在这个网关设备失效的后，通过自动脚本配合dhcp等方式实现切换，需要下游设备断开重连，或重启主路由切换时间较长。这是效果最差的一种启动切换方案。 主路由用爱快根据ip和域名通过运营商配置绑定wan2的分流方案，也就是 ikuai-bypass，使用体验上要比上一种方式好非常多，不存在短时断网，堪称完美，但是需要x86做主路由并刷闭源的爱快。切换时间最少1分钟，但是切换期间不会导致断网。如果您用 ikuai-bypass 方案，也期待能给我点一个star。 思路 新方案使用主路由和旁路由 ip轮替的方式，原理： 旁路由用桥接/别名或虚拟网卡的方式配置两个ip 第一个ip我们暂且称之为工作ip，第二个ip姑且叫辅助ip。\n主路由不断ping旁路由的第二个ip，如果ping不通，那么主路由把自己的ip修改为旁路有工作ip接替旁路由的工作。旁路路由正常再把自己改回去。这样就实现免重连切换。\n新方案优点 原理简单维护也简单。切换速度快（3-10秒以内），不需要内网设备断网后重联，主路由不需要是x86设备，不需要闭源的爱快。\n各方面体验远高于dhcp切换方案，缺点是不如ikuai-bypass的完全无缝切换，切换期间会有3-10秒断网。\n切换和配置 我们为了便于理解和管理方式，干脆给两个设备规划4个ip，分别为：\n主路由 默认IP(10.1.1.1) 主路由辅助ip(10.1.1.11，用来登录主路由的web管理界面)\n旁路由 工作IP(10.1.1.2) 旁路路由辅助ip(10.1.1.22，用来检测是否旁路由在线)\n主路由负责dhcp服务，旁路由关闭dhcp。dhcp指定下游设备的网关均为旁路由工作IP(10.1.1.2)。\n下文以openwrt为例（文末有Padavan/梅林的兼容实现），内核为5.15.148 版本git-25.050.75038-257d60d 使用 openwrt.ai 的在线编译固件 感谢 supes\n主路由为一个4口ramips硬路由 旁路有为vm内的x86路由 已经配置好低调上网插件以及dns分流 广告屏蔽等。\n双ip的实现 openwrt网络-接口面板，新建一个接口 和lan口一样 桥接 br-lan 然后静态ip配置为另外一个ip即可。参考/etc/config/network 中lan部分如下\n主路由 正常工作状态 （主路由是一个四口硬路由） 用桥接方式配置了两个ip\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 config device option name 'br-lan' option type 'bridge' list ports 'lan1' list ports 'lan2' list ports 'lan3' list ports 'lan4' option promisc '1' config interface 'lan' option device 'br-lan' option proto 'static' option ipaddr '10.1.1.1' option netmask '255.255.255.0' option ip6assign '60' option dns '223.5.5.5 114.114.114.114' config interface 'lanManager' option proto 'static' option device 'br-lan' option ipaddr '10.1.1.11' option netmask '255.255.255.0' 旁路由正常工作状态 旁路由是一个单口虚拟机的openwrt 用桥接方式配置了两个ip\n"><meta property='og:url' content='https://dev.leiyanhui.com/openwrt/replacebypass/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Openwrt'><meta property='article:published_time' content='2024-03-19T07:14:20+08:00'><meta property='article:modified_time' content='2024-03-19T07:14:20+08:00'><meta name=twitter:title content="旁路由-主路由自动替代旁路由的自动切换方案"><meta name=twitter:description content="旁路由/网关在维护的时候导致断网或其他一些地方肯定不是够稳定，所以需要一个更加智能无感的自动切换方案。 传统dhcp切换网关的方式相应速度慢，掉线时间长。爱快分流方案虽然可以无感切换但是需要一个x86设备运行不开源有过黑历史的爱快。\n于是想到想到了一个新的方案，我姑且称之为 主路由自动切换ip接位网关方案\n旧的旁路由自动方案 目前主要有两种\n传统的旁网关形式，内外设备单独配置一个网关设备。在这个网关设备失效的后，通过自动脚本配合dhcp等方式实现切换，需要下游设备断开重连，或重启主路由切换时间较长。这是效果最差的一种启动切换方案。 主路由用爱快根据ip和域名通过运营商配置绑定wan2的分流方案，也就是 ikuai-bypass，使用体验上要比上一种方式好非常多，不存在短时断网，堪称完美，但是需要x86做主路由并刷闭源的爱快。切换时间最少1分钟，但是切换期间不会导致断网。如果您用 ikuai-bypass 方案，也期待能给我点一个star。 思路 新方案使用主路由和旁路由 ip轮替的方式，原理： 旁路由用桥接/别名或虚拟网卡的方式配置两个ip 第一个ip我们暂且称之为工作ip，第二个ip姑且叫辅助ip。\n主路由不断ping旁路由的第二个ip，如果ping不通，那么主路由把自己的ip修改为旁路有工作ip接替旁路由的工作。旁路路由正常再把自己改回去。这样就实现免重连切换。\n新方案优点 原理简单维护也简单。切换速度快（3-10秒以内），不需要内网设备断网后重联，主路由不需要是x86设备，不需要闭源的爱快。\n各方面体验远高于dhcp切换方案，缺点是不如ikuai-bypass的完全无缝切换，切换期间会有3-10秒断网。\n切换和配置 我们为了便于理解和管理方式，干脆给两个设备规划4个ip，分别为：\n主路由 默认IP(10.1.1.1) 主路由辅助ip(10.1.1.11，用来登录主路由的web管理界面)\n旁路由 工作IP(10.1.1.2) 旁路路由辅助ip(10.1.1.22，用来检测是否旁路由在线)\n主路由负责dhcp服务，旁路由关闭dhcp。dhcp指定下游设备的网关均为旁路由工作IP(10.1.1.2)。\n下文以openwrt为例（文末有Padavan/梅林的兼容实现），内核为5.15.148 版本git-25.050.75038-257d60d 使用 openwrt.ai 的在线编译固件 感谢 supes\n主路由为一个4口ramips硬路由 旁路有为vm内的x86路由 已经配置好低调上网插件以及dns分流 广告屏蔽等。\n双ip的实现 openwrt网络-接口面板，新建一个接口 和lan口一样 桥接 br-lan 然后静态ip配置为另外一个ip即可。参考/etc/config/network 中lan部分如下\n主路由 正常工作状态 （主路由是一个四口硬路由） 用桥接方式配置了两个ip\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 config device option name 'br-lan' option type 'bridge' list ports 'lan1' list ports 'lan2' list ports 'lan3' list ports 'lan4' option promisc '1' config interface 'lan' option device 'br-lan' option proto 'static' option ipaddr '10.1.1.1' option netmask '255.255.255.0' option ip6assign '60' option dns '223.5.5.5 114.114.114.114' config interface 'lanManager' option proto 'static' option device 'br-lan' option ipaddr '10.1.1.11' option netmask '255.255.255.0' 旁路由正常工作状态 旁路由是一个单口虚拟机的openwrt 用桥接方式配置了两个ip\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_6049d840d4e2d14.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#旧的旁路由自动方案>旧的旁路由自动方案</a></li><li><a href=#思路>思路</a><ol><li><a href=#新方案使用主路由和旁路由-ip轮替的方式原理>新方案使用主路由和旁路由 ip轮替的方式，原理：</a></li><li><a href=#新方案优点>新方案优点</a></li></ol></li><li><a href=#切换和配置>切换和配置</a><ol><li><a href=#双ip的实现>双ip的实现</a></li><li><a href=#openwrt-配置dhcp网关>openwrt 配置dhcp网关</a></li><li><a href=#检查状态>检查状态</a></li></ol></li><li><a href=#自动切换程序>自动切换程序</a><ol><li><a href=#openwrt-主路由>openwrt 主路由</a></li><li><a href=#padavan主路由>Padavan主路由</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/bypass/>Bypass
+</a><a href=/categories/openwrt/>Openwrt
+</a><a href=/categories/padavan/>Padavan</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/openwrt/replacebypass/>旁路由-主路由自动替代旁路由的自动切换方案</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>2024-03-19</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><p>旁路由/网关在维护的时候导致断网或其他一些地方肯定不是够稳定，所以需要一个更加智能无感的自动切换方案。 传统dhcp切换网关的方式相应速度慢，掉线时间长。爱快分流方案虽然可以无感切换但是需要一个x86设备运行不开源有过黑历史的爱快。</p><p>于是想到想到了一个新的方案，我姑且称之为 主路由自动切换ip接位网关方案</p><h2 id=旧的旁路由自动方案>旧的旁路由自动方案</h2><p>目前主要有两种</p><ul><li>传统的旁网关形式，内外设备单独配置一个网关设备。在这个网关设备失效的后，通过自动脚本配合dhcp等方式实现切换，需要下游设备断开重连，或重启主路由切换时间较长。这是效果最差的一种启动切换方案。</li><li>主路由用爱快根据ip和域名通过运营商配置绑定wan2的分流方案，也就是 <a class=link href=https://github.com/joyanhui/ikuai-bypass target=_blank rel=noopener>ikuai-bypass</a>，使用体验上要比上一种方式好非常多，不存在短时断网，堪称完美，但是需要x86做主路由并刷闭源的爱快。切换时间最少1分钟，但是切换期间不会导致断网。如果您用 <a class=link href=https://github.com/joyanhui/ikuai-bypass target=_blank rel=noopener>ikuai-bypass</a> 方案，也期待能给我点一个star。</li></ul><h2 id=思路>思路</h2><h3 id=新方案使用主路由和旁路由-ip轮替的方式原理>新方案使用主路由和旁路由 ip轮替的方式，原理：</h3><p>旁路由用桥接/别名或虚拟网卡的方式配置两个ip 第一个ip我们暂且称之为工作ip，第二个ip姑且叫辅助ip。</p><p>主路由不断ping旁路由的第二个ip，如果ping不通，那么主路由把自己的ip修改为旁路有工作ip接替旁路由的工作。旁路路由正常再把自己改回去。这样就实现免重连切换。</p><h3 id=新方案优点>新方案优点</h3><p>原理简单维护也简单。切换速度快（3-10秒以内），不需要内网设备断网后重联，主路由不需要是x86设备，不需要闭源的爱快。</p><p>各方面体验远高于dhcp切换方案，缺点是不如<a class=link href=https://github.com/joyanhui/ikuai-bypass target=_blank rel=noopener>ikuai-bypass</a>的完全无缝切换，切换期间会有3-10秒断网。</p><h2 id=切换和配置>切换和配置</h2><p>我们为了便于理解和管理方式，干脆给两个设备规划4个ip，分别为：</p><p>主路由 默认IP(10.1.1.1) 主路由辅助ip(10.1.1.11，用来登录主路由的web管理界面)</p><p>旁路由 工作IP(10.1.1.2) 旁路路由辅助ip(10.1.1.22，用来检测是否旁路由在线)</p><p>主路由负责dhcp服务，旁路由关闭dhcp。dhcp指定下游设备的网关均为旁路由工作IP(10.1.1.2)。</p><p>下文以openwrt为例（文末有Padavan/梅林的兼容实现），内核为5.15.148 版本git-25.050.75038-257d60d 使用 <code>openwrt.ai</code> 的在线编译固件 感谢 supes</p><p>主路由为一个4口ramips硬路由 旁路有为vm内的x86路由 已经配置好低调上网插件以及dns分流 广告屏蔽等。</p><h3 id=双ip的实现>双ip的实现</h3><p>openwrt网络-接口面板，新建一个接口 和lan口一样 桥接 br-lan 然后静态ip配置为另外一个ip即可。参考/etc/config/network 中lan部分如下</p><p>主路由 正常工作状态 （主路由是一个四口硬路由） 用桥接方式配置了两个ip</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=l>config device</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option name &#39;br-lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option type &#39;bridge&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>list ports &#39;lan1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>list ports &#39;lan2&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>list ports &#39;lan3&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>list ports &#39;lan4&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option promisc &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>config interface &#39;lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option device &#39;br-lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option proto &#39;static&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option ipaddr &#39;10.1.1.1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option netmask &#39;255.255.255.0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option ip6assign &#39;60&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option dns &#39;223.5.5.5 114.114.114.114&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>config interface &#39;lanManager&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option proto &#39;static&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option device &#39;br-lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option ipaddr &#39;10.1.1.11&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option netmask &#39;255.255.255.0&#39;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>旁路由正常工作状态 旁路由是一个单口虚拟机的openwrt 用桥接方式配置了两个ip</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=l>config device</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option name &#39;br-lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option type &#39;bridge&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>list ports &#39;eth0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option promisc &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>config interface &#39;lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option device &#39;br-lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option proto &#39;static&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option ipaddr &#39;10.1.1.2&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option ipaddr &#39;10.1.1.1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option netmask &#39;255.255.255.0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option ip6assign &#39;60&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>list dns &#39;223.5.5.5&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>config interface &#39;lanCheck&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option proto &#39;static&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option device &#39;br-lan&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option ipaddr &#39;10.1.1.22&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>option netmask &#39;255.255.255.0&#39;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>两个路由器的lan口的配置截图 请参考 我的恩山帖子 <a class=link href=https://www.right.com.cn/forum/thread-8355919-1-1.html target=_blank rel=noopener>https://www.right.com.cn/forum/thread-8355919-1-1.html</a></p><h3 id=openwrt-配置dhcp网关>openwrt 配置dhcp网关</h3><p>主路由openwrt 配置dhcp服务分配给下游设备的网关为10.1.1.2 ssh登录到主路由后 运行下面两行命令 。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>uci add_list dhcp.lan.dhcp_option<span class=o>=</span><span class=s2>&#34;3,10.1.1.2&#34;</span>
+</span></span><span class=line><span class=cl>uci commit dhcp
+</span></span></code></pre></td></tr></table></div></div><p>完成后重启dhcp 并重连下游设备，或干脆重启一下路由器。</p><p>dhcp_option的含义以及指定的下游设备通过dhcp分组或按照mac给下游设备分别配置不同网关功能，本文不扩展</p><h3 id=检查状态>检查状态</h3><p>此时 下游设备dhcp分配的网关应该是10.1.1.2 在旁路由正常的情况下，下游被分配到10.1.1.2网关的设备应该都可以正常低调上网。</p><p>此时和传统旁路方案完全一致。旁路由断开后，下游设备无法上网，需要通过dhcp重新分配网关ip，下游设备断开重连或手动修改下游设备网关 才可以恢复网络。说不上完美，只能说凑合而已。</p><p>下面实现在旁路由下线后，主路由自动接替旁路由工作，并在旁路由上线后让位给旁路由。</p><h2 id=自动切换程序>自动切换程序</h2><h3 id=openwrt-主路由>openwrt 主路由</h3><p>这个脚本运行在主路由上。 以openwrt为例。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>mkdir /opt
+</span></span><span class=line><span class=cl>vi /opt/ReplaceBypass.sh
+</span></span><span class=line><span class=cl><span class=o>================================</span>
+</span></span><span class=line><span class=cl><span class=c1>#!/bin/sh</span>
+</span></span><span class=line><span class=cl>check_ip_available<span class=o>(){</span>
+</span></span><span class=line><span class=cl>    ping -c <span class=m>3</span> <span class=nv>$1</span> <span class=p>|</span> grep packets <span class=p>|</span> awk <span class=s1>&#39;{print $4}&#39;</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=k>while</span> <span class=nb>true</span>
+</span></span><span class=line><span class=cl><span class=k>do</span>
+</span></span><span class=line><span class=cl>    <span class=nb>echo</span> <span class=s2>&#34;ping 10.1.1.22 ...&#34;</span>
+</span></span><span class=line><span class=cl>	<span class=nv>res</span><span class=o>=</span><span class=sb>`</span>check_ip_available 10.1.1.22<span class=sb>`</span> 
+</span></span><span class=line><span class=cl>	<span class=nv>current_ip</span><span class=o>=</span><span class=sb>`</span>uci get network.lan.ipaddr<span class=sb>`</span>
+</span></span><span class=line><span class=cl>	<span class=nb>echo</span> <span class=s2>&#34;current_ip </span><span class=nv>$current_ip</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=o>[</span> <span class=k>$((</span><span class=nv>$res</span><span class=k>))</span> -eq <span class=m>0</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>		<span class=nb>echo</span> <span class=s2>&#34;bypass is offline&#34;</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=nv>$current_ip</span><span class=s2>&#34;</span> !<span class=o>=</span> <span class=s2>&#34;10.1.1.2&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>			<span class=nb>echo</span> <span class=s2>&#34;change to 10.1.1.2&#34;</span>
+</span></span><span class=line><span class=cl>			sed -i <span class=s2>&#34;s/10.1.1.1&#39;/10.1.1.2&#39;/&#34;</span> /etc/config/network
+</span></span><span class=line><span class=cl>			ifdown lan <span class=o>&amp;&amp;</span> ifup lan
+</span></span><span class=line><span class=cl>		<span class=k>fi</span>
+</span></span><span class=line><span class=cl>	<span class=k>else</span>
+</span></span><span class=line><span class=cl>		<span class=nb>echo</span> <span class=s2>&#34;bypass is online&#34;</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=nv>$current_ip</span><span class=s2>&#34;</span> !<span class=o>=</span> <span class=s2>&#34;10.1.1.1&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>			<span class=nb>echo</span> <span class=s2>&#34;change to 10.1.1.1&#34;</span>
+</span></span><span class=line><span class=cl>			sed -i <span class=s2>&#34;s/10.1.1.2&#39;/10.1.1.1&#39;/&#34;</span> /etc/config/network
+</span></span><span class=line><span class=cl>			ifdown lan <span class=o>&amp;&amp;</span> ifup lan
+</span></span><span class=line><span class=cl>		<span class=k>fi</span>
+</span></span><span class=line><span class=cl>	<span class=k>fi</span>
+</span></span><span class=line><span class=cl>    sleep <span class=m>2</span> <span class=c1>#时间可以修改为1-5秒 </span>
+</span></span><span class=line><span class=cl><span class=k>done</span>
+</span></span></code></pre></td></tr></table></div></div><p>这是一个循环shell脚本程序，间隔5秒用ping命令检测一次旁路由的辅助ip然后如果路由在线那么切换自己到10.1.1.1这个ip，否则切换到10.1.1.2替代路由工作。</p><p>先手动执行<code>sh /opt/ReplaceBypass.sh</code>，期间反复断开和联通旁路由观察 主路由ip切换情况。期间可以用 10.1.1.11 这个ip登录到主路由web管理界面检查。</p><p>测试正常后，我们在主路由创建一个服务来运行这个脚本，并并让openwrt的开机自启这个服务。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>vi /etc/init.d/ReplaceBypass 
+</span></span><span class=line><span class=cl><span class=o>===========================================</span>
+</span></span><span class=line><span class=cl><span class=c1>#!/bin/sh /etc/rc.common</span>
+</span></span><span class=line><span class=cl><span class=nv>START</span><span class=o>=</span><span class=m>99</span>
+</span></span><span class=line><span class=cl>start<span class=o>(){</span>
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> <span class=s2>&#34;ReplaceBypass service  is staring&#34;</span>
+</span></span><span class=line><span class=cl>        sh /opt/ReplaceBypass.sh  &gt; /dev/null 2&gt;<span class=p>&amp;</span><span class=m>1</span> <span class=p>&amp;</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>stop<span class=o>(){</span>
+</span></span><span class=line><span class=cl>        <span class=nv>PID</span><span class=o>=</span><span class=k>$(</span>ps <span class=p>|</span> grep <span class=s2>&#34;sh /opt/ReplaceBypass.sh&#34;</span> <span class=p>|</span> grep -v grep <span class=p>|</span> awk <span class=s1>&#39;{print $1}&#39;</span><span class=k>)</span>
+</span></span><span class=line><span class=cl>        <span class=nb>kill</span> <span class=nv>$PID</span>
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> <span class=s2>&#34;ReplaceBypass service is stoped&#34;</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>编辑完成后 启用这个服务</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>chmod +x /etc/init.d/ReplaceBypass <span class=c1># 必须执行</span>
+</span></span><span class=line><span class=cl>service ReplaceBypass <span class=nb>enable</span> <span class=c1># 开启自启</span>
+</span></span><span class=line><span class=cl>service ReplaceBypass start <span class=c1># 手动执行</span>
+</span></span><span class=line><span class=cl>ps <span class=p>|</span>grep ReplaceBypass <span class=c1># 检查进程是否存在</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=padavan主路由>Padavan主路由</h3><p>补充一个Padavan作为主路由的检测脚本，写完未测试 理论可行， 供参考。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>cat &gt; /etc/storage/change_ip.sh <span class=s>&lt;&lt; \EOF
+</span></span></span><span class=line><span class=cl><span class=s>#!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=s>MainDefaultIp=&#39;10.1.1.1&#39;
+</span></span></span><span class=line><span class=cl><span class=s>BypassWorkIp=&#39;10.1.1.2&#39; 
+</span></span></span><span class=line><span class=cl><span class=s>BypassCheckIp=&#39;10.1.1.22&#39;
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>check_ip_available(){ 
+</span></span></span><span class=line><span class=cl><span class=s>    ping -c 3 $1 | grep packets | awk &#39;{print $4}&#39;
+</span></span></span><span class=line><span class=cl><span class=s>}
+</span></span></span><span class=line><span class=cl><span class=s>res=`check_ip_available $BypassCheckIp`  #检测旁路由是否存在
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>current_ip=`nvram get lan_ipaddr`  #主路由当前ip 更多命令 nvram show
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>change_ip(){
+</span></span></span><span class=line><span class=cl><span class=s>   nvram set lan_ipaddr=$1  #设置ip
+</span></span></span><span class=line><span class=cl><span class=s>   nvram set lan_gateway=$1
+</span></span></span><span class=line><span class=cl><span class=s>   nvram commit  #提交修改
+</span></span></span><span class=line><span class=cl><span class=s>   sleep 3 
+</span></span></span><span class=line><span class=cl><span class=s>   reboot # 需要重启设备 老毛子单独重启lan口貌似无效
+</span></span></span><span class=line><span class=cl><span class=s>}
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>if [ $(($res)) -eq 0 ]; #即旁路由不存在，主路由应该把自己修改旁路路由的工作ip
+</span></span></span><span class=line><span class=cl><span class=s>then
+</span></span></span><span class=line><span class=cl><span class=s>    if [ &#34;$current_ip&#34; != &#34;$BypassWorkIp&#34; ]; then  #如果当前ip不是工作ip
+</span></span></span><span class=line><span class=cl><span class=s>       echo &#34;change ip to $BypassWorkIp &#34; 
+</span></span></span><span class=line><span class=cl><span class=s>       `change_ip $BypassWorkIp` 
+</span></span></span><span class=line><span class=cl><span class=s>    fi
+</span></span></span><span class=line><span class=cl><span class=s>    exit 1
+</span></span></span><span class=line><span class=cl><span class=s>fi
+</span></span></span><span class=line><span class=cl><span class=s>if [ $(($res)) -ne 0 ]; # 即旁路由存在，主路由应该把自己改为默认ip
+</span></span></span><span class=line><span class=cl><span class=s>then
+</span></span></span><span class=line><span class=cl><span class=s>    if [ &#34;$current_ip&#34; != &#34;$MainDefaultIp&#34; ]; then #如果当前ip不是默认ip
+</span></span></span><span class=line><span class=cl><span class=s>         echo &#34;change ip to $MainDefaultIp &#34; 
+</span></span></span><span class=line><span class=cl><span class=s>       `change_ip $MainDefaultIp`
+</span></span></span><span class=line><span class=cl><span class=s>    fi
+</span></span></span><span class=line><span class=cl><span class=s>    exit 1
+</span></span></span><span class=line><span class=cl><span class=s>fi
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>chmod +x   /etc/storage/change_ip.sh <span class=c1>#设置脚本运行权限</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>/sbin/mtd_storage.sh save <span class=c1>#保存脚本，防止重启丢失</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 自动定时运行脚本（每一分钟检测一次）：</span>
+</span></span><span class=line><span class=cl><span class=c1># 在老毛子的 `系统管理 - 服务 ` 调度任务 (Crontab)  加入 `*/1 * * * * /etc/storage/change_ip.sh` </span>
+</span></span></code></pre></td></tr></table></div></div><p>如果您在使用<a class=link href=https://github.com/joyanhui/ikuai-bypass target=_blank rel=noopener>ikuai-bypass</a> 方案，希望能给点个star</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/c/adguardhome-rules/><div class=article-details><h2 class=article-title>adguard home单实例自动更新分流规则</h2></div></a></article><article><a href=/route/mosdns-all-in-one/><div class=article-details><h2 class=article-title>mosdns all in one 分流加自定义解析，不依赖 AdGuardHome</h2></div></a></article><article><a href=/cloudflare/vless/><div class=article-details><h2 class=article-title>利用cfwokr免费搭建自己的节点</h2></div></a></article><article><a href=/route/clash-new/><div class=article-details><h2 class=article-title>clash删库事件发生后的替代方案</h2></div></a></article><article><a href=/route/safe-dns/><div class=article-details><h2 class=article-title>关于dns泄露的那些事情 路由器 mosdns分流 clash</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2025 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.31.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
