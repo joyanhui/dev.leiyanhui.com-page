@@ -1,0 +1,151 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="本文以hugo为例，hexo同理 实现目的，\n无服务器 如同本站 接近0费用 只有cdn和oss费用 cdn本身费用很低 oss 那边看cdn配置和文章更新频繁程度 搭建文章网站。实现博客或者帮助文档在线公开浏览。 国外访客直接走githubpage 国内访客 走腾讯-> 阿里云oss .md原文件 不暴露到公网 部署到 oss 会增加大概100多秒的actions执行时间，也会导致oss那边产生一些写入费用。 我的actions 从一开始的18-25秒执行时间，变成2m30s左右。单独上传到alioss 差不多需要2分钟。\nGitHub上部署hugo 或者mdbook hexo到私有库 hugo ： https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/\nmdbook: https://dev.leiyanhui.com/mdbook/siyou/\nhexo 已经弃用很久，自己搞定 都差不多。\n在阿里云创建oss和相关key 详细步骤略，主要是 拿到 AccessKey ID 和 AccessKey Secret, 对应的Bucket 权限 应该是所有人可读 我创建了一个 青岛 mydev-bolg.oss-cn-qingdao.aliyuncs.com\n在对应的Bucket的配置 域名配置 里面绑定一个临时域名 oss.dev.leiyanhui.com\n然后在数据管理静态页面中设置 首页 index.html 打开子目录首页 Redirect 404页面 404.html\n域名解析部分 dev.leiyanhui.com 境外到xxx.gitHub.io dev.leiyanhui.com 境内到cdn，我这里到腾讯cdn 修改GitHub私有库上的自动部署脚本 以下操作在github的私有库上操作\n先配置环境变量 依次点击 /settings/secrets/actions 添加变量OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SERCRET 对应阿里云的 AccessKey ID 和 AccessKey Secret 原来的变量FOR_PAGE_SSHKEY 参考上面私有库配置的文章。\n这样做是为了防止在编译过程日志里面显示敏感信息\n"><title>hugo、hexo、mdbook自动部署到GitHub私有库和阿里云oss 并嵌套腾讯cdn的完整方案</title><link rel=canonical href=https://dev.leiyanhui.com/mdbook/hugo-to-oss/><link rel=stylesheet href=/scss/style.min.663803bebe609202d5b39d848f2d7c2dc8b598a2d879efa079fa88893d29c49c.css><meta property='og:title' content="hugo、hexo、mdbook自动部署到GitHub私有库和阿里云oss 并嵌套腾讯cdn的完整方案"><meta property='og:description' content="本文以hugo为例，hexo同理 实现目的，\n无服务器 如同本站 接近0费用 只有cdn和oss费用 cdn本身费用很低 oss 那边看cdn配置和文章更新频繁程度 搭建文章网站。实现博客或者帮助文档在线公开浏览。 国外访客直接走githubpage 国内访客 走腾讯-> 阿里云oss .md原文件 不暴露到公网 部署到 oss 会增加大概100多秒的actions执行时间，也会导致oss那边产生一些写入费用。 我的actions 从一开始的18-25秒执行时间，变成2m30s左右。单独上传到alioss 差不多需要2分钟。\nGitHub上部署hugo 或者mdbook hexo到私有库 hugo ： https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/\nmdbook: https://dev.leiyanhui.com/mdbook/siyou/\nhexo 已经弃用很久，自己搞定 都差不多。\n在阿里云创建oss和相关key 详细步骤略，主要是 拿到 AccessKey ID 和 AccessKey Secret, 对应的Bucket 权限 应该是所有人可读 我创建了一个 青岛 mydev-bolg.oss-cn-qingdao.aliyuncs.com\n在对应的Bucket的配置 域名配置 里面绑定一个临时域名 oss.dev.leiyanhui.com\n然后在数据管理静态页面中设置 首页 index.html 打开子目录首页 Redirect 404页面 404.html\n域名解析部分 dev.leiyanhui.com 境外到xxx.gitHub.io dev.leiyanhui.com 境内到cdn，我这里到腾讯cdn 修改GitHub私有库上的自动部署脚本 以下操作在github的私有库上操作\n先配置环境变量 依次点击 /settings/secrets/actions 添加变量OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SERCRET 对应阿里云的 AccessKey ID 和 AccessKey Secret 原来的变量FOR_PAGE_SSHKEY 参考上面私有库配置的文章。\n这样做是为了防止在编译过程日志里面显示敏感信息\n"><meta property='og:url' content='https://dev.leiyanhui.com/mdbook/hugo-to-oss/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Mdbook'><meta property='article:published_time' content='2022-11-29T00:14:20+08:00'><meta property='article:modified_time' content='2022-11-29T00:14:20+08:00'><meta name=twitter:title content="hugo、hexo、mdbook自动部署到GitHub私有库和阿里云oss 并嵌套腾讯cdn的完整方案"><meta name=twitter:description content="本文以hugo为例，hexo同理 实现目的，\n无服务器 如同本站 接近0费用 只有cdn和oss费用 cdn本身费用很低 oss 那边看cdn配置和文章更新频繁程度 搭建文章网站。实现博客或者帮助文档在线公开浏览。 国外访客直接走githubpage 国内访客 走腾讯-> 阿里云oss .md原文件 不暴露到公网 部署到 oss 会增加大概100多秒的actions执行时间，也会导致oss那边产生一些写入费用。 我的actions 从一开始的18-25秒执行时间，变成2m30s左右。单独上传到alioss 差不多需要2分钟。\nGitHub上部署hugo 或者mdbook hexo到私有库 hugo ： https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/\nmdbook: https://dev.leiyanhui.com/mdbook/siyou/\nhexo 已经弃用很久，自己搞定 都差不多。\n在阿里云创建oss和相关key 详细步骤略，主要是 拿到 AccessKey ID 和 AccessKey Secret, 对应的Bucket 权限 应该是所有人可读 我创建了一个 青岛 mydev-bolg.oss-cn-qingdao.aliyuncs.com\n在对应的Bucket的配置 域名配置 里面绑定一个临时域名 oss.dev.leiyanhui.com\n然后在数据管理静态页面中设置 首页 index.html 打开子目录首页 Redirect 404页面 404.html\n域名解析部分 dev.leiyanhui.com 境外到xxx.gitHub.io dev.leiyanhui.com 境内到cdn，我这里到腾讯cdn 修改GitHub私有库上的自动部署脚本 以下操作在github的私有库上操作\n先配置环境变量 依次点击 /settings/secrets/actions 添加变量OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SERCRET 对应阿里云的 AccessKey ID 和 AccessKey Secret 原来的变量FOR_PAGE_SSHKEY 参考上面私有库配置的文章。\n这样做是为了防止在编译过程日志里面显示敏感信息\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_6049d840d4e2d14.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><ol><li><a href=#github上部署hugo-或者mdbook-hexo到私有库>GitHub上部署hugo 或者mdbook hexo到私有库</a></li><li><a href=#在阿里云创建oss和相关key>在阿里云创建oss和相关key</a></li><li><a href=#域名解析部分>域名解析部分</a></li><li><a href=#修改github私有库上的自动部署脚本>修改GitHub私有库上的自动部署脚本</a><ol><li><a href=#先配置环境变量>先配置环境变量</a></li><li><a href=#编辑github-actions文件>编辑github actions文件</a></li></ol></li><li><a href=#测试>测试</a></li><li><a href=#推送到腾讯cos的配置>推送到腾讯cos的配置</a></li><li><a href=#配置cdn>配置cdn</a></li><li><a href=#进阶>进阶</a><ol><li><a href=#节省oss费用降低写入次数--设置为定时执行>节省oss费用，降低写入次数。 设置为定时执行</a></li></ol></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/hugo/>Hugo
+</a><a href=/categories/oss/>Oss
+</a><a href=/categories/mdbook/>Mdbook
+</a><a href=/categories/hexo/>Hexo
+</a><a href=/categories/makedown/>Makedown</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/mdbook/hugo-to-oss/>hugo、hexo、mdbook自动部署到GitHub私有库和阿里云oss 并嵌套腾讯cdn的完整方案</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>2022-11-29</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 2 分钟</time></div></footer></div></header><section class=article-content><p>本文以hugo为例，hexo同理
+实现目的，</p><ul><li>无服务器 如同本站</li><li>接近0费用 只有cdn和oss费用 cdn本身费用很低 oss 那边看cdn配置和文章更新频繁程度</li><li>搭建文章网站。实现博客或者帮助文档在线公开浏览。</li><li>国外访客直接走githubpage 国内访客 走腾讯-> 阿里云oss</li><li><code>.md</code>原文件 不暴露到公网</li></ul><blockquote><p>部署到 oss 会增加大概100多秒的actions执行时间，也会导致oss那边产生一些写入费用。
+我的actions 从一开始的18-25秒执行时间，变成2m30s左右。单独上传到alioss 差不多需要2分钟。</p></blockquote><h3 id=github上部署hugo-或者mdbook-hexo到私有库>GitHub上部署hugo 或者mdbook hexo到私有库</h3><p>hugo ： <a class=link href=https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/ target=_blank rel=noopener>https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/</a></p><p>mdbook: <a class=link href=https://dev.leiyanhui.com/mdbook/siyou/ target=_blank rel=noopener>https://dev.leiyanhui.com/mdbook/siyou/</a></p><p>hexo 已经弃用很久，自己搞定 都差不多。</p><h3 id=在阿里云创建oss和相关key>在阿里云创建oss和相关key</h3><p>详细步骤略，主要是 拿到 <code>AccessKey ID </code>和 <code>AccessKey Secret</code>, 对应的Bucket 权限 应该是所有人可读
+我创建了一个 青岛 <code>mydev-bolg.oss-cn-qingdao.aliyuncs.com</code></p><p>在对应的Bucket的配置 域名配置 里面绑定一个临时域名 <code>oss.dev.leiyanhui.com</code></p><p>然后在数据管理静态页面中设置 首页 index.html 打开子目录首页 Redirect 404页面 404.html</p><h3 id=域名解析部分>域名解析部分</h3><ul><li>dev.leiyanhui.com 境外到xxx.gitHub.io</li><li>dev.leiyanhui.com 境内到cdn，我这里到腾讯cdn</li></ul><h3 id=修改github私有库上的自动部署脚本>修改GitHub私有库上的自动部署脚本</h3><p>以下操作在github的私有库上操作</p><h4 id=先配置环境变量>先配置环境变量</h4><p>依次点击 <code>/settings/secrets/actions</code> 添加变量<code>OSS_ACCESS_KEY_ID</code> <code>OSS_ACCESS_KEY_SERCRET</code> 对应阿里云的 <code>AccessKey ID </code>和 <code>AccessKey Secret</code>
+原来的变量<code>FOR_PAGE_SSHKEY</code> 参考上面私有库配置的文章。<br>这样做是为了防止在编译过程日志里面显示敏感信息</p><h4 id=编辑github-actions文件>编辑github actions文件</h4><p><code>/.github/workflows/deploy.yml</code> 原始文件内容参考 <a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-whis-theme-deploy.yml target=_blank rel=noopener>https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-whis-theme-deploy.yml</a></p><p>添加内容 就是增加一段到alioss的配置 我们用<code>manyuanrong/setup-ossutil@v1.0</code> 这个
+注意run 那行我们是 复制 public 文件到 <code>oss://Bucket名称/</code>（Bucket名称） 如果你用其他程序，需要自己修改以下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>            - name: setup aliyun oss
+</span></span><span class=line><span class=cl>              uses: manyuanrong/setup-ossutil@master
+</span></span><span class=line><span class=cl>              with:
+</span></span><span class=line><span class=cl>                  endpoint: oss-cn-qingdao.aliyuncs.com
+</span></span><span class=line><span class=cl>                  access-key-id:  ${{ secrets.OSS_ACCESS_KEY_ID }} 
+</span></span><span class=line><span class=cl>                  access-key-secret:  ${{ secrets.OSS_ACCESS_KEY_SERCRET }} 
+</span></span><span class=line><span class=cl>            - name: cp files to aliyun
+</span></span><span class=line><span class=cl>              run:  |
+</span></span><span class=line><span class=cl>                    rm -rf .git*
+</span></span><span class=line><span class=cl>                    rm -rf public/.git*
+</span></span><span class=line><span class=cl>                    ossutil cp -rf public oss://mydev-bolg/ # 将mydev-bolg改为创建的Bucket名称，-rf表示覆盖
+</span></span></code></pre></td></tr></table></div></div><p>完整文件：<a class=link href=https://dev.leiyanhui.com/ target=_blank rel=noopener>https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-to-Alioss-whis-theme-deploy.yml</a></p><h3 id=测试>测试</h3><p>actions 执行完成后，打开域名<code>mydev-bolg.oss-cn-qingdao.aliyuncs.com</code> 测试，可以打开</p><h3 id=推送到腾讯cos的配置>推送到腾讯cos的配置</h3><p>没有买cos，感觉贵一些,所以这里没相关配置，实际和上面操作 大同小异</p><h3 id=配置cdn>配置cdn</h3><p>我这里cdn用的腾讯的，之所以套一个cdn 而不是直接用alioss 静态页面功能，当然是为了省钱。。。</p><p>阿里oss 删掉这个域名，或者直接添加一个 域名 dev.leiyanhui.com</p><p>在腾讯cdn 域名管理中 添加 回源地址 GitHub作为 热备源站，主站用<code>oss-cn-qingdao.aliyuncs.com</code></p><h3 id=进阶>进阶</h3><h4 id=节省oss费用降低写入次数--设置为定时执行>节省oss费用，降低写入次数。 设置为定时执行</h4><p>默认的情况是 当向master分支push代码或提交pull request的时候触发</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>on:
+</span></span><span class=line><span class=cl>  push:
+</span></span><span class=line><span class=cl>    branches: [ master ]
+</span></span><span class=line><span class=cl>  pull_request:
+</span></span><span class=line><span class=cl>    branches: [ master ]
+</span></span></code></pre></td></tr></table></div></div><p>看手册 <a class=link href=https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows target=_blank rel=noopener>https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows</a>
+如果想要实现，push 并且距离上次时间 超过1小时，因为cron 不支持这个操作，而我们acions内的脚本 无法持久保存文件。所以不好实现。</p><h5 id=schedule-cron的方式>schedule cron的方式</h5><p>手册：https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>on:
+</span></span><span class=line><span class=cl>  schedule:
+</span></span><span class=line><span class=cl>    - cron:  &#39;30 5,17 * * *&#39;
+</span></span></code></pre></td></tr></table></div></div><p>可以定时执行，但是也和我们预期效果不一样。因为我们不是每天或者每小时都要更新内容。</p><h5 id=手动执行发方法>手动执行发方法</h5><p>最简单 办法 是用 workflow_dispatch，想同步的时候，手动执行一次</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>on:
+</span></span><span class=line><span class=cl>  workflow_dispatch:
+</span></span></code></pre></td></tr></table></div></div><h5 id=定时和手动结合>定时和手动结合</h5><p>手动加定时任务</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>on:
+</span></span><span class=line><span class=cl>    workflow_dispatch:
+</span></span><span class=line><span class=cl>    schedule:
+</span></span><span class=line><span class=cl>    # 第二位小时数，要北京时间-8 后输入 比如 2是10点
+</span></span><span class=line><span class=cl>    - cron: &#34;16 5 */3 * *&#34;
+</span></span></code></pre></td></tr></table></div></div><p>手动触发 ，或者 每间隔3天的13点16分自动执行一次</p><h5 id=完美添加时间戳的方法>完美：添加时间戳的方法</h5><p>原理：在阿里云oss上创建一个文本记录上次同步到阿里云的时间戳，然后每次同步到阿里云之前比较一下时间戳，如果超过指定的时间<code>3600</code> 那么就同步一次，否则 不执行。
+新建一个文件<code>last_update.txt</code>内容<code>last_update=0</code> 手动上传到阿里云oss</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl> - name: setup aliyun oss
+</span></span><span class=line><span class=cl>              uses: manyuanrong/setup-ossutil@master
+</span></span><span class=line><span class=cl>              with:
+</span></span><span class=line><span class=cl>                  endpoint: oss-cn-qingdao.aliyuncs.com
+</span></span><span class=line><span class=cl>                  access-key-id:  ${{ secrets.OSS_ACCESS_KEY_ID }} 
+</span></span><span class=line><span class=cl>                  access-key-secret:  ${{ secrets.OSS_ACCESS_KEY_SERCRET }} 
+</span></span><span class=line><span class=cl>            - name: cp files to aliyun
+</span></span><span class=line><span class=cl>              run:  |
+</span></span><span class=line><span class=cl>                    #获取当前时间戳
+</span></span><span class=line><span class=cl>                    current=`date &#34;+%Y-%m-%d %H:%M:%S&#34;`
+</span></span><span class=line><span class=cl>                    timeStamp=`date -d &#34;$current&#34; +%s` 
+</span></span><span class=line><span class=cl>                    currentTimeStamp=$(((timeStamp*1000+10#`date &#34;+%N&#34;`/1000000)/1000)) #将current转换为时间戳，精确到秒
+</span></span><span class=line><span class=cl>                    #获取上次更新的时间戳到变量last_update
+</span></span><span class=line><span class=cl>                    curl -o last_update.txt https://你的地址.oss-cn-qingdao.aliyuncs.com/last_update.txt?$GITHUB_SHA
+</span></span><span class=line><span class=cl>                    source last_update.txt
+</span></span><span class=line><span class=cl>                    Time_over_val=`expr $currentTimeStamp - $last_update`
+</span></span><span class=line><span class=cl>                    if [ &#34;$Time_over_val&#34; -ge &#34;3600&#34; ];then
+</span></span><span class=line><span class=cl>                        echo &#34;阿里oss 记录时间&#34;
+</span></span><span class=line><span class=cl>                        echo &#34;last_update=$currentTimeStamp&#34; &gt; public/last_update.txt
+</span></span><span class=line><span class=cl>                        rm -rf .git*
+</span></span><span class=line><span class=cl>                        rm -rf public/.git*
+</span></span><span class=line><span class=cl>                        ossutil cp -rf public oss://你的Bucket/ 
+</span></span><span class=line><span class=cl>                    else
+</span></span><span class=line><span class=cl>                        echo &#34;跳过更新阿里oss&#34;
+</span></span><span class=line><span class=cl>                    fi
+</span></span></code></pre></td></tr></table></div></div><p>同时 修改触发条件为，每次改动，或手动,并添加定时，防止最后一次push后未同步的情况下 不能自动提交给阿里云的情况。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>on:
+</span></span><span class=line><span class=cl>    workflow_dispatch:
+</span></span><span class=line><span class=cl>    schedule:
+</span></span><span class=line><span class=cl>    # 第二位小时数，要北京时间-8 后输入 比如 2是10点
+</span></span><span class=line><span class=cl>    - cron: &#34;33 2 * * *&#34;
+</span></span><span class=line><span class=cl>    push:
+</span></span><span class=line><span class=cl>        branches: [master]
+</span></span><span class=line><span class=cl>    pull_request:
+</span></span><span class=line><span class=cl>        branches: [master]
+</span></span></code></pre></td></tr></table></div></div><p>最终文件 <a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/%E9%97%B4%E9%9A%94%E5%90%8C%E6%AD%A5%E5%88%B0%E9%98%BF%E9%87%8C%E4%BA%91oss%E5%92%8C%E8%87%AA%E5%8A%A8%E5%90%8C%E6%AD%A5%E5%88%B0%E7%A7%81%E6%9C%89%E5%BA%93.yaml target=_blank rel=noopener>点击这里</a></p><h5 id=小问题>小问题</h5><p><code>manyuanrong/setup-ossutil@master</code> 是从 <code>http://gosspublic.alicdn.com/ossutil/1.7.7/ossutil64</code> 下载安装，git去下载话 有时候偶尔抽风速度不是很理想。有时候需要4分钟。。占用actions时间。</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/mdbook/siyou/><div class=article-details><h2 class=article-title>github 私有库 创建pages的 最简单的保姆级教程</h2></div></a></article><article><a href=/mdbook/hugo-img-html/><div class=article-details><h2 class=article-title>makedown hugo 定义图片宽度以及直接解析html的方法</h2></div></a></article><article><a href=/mdbook/hugo-book/><div class=article-details><h2 class=article-title>hugo 搭建一个多语言帮助网页 并托管到github和国内cdn</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2025 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.31.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
