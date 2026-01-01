@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Bois on 小类随手记</title><link>https://dev.leiyanhui.com/categories/bois/</link><description>Recent content in Bois on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 26 Nov 2022 06:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/bois/index.xml" rel="self" type="application/rss+xml"/><item><title>archlinux保姆级自定义安装-最简单，最小化 自定义分区安装 、efi和bios模式</title><link>https://dev.leiyanhui.com/arch/base-install/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/base-install/</guid><description>&lt;p&gt;archlinux其实还是很容易安装的，&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;本文最后更新 2022-12-01
+安装系统需要你先明白几个基本概念,如果你能明白，那么手动安装一个archlinux也就轻松简单。不明白照着做也可。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;引导，一般电脑支持efi和传统bios两种分区模式，
+&lt;ul&gt;
+&lt;li&gt;bios引导分区模式需要用传统磁盘格式也就是只能4个主分区，或者3个主分区+扩展的N个分区&lt;/li&gt;
+&lt;li&gt;efi引导的分区模式可以用gpt，也就是可以4个以上主分区，但是必须有一个fat16 fat32的分区，主板启动后从磁盘的这个分区里面找efi引导程序&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;磁盘 linux下的磁到 /dev下 一般用 &lt;code&gt;fdisk -l&lt;/code&gt;命令查看&lt;/li&gt;
+&lt;li&gt;分区，linux下分区 需要挂载到文件目录。开机自动挂载的配置文件是 /etc/fatab&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="启动后"&gt;启动后
+&lt;/h2&gt;&lt;p&gt;如果是笔记本需要先配置wifi，arch的安装镜像也支持usb共享多数手机的网络。&lt;br&gt;
+如果不想在机器上上敲下面的命令，可以先给root设置一个临时密码&lt;code&gt;passwd&lt;/code&gt; 输入两次密码&lt;br&gt;
+然后&lt;code&gt;ip a&lt;/code&gt;查看一下ip，再在一台机器上ssh链接上&lt;code&gt;ssh root@IP&lt;/code&gt; ,就可以抄袭下面的作业了。&lt;br&gt;
+archlinux自带的 archinstall 已经很好用，一般情况不再建议手动安装。&lt;/p&gt;
+&lt;h2 id="分区"&gt;分区
+&lt;/h2&gt;&lt;p&gt;efi模式至少两个分区，bois模式1个只一个分区也可以
+1、efi分区 fat32格式，可以和黑苹果 win公用 （bois安装的分区 看文末）
+2、根分区，格式自己随意，如果只是跑简单业务建议用ext4
+其他分区自定义
+分区可以用winpe diskgen，也可以用 live盘的 cfdisk&lt;/p&gt;
+&lt;h2 id="启动和准备"&gt;启动和准备
+&lt;/h2&gt;&lt;p&gt;使用archlinux 官网live iso
+下载地址 &lt;a class="link" href="https://archlinux.org/download/" target="_blank" rel="noopener"
+&gt;https://archlinux.org/download/&lt;/a&gt; 底部有国内镜像源
+写入到U盘，或者用ventoy等支持iso启动的工具启动iso。
+启动后先 ping baidu.com 看看是否联网了，如果没有先去配置联网环境，此处掠过，不是笔记本的都简单，如果网卡不能识别，可以暂时usb插iPhone 打开共享&lt;/p&gt;
+&lt;h3 id="编辑源自己找一个靠谱源部分源更新慢比如-nuesoft部分源速度不稳定比如aliyun其他自己选"&gt;编辑源，自己找一个靠谱源。部分源更新慢，比如 nuesoft，部分源速度不稳定比如aliyun，其他自己选
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;此步骤不是必须的，目前新版archlinux 2022.11.1以后版本的iso 在联网环境下，可以自动帮你整理最快的镜像作为默认源&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/pacman.d/mirrorlist
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;例如清华源地址，放到 最前面
+&lt;code&gt;Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$repo/os/$arch&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="可能需要fdisk--l-查看一下磁盘并格式化部分分区"&gt;可能需要fdisk -l 查看一下磁盘并格式化部分分区
+&lt;/h3&gt;&lt;p&gt;可以用&lt;code&gt;cfdisk&lt;/code&gt; 创建操作分区，使用uefi启动的电脑，至少需要两个分区，一个efi一个根分区，然后用mkfs.xxxx 格式化对应的分区&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cfdisk /dev/&amp;lt;磁盘名 sda1 nvmexxxx mmcxxx vdaxxx&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;cfdisk 比diskpart简单一些，并且是命令行的图形界面&lt;/p&gt;
+&lt;h4 id="关于分区"&gt;关于分区
+&lt;/h4&gt;&lt;p&gt;如果是efi模式启动，必须需要两个分区 一个 32M 以上的efi分区格式化为fat16或者fat32格式，另外一个分区格式为linux常用文件系统格式，推荐ext4格式&lt;br&gt;
+如果是传统启动模式，那么不需要额外的分区，最小只需要一个分区 / 格式为&lt;/p&gt;
+&lt;h4 id="关于分区格式"&gt;关于分区格式
+&lt;/h4&gt;&lt;p&gt;linux下不是不是可以安装到fat或者exfat 甚至ntfs分区格式，只是不推荐，会有很多莫名其妙的问题。&lt;br&gt;
+一般常用的分区格式 还是 ext4，其他更先进的分区格式 xfs,BtrFS,GlusterFS 除非非常有需求，比如压缩 快照 raid等，否则不建议。&lt;br&gt;
+如果你双系统，有和win交换文件的需求，强烈建议单独创一个exfat分区作为文件交换用，或者在win下安装ext4的读取驱动（不要写）&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;另外，win下常用的diskgen 对ext4分区的支持是有限的，但是可以完成基本的分区到镜像的备份。读取功能不稳。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="格式需要的分区"&gt;格式需要的分区
+&lt;/h4&gt;&lt;p&gt;cfdisk只能分区不能格式，还是需要用mkfs工具格式，如果已经格式好了。或者对应的分区已经有文件，可以跳过这步。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# efi分区
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkfs.fat -F 32 /dev/nvme0n1p1
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;## 根分区
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkfs.ext4 /dev/nvme0n1p2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;马上2023年 brtfs已经很不错了um
+efi必须 fa32 或fat16， 根分区 分区格式我这里用ext4&lt;br&gt;
+如果要做swap分区，自己看一下官网wiki，我喜欢用文件swap所以这里没弄。 &lt;a class="link" href="https://dev.leiyanhui.com/arch/swapfile/" target="_blank" rel="noopener"
+&gt;设置 文件swap&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="挂载分区"&gt;挂载分区
+&lt;/h3&gt;&lt;p&gt;根分区挂载到/mnt efi分区挂载到/mnt/boot/efi&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p2 /mnt
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir -p /mnt/boot/efi
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p1 /mnt/boot/efi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果你还要做swap分区，继续弄，也可以后面开启swapfile的&lt;br&gt;
+如果是传统启动模式 不是 efi模式 可以跳过 挂载efi的这步。&lt;/p&gt;
+&lt;h2 id="mnt开始安装"&gt;/mnt开始安装
+&lt;/h2&gt;&lt;p&gt;最基本的系统&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacstrap /mnt base linux
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;另外还有三个常用包 自己选择是否安装。&lt;code&gt;linux-headers linux-firmware base-devel&lt;/code&gt; base-devel包里面 有编译和yay（aur）常用的工具&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果有提示 key错误，尤其是openssl的，可能需要先执行一次&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S archlinux-keyring
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman-key --refresh-keys
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;或者 干脆运行一次&lt;code&gt;archinstall&lt;/code&gt; 然后会自动更新keyting，再退出就好了&lt;/p&gt;
+&lt;h2 id="写入自动挂载fstab"&gt;写入自动挂载fstab
+&lt;/h2&gt;&lt;p&gt;直接用genfstab 工具，免去手写fstab配置文件的麻烦&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;genfstab -U /mnt &amp;gt;&amp;gt; /mnt/etc/fstab
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat /mnt/etc/fstab
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="切换到新系统"&gt;切换到新系统
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;arch-chroot /mnt
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="继续安装一些基础包-简单文本编辑nano--sudo权限管理-或者-dosa"&gt;继续安装一些基础包 简单文本编辑nano sudo权限管理 或者 dosa
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S nano
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;你也可以装vim&lt;/p&gt;
+&lt;h3 id="可选包网络相关的"&gt;可选包网络相关的
+&lt;/h3&gt;&lt;p&gt;dhcp客户端，ssh服务器端，网络管理，usb共享iPhone网络&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S dhcpcd openssh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="设置几个需要开机启动的服务"&gt;设置几个需要开机启动的服务
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable dhcpcd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable sshd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可选包&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S networkmanager usbmuxd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable systemd-resolved
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable NetworkManager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="修改root密码-设置用户等"&gt;修改root密码 设置用户等
+&lt;/h2&gt;&lt;h3 id="root密码"&gt;root密码
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="添加用户"&gt;添加用户
+&lt;/h3&gt;&lt;p&gt;添加一个日常使用用户，同时这个用户默认可以ssh登录&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;useradd -m -G wheel -s /bin/bash leiyanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd leiyanhui
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我用fish替代bash 但是不建议 用fish 彻底替代bash，因为fish和bash ash之间有兼容问题。
+基础shell 还是 base 或者 ash。 想要fish自动自动，以后修改 &lt;code&gt;.bashrc&lt;/code&gt;文件就好了&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S fish
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="设置wheel用户组的sudo权限"&gt;设置wheel用户组的sudo权限
+&lt;/h3&gt;&lt;h4 id="sudo"&gt;sudo
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S sudo
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/sudoers
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;找到&lt;code&gt;# %wheel ALL=(ALL:ALL) ALL&lt;/code&gt; 取消前面的#注释 或者带 NOPASSWD的 那行，以后sudo 就不需要密码&lt;/p&gt;
+&lt;h4 id="doas"&gt;doas
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;替代sudo 更轻量更简单，如果要用xrdp的话不建议用doas&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S doas
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/doas.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;permit :wheel
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;或者&lt;code&gt;permit persist :wheel&lt;/code&gt; 后面需要有一个空行
+设置文件权限&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;chown -c root:root /etc/doas.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;chmod -c 0400 /etc/doas.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;验证&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;doas -C /etc/doas.conf &amp;amp;&amp;amp; echo &amp;#34;config ok&amp;#34; || echo &amp;#34;config error&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;替代sudo&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ln -s /bin/dosa /bin/sudo
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="设置时区-对时"&gt;设置时区 对时
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hwclock --systohc
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="写入引导"&gt;写入引导
+&lt;/h2&gt;&lt;p&gt;还是建议用grub，因为如果你要后面折腾虚拟化 kvm之类的会省心甚多 （bois安装的分区 看文末）&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S grub efibootmgr
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;grub-install /dev/nvme0n1 #(注意，不是efi分区，而且是整个磁盘)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;grub-mkconfig -o /boot/grub/grub.cfg
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;grub-mkconfig 这个工具在efibootmgr包里面&lt;/p&gt;
+&lt;h2 id="重启"&gt;重启
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;exit
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 退出到live盘
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;reboot # 或者 poweroff
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="系统备份"&gt;系统备份
+&lt;/h2&gt;&lt;p&gt;可以用live盘 直接 tar 整个 /mnt，如果用ext4分区 也可以Windows用diskgen备份。
+修复引导 就live 盘 arch-chroot 到磁盘分区，然后 重新写入一次引导 和配置文件&lt;/p&gt;
+&lt;h2 id="传统启动模式安装"&gt;传统启动模式安装
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;适合于 老设备，或者 虚拟机，尤其是 pve下的kvm模式
+只需要最少一个分区就可以了 ，其他操作和efi一样&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;注意点 就是 cfdisk 第一次打开的时候 不能用gpt分区，用dos分区模式，如果弄错了就要重新设置格式，会丢失所有数据。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;parted /dev/vda
+#然后输入
+mklabel msdos
+#提示你会丢失所有书
+Yes
+#退出
+quit
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;我这个系统是用来打算做kvm的底层的，所以除了docker不再安装任何东西&lt;/p&gt;
+&lt;p&gt;所有安装的包记录&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;base linux linux-headers linux-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#基本工具
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nano
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#网络
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;dhcpcd networkmanager openssh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#引导
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;grub efibootmgr
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#个人需要的 exfat 和 fish
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;exfat-utils
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;fish
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# kvm相关的
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-base
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ovmf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我上面没有设置swap 是因为我习惯性用swap file
+查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/arch/swapfile/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/swapfile/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="进阶功能和相关记录文章"&gt;进阶功能和相关记录文章
+&lt;/h2&gt;&lt;h3 id="手动安装一个archlinux"&gt;手动安装一个archlinux
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/arch/base-install/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/base-install/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="桌面环境dwm"&gt;桌面环境dwm
+&lt;/h3&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/linux/arch-install-dwm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/linux/arch-install-dwm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="桌面环境i3w"&gt;桌面环境i3w
+&lt;/h3&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/arch/xinitc-xrdp/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/xinitc-xrdp/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="arch下kvm基本安装"&gt;arch下kvm基本安装
+&lt;/h4&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/arch-install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/arch-install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="arch下kvm虚拟机开机自动启动"&gt;arch下kvm虚拟机开机自动启动
+&lt;/h4&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/auto_start_vm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/auto_start_vm/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="关于efi模式启动"&gt;关于efi模式启动
+&lt;/h4&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/ovmf/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/ovmf/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm安装macos"&gt;kvm安装macos
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm安装macos附加上一个win"&gt;kvm安装macos附加上一个win
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/macos_add_win10/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/macos_add_win10/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="进阶配置桥接网络以及硬件直通"&gt;进阶：配置桥接网络，以及硬件直通
+&lt;/h3&gt;&lt;p&gt;桥接网络：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/net-br/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/net-br/&lt;/a&gt;&lt;br&gt;
+硬件直通：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/kvm/pci-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/kvm/pci-usb/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>把最新版本 archlinux安装到vhd/raw/img文件并物理机器启动</title><link>https://dev.leiyanhui.com/arch/boot-vhd-ventoy/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/boot-vhd-ventoy/</guid><description>&lt;h2 id="前言"&gt;前言
+&lt;/h2&gt;&lt;p&gt;本文基于 archlinux 2022-12-1 镜像 ventoy-1.0.86 vtoyboot-1.0.25&lt;/p&gt;
+&lt;p&gt;我做好的 &lt;a class="link" href="https://www.123pan.com/s/EqorVv-r2nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-r2nPA&lt;/a&gt; 提取码:arch&lt;/p&gt;
+&lt;p&gt;建议选择 arch-base-btrfs-7.3gfree5g.vhd.vtoy.7z 解压后7.3G 空闲5G 可以满足基本需求，可以自行扩容。&lt;a class="link" href="https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/" target="_blank" rel="noopener"
+&gt;扩容教程&lt;/a&gt;
+这个也是&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt;我的arch-aio的母盘&lt;/a&gt;
+默认用户名 yanhui 密码 1 开启了ssh 和 dhcp&lt;br&gt;
+root用户禁止ssh 密码 1
+直接用archinstall安装的基础包，然后补充软件：&lt;br&gt;
+&lt;code&gt; dhcpcd openssh nano doas which lvm2&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果你网卡不能免驱 或者wifi要处理，请先virtualbox 启动后配置网卡驱动&lt;br&gt;
+如果内核升级 或者grub升级，记得 &lt;code&gt;cd /root/vtoyboot* &amp;amp;&amp;amp;sh vtoyboot.sh &lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="安装archlinux"&gt;安装archlinux
+&lt;/h2&gt;&lt;p&gt;需要有一个运行了虚拟机的系统，我这里用的 linux版 virtualbox ，win下一样操作&lt;/p&gt;
+&lt;p&gt;virtualbox 创建一个虚拟机，专家模式 启用efi，磁盘格式选择 vhd，也可以其他格式 稍后自行转换到 vhd vdi raw 必须是预分配磁盘，不可以使用动态磁盘&lt;/p&gt;
+&lt;p&gt;我这里选择 vhd格式，&lt;/p&gt;
+&lt;h2 id="其他安装步骤-和正常安装一样"&gt;其他安装步骤 和正常安装一样
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/arch/base-install/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/base-install/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;并且&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ln -s /bin/doas /bin/sudo
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="处理ventoy"&gt;处理Ventoy
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S which lvm2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;虚拟机挂载 &lt;a class="link" href="https://github.com/ventoy/vtoyboot/releases/download/v1.0.25/vtoyboot-1.0.25.iso" target="_blank" rel="noopener"
+&gt;https://github.com/ventoy/vtoyboot/releases/download/v1.0.25/vtoyboot-1.0.25.iso&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/cdrom /mnt
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /root
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /mnt/vtoy* .
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;tar -xf vtoy*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf *.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd vtoyboot*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh vtoyboot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;提示只能用于efi启动&lt;/p&gt;
+&lt;h2 id="ventoy硬盘或者u盘安装配置"&gt;ventoy硬盘或者U盘安装配置
+&lt;/h2&gt;&lt;p&gt;很简单不用多说了。注意一点 &lt;code&gt;VTOY_LINUX_REMOUNT&lt;/code&gt; 方便linux下挂载管理vhd所在分区
+具体参考 ：https://www.ventoy.net/cn/faq.html 搜索 VTOY_LINUX_REMOUNT 关键词&lt;/p&gt;
+&lt;h2 id="其他处理"&gt;其他处理
+&lt;/h2&gt;&lt;h3 id="autodetect-处理-据说兼容性更好"&gt;autodetect 处理 据说兼容性更好
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/mkinitcpio.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;把hooks一行的autodetect删掉&lt;/p&gt;
+&lt;h3 id="grub-shell抢救"&gt;grub shell抢救
+&lt;/h3&gt;&lt;p&gt;如果非常不幸地进入了grub shell，也就是只有个grub&amp;gt;的界面，可以按照下面的步骤来抢救：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;ls来查看硬盘，（hd0）这样的是硬盘，（hd0，msdos1）这样的是分区
+ls (hd0,msdos1)/（注意有斜杠）来查看分区里的内容，找到那个里面有vmlinuz-linux文件的，它是启动分区
+set root=(hd0,msdos1)（hd0，msdos1）改成你的启动分区
+linux /vmlinuz-linux root=/dev/sda1sda1改成你的根目录分区
+initrd /initramfs-linux.img
+boot
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;就可以进系统了，再想想引导怎么配吧。&lt;/p&gt;
+&lt;p&gt;本文参考 ：https://www.bilibili.com/read/cv19777065 感谢 &lt;code&gt;monki&lt;/code&gt;&lt;/p&gt;</description></item></channel></rss>
