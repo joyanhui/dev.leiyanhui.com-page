@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Swarm on 小类随手记</title><link>https://dev.leiyanhui.com/categories/swarm/</link><description>Recent content in Swarm on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 03 Dec 2023 00:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/swarm/index.xml" rel="self" type="application/rss+xml"/><item><title>跨云集群管理 k8s/k3s/docker swarm /apache mesos 选型和总结</title><link>https://dev.leiyanhui.com/linux/multcloud/</link><pubDate>Sun, 03 Dec 2023 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/linux/multcloud/</guid><description>&lt;h2 id="选型"&gt;选型
+&lt;/h2&gt;&lt;p&gt;业务类型 允许短时间（数秒内）部分业务中断，不允许超过1分钟以上的故障。
+现有服务 多为无状态服务，一部分为半无状态，另外有redis和pgsql 。 &lt;br&gt;
+服务器 目前共有 12台 目前10台在线 2台冗余热备。主要是阿里云和腾讯云，另有两台异地pve。&lt;br&gt;
+首先说，服务器有一些本身是云厂商的活动价格购入的，配置2H2G那种。k8s肯定是不适合，太重。k3s只能说是空服务的是内存占用可以（本身512M左右内存），开启服务后和k8s并没有明显有时。&lt;br&gt;
+除去性能的占用，k8s/k3s集群公网通讯开支较大。容器数量只有几十个，机器不到10台，所以无论如何Kubernetes都不适合目前的场景。&lt;br&gt;
+其次考虑到 mesos,无奈了解太少，加上过于非主流了，所以没有去尝试。&lt;br&gt;
+然后目光就投到了 docker swarm。&lt;/p&gt;
+&lt;h2 id="docker-swarm-优势"&gt;docker swarm 优势
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;硬件资源占用很低，cpu和内存占用可以忽略不计&lt;/li&gt;
+&lt;li&gt;节点之间公网通讯带宽占用在10-几十K，可以忽略不计。&lt;/li&gt;
+&lt;li&gt;原docker/podman容器迁移成本时间成本极低，毕竟docker自家的，docker compose yml略微修改就可以。&lt;/li&gt;
+&lt;li&gt;partainer 够轻量，够直观，也足够docker swarm的图形化管理（毕竟有时候还是需要直观的查看的服务的分布情况）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="docker-swarm-的缺点"&gt;docker swarm 的缺点
+&lt;/h2&gt;&lt;p&gt;只针对目前项目的情况的一些看法&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;日后迁移云k8s需要二次折腾，目前主流云厂商都放弃了docker swarm&lt;/li&gt;
+&lt;li&gt;可能B格不够 有人为阻力&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="服务的处理"&gt;服务的处理
+&lt;/h2&gt;&lt;h3 id="半无状态服务弱持久化储存依赖的"&gt;半无状态服务（弱持久化储存依赖的）
+&lt;/h3&gt;&lt;p&gt;无状态服务没啥可说的，但是有一些半无状态的服务，需要存取数据。在从手动管理docker升到swarm的时候需要简单处理一下。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;尽可能 使用constraint参数 把服务分布指定的某台或某组机器上。&lt;/li&gt;
+&lt;li&gt;使用云储存，在云主机上使用内网读写对应的数据。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="有状态服务redismysql"&gt;有状态服务redis/mysql
+&lt;/h3&gt;&lt;p&gt;项目里面存在3个redis集群 一个pgsql主从。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;原则上 尽可能的使用云厂商的，不自建。非要自建的情况参考下文&lt;/li&gt;
+&lt;li&gt;使用constraint参数 把服务分布指定的某台或某组机器上。&lt;/li&gt;
+&lt;li&gt;读写不频繁的文件，例如redis的 rdb/aof 直接到云储存上。&lt;/li&gt;
+&lt;li&gt;读写频繁但是可用性要求不高的文件，直接落地到机器的硬盘上，然后定时同步到云储存。&lt;/li&gt;
+&lt;li&gt;读写频繁并且可用性要求高的文件，直接落地云储存或者直接用云厂商的服务。比如pgsql&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="实践"&gt;实践
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;配置项目 尽可能使用环境变量，直接到swarm的服务里面。&lt;/li&gt;
+&lt;li&gt;配置项目 只能使用配置文件的，配置文件到云储存。使用 docker rclone插件，直接绑定到docker卷。&lt;/li&gt;
+&lt;li&gt;嵌入式kv，写频繁但是允许短时间丢失的，落地硬盘，并定时同步到的云储存。&lt;/li&gt;
+&lt;li&gt;redis持久化文件 使用 docker rclone插件，直接绑定到docker卷。&lt;/li&gt;
+&lt;/ul&gt;</description></item><item><title>docker swarm 集群debian基础镜像</title><link>https://dev.leiyanhui.com/docker/debian-fishbase/</link><pubDate>Sun, 19 Nov 2023 07:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-fishbase/</guid><description>&lt;h2 id="场景"&gt;场景
+&lt;/h2&gt;&lt;p&gt;之前服务都是基于 rust和golang 所以一直使用公用镜像。但是在使用对象储存的时候发现缺少ssl支持。&lt;br&gt;
+不得不&lt;/p&gt;
+&lt;h2 id="准备文件"&gt;准备文件
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;sources.list （服务器上 没科学工具）&lt;/li&gt;
+&lt;li&gt;zsh 配置文件（偶尔需要在容器内部操作所以还是加上）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="sourecelist"&gt;sourece.list
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# deb-src http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# deb-src http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# deb-src http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;deb http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# deb-src http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="zsh-配置文件"&gt;zsh 配置文件
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/oh-my-zsh" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/oh-my-zsh&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf .oh-my-zsh yhZsh.zip .zshrc
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;curl -L -e &amp;#39;; auto&amp;#39; -o yhZsh.zip https://mirror.ghproxy.com/https://github.com/joyanhui/oh-my-zsh/archive/refs/heads/main.zip
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;unzip yhZsh.zip
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mv oh-my-zsh-main/.oh-my-zsh . &amp;amp;&amp;amp; cp oh-my-zsh-main/.zshrc .
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf yhZsh.zip oh-my-zsh-main
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;适当删除一些没用的插件和主题&lt;/p&gt;
+&lt;h2 id="dockerfile"&gt;Dockerfile
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-Dockerfile" data-lang="Dockerfile"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;debian:stable-20231120-slim&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;MAINTAINER&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;author&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;leiyanhui@gmail.com&amp;#34;&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;ADD&lt;/span&gt; sources.list /etc/apt/&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;ADD&lt;/span&gt; .zshrc /root/&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;COPY&lt;/span&gt; .oh-my-zsh /root/.oh-my-zsh&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;#ADD rclone /usr/bin/&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;RUN&lt;/span&gt; rm -rf /etc/apt/sources.list.d/debian.sources &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; apt-get update &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt-get install -y apt-transport-https ca-certificates gnupg lsb-release &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; apt-get install -y psmisc wget curl unzip zip fuse zsh ntp iftop openssh-server &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; apt autoremove &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt-get clean &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt-get autoclean &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;WORKDIR /root&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;EXPOSE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;22&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;CMD&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;/usr/sbin/sshd&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;-D&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="容器服务"&gt;容器服务
+&lt;/h2&gt;&lt;p&gt;因为更新较少，所以使用阿里云的&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo docker login --username&lt;span class="o"&gt;=&lt;/span&gt;&amp;lt;用户名&amp;gt; registry.cn-shanghai.aliyuncs.com
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;nowTime&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;$(&lt;/span&gt;date &lt;span class="s2"&gt;&amp;#34;+%Y%m%d%H%M%S&amp;#34;&lt;/span&gt;&lt;span class="k"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo docker build -t registry.cn-shanghai.aliyuncs.com/fish/debian:base-&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;nowTime&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; .
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo docker tag registry.cn-shanghai.aliyuncs.com/fish/debian:base-&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;nowTime&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; registry.cn-shanghai.aliyuncs.com/fish/debian:base-latest
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo docker push registry.cn-shanghai.aliyuncs.com/fish/debian:base-&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;nowTime&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo docker push registry.cn-shanghai.aliyuncs.com/fish/debian:base-latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="swarm集群部署"&gt;swarm集群部署
+&lt;/h2&gt;&lt;p&gt;在集群上分别登陆
+然后&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker pull registry.cn-shanghai.aliyuncs.com/fish/debian:latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item></channel></rss>
