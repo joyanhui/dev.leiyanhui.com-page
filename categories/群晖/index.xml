@@ -1,0 +1,947 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>群晖 on 小类随手记</title><link>https://dev.leiyanhui.com/categories/%E7%BE%A4%E6%99%96/</link><description>Recent content in 群晖 on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 06 Feb 2023 19:11:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/%E7%BE%A4%E6%99%96/index.xml" rel="self" type="application/rss+xml"/><item><title>pve 装群晖 系统盘分多大合适 / pve上黑群晖的更舒服的使用姿势</title><link>https://dev.leiyanhui.com/pve/pve-qh-vdisksize/</link><pubDate>Mon, 06 Feb 2023 19:11:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/pve-qh-vdisksize/</guid><description>&lt;p&gt;本文不适合linux纯小白，对linux有所了解的可以看。&lt;/p&gt;
+&lt;p&gt;国内 openwrt esxi pve unraid 包括 群晖 等 群体，是一个 比较有特色的人相对比较集中的群体。。。。
+切莫轻信这些群里一些人言之凿凿的一些言语。&lt;code&gt;高手&lt;/code&gt; 太多了&lt;/p&gt;
+&lt;p&gt;群晖系统跟Windows不同,Windows有个盘要当成系统盘,而群晖会在每个硬盘上自动安装系统。&lt;br&gt;
+对于黑群晖来说也就是 你可以只插入一个引导盘和一个数据盘就可以启动起来群晖。&lt;br&gt;
+但是在pve上，我们可以 1引导盘 1虚拟数据盘 多lxc外挂smb/nfs硬盘的方式来使用。&lt;br&gt;
+这样群晖对我们来说只是一个简单易用的nas管理工具。离开群晖，我们的硬盘依旧可以正常访问，甚至群晖关机后依旧不影响我们nas的使用。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;缺点： 1、门槛略高一点 2、群晖需要替换.so文件 3、cpu要参与群晖和物理硬盘之间的数据交互，会增加一点负载。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这种情况下的 硬盘的分配
+1、引导盘，黑群晖必须的。
+2、系统盘，就是黑群晖自身的系统安装的盘，此盘多余空间 可以作为 群晖的储存池 ，也就是你可用的空间。这个磁盘用虚拟磁盘即可。
+3、数据盘 N个 或者raid，一般是直通过来的硬盘，或者 挂虚拟磁盘也可以。 pve下因为有先天优势，如果你pve性能过得去，可以把硬盘先挂载到lxc开启smb/nfs后，再把盘以万兆pve内置交换挂到群晖。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;smb和nfs挂载的目录，群晖默认不支持照片和视频的那些操作，网上有对应的补丁可以处理。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="引导盘"&gt;引导盘
+&lt;/h4&gt;&lt;p&gt;通常情况下，引导盘 大家都是用 arpl 的img直接转换qcow2，然后导入到群晖中。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qm importdisk 虚拟ID arpl镜像路径 local --format=qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个磁盘是1g 实际占用空间 要看驱动集成情况。&lt;/p&gt;
+&lt;h4 id="系统盘"&gt;系统盘
+&lt;/h4&gt;&lt;p&gt;群晖 920+ 7.1.1 42962 大概需要 10G左右空间。实际 1G多 他自己留了一部分空间 用于安装套件。低于13G会导致系统盘上无法创建储存空间。&lt;br&gt;
+众所周知的 pve的备份功能的速度 和 磁盘标注容量有关系。所以肯定是越小越好。
+所以系统盘的尺寸 必须13G以上，另外部分套件占用这个储存空间，套件装基本全的话差不多，另外需要10G左右空间。
+至少建议16G。 看个人需求。 我实际使用25G。
+这个第二块磁盘（第一个是黑群晖引导盘），承担群晖套件和储存卷，姑且就叫系统盘&lt;/p&gt;
+&lt;h4 id="数据盘"&gt;数据盘
+&lt;/h4&gt;&lt;p&gt;看个人情况。 重要数据，一定一定 异地备份。
+既然是已经pve运行群晖了，除非你pve宿主性能非常拉跨，否则不建议硬盘直通给群晖。
+更灵活方便的方式： 硬盘直通给lxc容器，开smb/nfs/webdav/sftp，而后在群晖中挂载，并替换群晖文件实现 一些不支持的套件使用。
+系统盘可以现行在lxc中组raid。关于lxc系统的选择。&lt;/p&gt;
+&lt;h4 id="关于系统的备份和恢复"&gt;关于系统的备份和恢复
+&lt;/h4&gt;&lt;p&gt;因为我们是黑群晖，引导盘和系统盘 要定期备份，群晖关机后用 pve复制对应的qcow2文件出来即可。&lt;br&gt;
+系统重装后，重新挂载smb/nfs即可。&lt;/p&gt;
+&lt;h3 id="数据盘系统"&gt;数据盘系统
+&lt;/h3&gt;&lt;h4 id="硬盘根据自己情况组建raid"&gt;硬盘根据自己情况组建raid
+&lt;/h4&gt;&lt;p&gt;自己看情况来，软硬都可以&lt;/p&gt;
+&lt;h4 id="lxc系统"&gt;lxc系统
+&lt;/h4&gt;&lt;p&gt;技术不到位可以omv，技术可以的话，直接 alpine / debian 装smb/nfs/nginx/sshd 配置好权限和目录 就完了。&lt;/p&gt;
+&lt;h3 id="关于-部分套件不支持--smbnfs挂载的目录问题"&gt;关于 部分套件不支持 smb/nfs挂载的目录问题
+&lt;/h3&gt;&lt;p&gt;感谢jinlife&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;The patch for libsynosdk.so.7 will allow remote NFS/CIFS shared folder be used in VideoStation, AudioStation and Photos etc.
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /volume1/homes/jinlife/libsynosdk.so.7 /usr/lib/
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/jinlife/Synology_Photos_Face_Patch" target="_blank" rel="noopener"
+&gt;https://github.com/jinlife/Synology_Photos_Face_Patch&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="关于担心黑群晖挂掉的问题"&gt;关于担心黑群晖挂掉的问题。
+&lt;/h3&gt;&lt;p&gt;如果担心群晖升级后无法使用，不如一次性弄好以后，把所有可能要用的套件配置好。然后把虚拟机的群晖整机备份一次。&lt;br&gt;
+就此养老，天荒地老了&lt;/p&gt;</description></item><item><title>docker运行nginx 并反代内网的一些服务2(nginxwebui修改版)</title><link>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</link><pubDate>Sat, 07 Jan 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</guid><description>&lt;p&gt;家里路由器是openwrt x86，内外有跑一些服务。这里用路由器上配置nginx+ssl，然后内网的所有web服务都经过nginx到公网，因为家用宽带不只&lt;/p&gt;
+&lt;p&gt;nginxwebui是国产基于java的开源nginx配置文件生成器，用于替代死板的nginx-proxy-manage 。&lt;/p&gt;
+&lt;p&gt;优点是 更加灵活 强大 支持中文，几乎支持所有的nginx功能的可视化配置。&lt;/p&gt;
+&lt;p&gt;缺点是 略微繁琐，尤其是不能自动载入配置文件，创建项目后，要手动在webui里面，点替换和重载。&lt;/p&gt;
+&lt;h2 id="docker安装"&gt;docker安装
+&lt;/h2&gt;&lt;p&gt;nginxwebui 官网docker实例是用的host模式运行，不建议。还是自定义端口映射。&lt;/p&gt;
+&lt;p&gt;我这里需要3个端口 nginxwebui管理端口50088，http 端口50081 https 端口50443&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --restart=always --name=nginxwebui --hostname nginxwebui -e BOOT_OPTIONS=&amp;#34;--server.port=50088&amp;#34; -p 50081:50081 -p 50088:50088 -p 50443:50443 --privileged=true cym1102/nginxwebui:latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;证书目录 是保存在： &lt;code&gt;/home/nginxWebUI/.acme.sh/&lt;/code&gt; 下面&lt;br&gt;
+配置文件&lt;code&gt;/home/nginxWebUI/nginx.conf&lt;/code&gt; 。&lt;/p&gt;
+&lt;p&gt;如果需要对证书单独管理，可以映射出来。也恩可以用docker cp 定时复制出来。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd -v /opt/docker_file/op_nginxWebUI:/home/nginxWebUI --restart=always --name=nginxwebui --hostname nginxwebui -e BOOT_OPTIONS=&amp;#34;–server.port=50088&amp;#34; -p 50081:50081 -p 50088:50088 -p 50443:50443 --privileged=true cym1102/nginxwebui:latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;而后在 nginxwebui 内部 再反代 管理端口出来 套上ssl 即可从外网ssl访问。&lt;/p&gt;
+&lt;p&gt;为了方便备份，我这里没有映射目录出来。记得自行定时清理日志：&lt;code&gt;/home/nginxWebUI/log/nginxWebUI.log&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;注意： http://10.0.0.1:50088/ web界面 打开可能会空白，这个&amp;hellip;.大概是因为java启动慢的原因，等一会 刷新一下就好了。&lt;/p&gt;
+&lt;h2 id="一个典型的反代配置"&gt;一个典型的反代配置
+&lt;/h2&gt;&lt;p&gt;包括http自动跳转ssl&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;转发类型 http
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;监听端口：这个如果要开启ssl的话要输入ssl端口 50443
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;选择密码文件：这个是base的密码
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;开机ssl：是
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;选择内置证书：（提前配置）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;开启https：是
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ssl协议版本：全部勾选
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;http跳转https：是
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;从该端口跳转：第一个留空 第二个输入ssl的端口后 50081
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样就可以实现，访问http的时候自动跳转到ssl &lt;br&gt;
+最终配置文件大概如下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;server {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; server_name 域名;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50443 ssl http2;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/fullchain.cer;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate_key /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/jia.leiyanhui.com.key;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50081;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; if ($scheme = http) {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; return 301 https://$host:50443$request_uri;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; location / {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # 自己;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_pass http://10.0.0.1:50088;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header Host $host;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Real-IP $remote_addr;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-Host $http_host;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-Port $server_port;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-Proto $scheme;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_http_version 1.1;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header Upgrade $http_upgrade;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header Connection &amp;#34;upgrade&amp;#34;;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_redirect http:// https://;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="自动备份到阿里云镜像"&gt;自动备份到阿里云镜像
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/docker/img-to-aliyun/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/docker/img-to-aliyun/&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;10 3 * * 6 sh /etc/docker_up_aliyun_nginxWebUi.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="使用nginxwebui反代-主路由的一个小问题"&gt;使用nginxWebUI反代 主路由的一个小问题
+&lt;/h2&gt;&lt;p&gt;如果op主路由配置了 根据域名跳转（https://dev.leiyanhui.com/openwrt/acme-ssl/），op需要绑定一个不属于最终配置文件的域名 。或者 使用下面的方法。
+另外 op里面的网页终端需要单独处理（我选择 直接弃用）。&lt;/p&gt;
+&lt;p&gt;还有一个方案 是 不传递host参数，然后直接访问 https://你的域名:端口/cgi-bin/luci/ 也可以解决。&lt;/p&gt;
+&lt;h3 id="关于使用http协议访问https端口的400错误处理"&gt;关于使用http协议访问https端口的400错误处理
+&lt;/h3&gt;&lt;p&gt;例如我正常访问我的路由器应该是&lt;code&gt;https://域名:50443&lt;/code&gt;如果用&lt;code&gt;http://域名:50443&lt;/code&gt;访问端口还是https的端口就会提示400错误。 因为服务是家人也用。 不能指望他们理解http（S）这些。所以我采取的方法是直接拦截错误，并跳转到正确的首页地址。&lt;/p&gt;
+&lt;p&gt;首先这个错误是 497 错误，nginxWebUI支持参数模板，添加一个参数模板，名字随意，添加参数&lt;code&gt;error_page 497&lt;/code&gt; 值&lt;code&gt;https://$host:50443; #解决http到ssl端口的400错误&lt;/code&gt; 然后用默认配置应用到反向代理。完毕&lt;/p&gt;
+&lt;h3 id="最好的解决方案"&gt;最好的解决方案
+&lt;/h3&gt;&lt;p&gt;编辑对应的ningxWebUi反向代理配置，
+添加一个 &lt;code&gt;= / &lt;/code&gt; 自定义localtions 添加参数 &lt;code&gt;return&lt;/code&gt; 值&lt;code&gt; 301 https://$host:50443/cgi-bin/luci&lt;/code&gt; （意思就是网址后面没有东西的情况下跳转到后面地址）即可 （注意好要清理浏览器缓存不然不会生效） &lt;br&gt;
+最终代码如下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;server {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; server_name op.jia.leiyanhui.com;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50443 ssl http2;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate /home/nginxWebUI/.acme.sh/*.jia.leiyanhui.com/fullchain.cer;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate_key /home/nginxWebUI/.acme.sh/*.jia.leiyanhui.com/*.jia.leiyanhui.com.key;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50081;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; if ($scheme = http) {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; return 301 https://$host:50443$request_uri;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; error_page 497 https://$host:50443; #解决http到ssl端口的400错误;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; location = / {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # op自动跳转;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; return 301 https://$host:50443/cgi-bin/luci;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; location / {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # op代理;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_pass http://10.1.1.1/;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_redirect http:// https://;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="进阶"&gt;进阶
+&lt;/h3&gt;&lt;p&gt;1、解决 在web界面直接点击 域名 链接打开的是不带端口的导致非标端口打不开的情况。 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/nginxWebUI&lt;/a&gt;
+2、解决 定时续签2点拥堵的问题，
+下载 我自己的修改的 jar，替换到docker里面&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;exec&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;it&lt;/span&gt; &lt;span class="n"&gt;nginxwebui&lt;/span&gt; &lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt; &lt;span class="c1"&gt;#删除原版jar&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;github&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;com&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;joyanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;releases&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;download&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="n"&gt;st&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt; &lt;span class="n"&gt;nginxwebui&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt; &lt;span class="c1"&gt;# 复制宿主机上的修改过的jar进去&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;nginxwebui&lt;/span&gt; &lt;span class="c1"&gt;#重启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="下载地址"&gt;下载地址
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://www.123pan.com/s/EqorVv-n0nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-n0nPA&lt;/a&gt; 提取码:yhjt&lt;/p&gt;
+&lt;p&gt;详细 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/nginxWebUI&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="其他问题"&gt;其他问题
+&lt;/h3&gt;&lt;p&gt;nginxwebui 和 nginx-proxy-manager 都同样的问题，就是在web界面直接点击 域名 链接打开的是不带端口的。在前者的github 提交过issues但是作者没有回应。后at作者后，作者表示：&lt;code&gt;这个界面是展示信息用，不是给你高强度使用的&lt;/code&gt; 不知所云。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;已经自己修改 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/nginxWebUI&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;不过nginxwebui 相对 nginx-proxy-manager 依旧适合非标端口的
+如果是内网使用，家用宽带没有标准端口的情况下，可以通过一个简单方法实现，就是在路由器上转发跳转一次，详情：https://dev.leiyanhui.com/openwrt/acme-ssl/&lt;/p&gt;
+&lt;p&gt;另外 nginxwebui 的证书申请 有几个小遗憾，1 证书检查时间固定在凌晨2点不可以修改，还是很拥挤的。2 没有日志显示，如果出错你也不知道。。。只能等待。。。&lt;/p&gt;</description></item><item><title>docker 一个可用的完整桌面系统</title><link>https://dev.leiyanhui.com/docker/docker-linux-desktop/</link><pubDate>Sun, 01 Jan 2023 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/docker-linux-desktop/</guid><description>&lt;p&gt;选择 用 &lt;a class="link" href="https://hub.docker.com/r/linuxserver/webtop" target="_blank" rel="noopener"
+&gt;https://hub.docker.com/r/linuxserver/webtop&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;默认用户名：abc 密码：abc&lt;/p&gt;
+&lt;h2 id="3d加速-ubuntu"&gt;3D加速 Ubuntu
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--device=/dev/dri:/dev/dri
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="fuse"&gt;fuse
+&lt;/h2&gt;&lt;p&gt;宿主机要安装fuse&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --privileged
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;另外一个方案 是&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--device /dev/fuse \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --cap-add SYS_ADMIN \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="端口"&gt;端口
+&lt;/h2&gt;&lt;p&gt;3000 是web-vnc 3389 和22 不用多说&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 10100:3000
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 10101:3389
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 10102:22
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="ubuntu-3d"&gt;ubuntu 3D
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;privileged&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;security&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;opt&lt;/span&gt; &lt;span class="n"&gt;seccomp&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;unconfined&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PUID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PGID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TZ&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;Asia&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Shanghai&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;SUBFOLDER&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;KEYBOARD&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;en&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;us&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;qwerty&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TITLE&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10100&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10101&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3389&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10102&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;22&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;device&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;unless&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;stopped&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;lscr&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;io&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;linuxserver&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;kde&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="输入法"&gt;输入法
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install fcitx5 fcitx5-rime
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;另外需要编辑 /init 实现自动启动&lt;/p&gt;
+&lt;h2 id="arch"&gt;arch
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;kde的镜像 有点问题，xrdp连不上&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;privileged&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;security&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;opt&lt;/span&gt; &lt;span class="n"&gt;seccomp&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;unconfined&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PUID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PGID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TZ&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;Asia&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Shanghai&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;SUBFOLDER&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;KEYBOARD&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;en&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;us&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;qwerty&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TITLE&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10100&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10101&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3389&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10102&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;22&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;device&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;unless&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;stopped&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;lscr&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;io&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;linuxserver&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;i3&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>pve安装群晖最新版7.2 物理机安装同理</title><link>https://dev.leiyanhui.com/pve/qunhui/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/qunhui/</guid><description>&lt;p&gt;最近开始对在线文档 和 第三方云备份有较大的需求，尝试过几次后，决定在pve上跑一个群晖来处理这些问题。&lt;br&gt;
+有很多开源免费项目都可以实现这些功能，但是群晖肯定是实现起来最简单功能也是最强的。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;再次感谢 群晖公司对黑群晖的容忍&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;本文不适合linux纯小白，但是部分内容适合pve新手&lt;/p&gt;
+&lt;h1 id="pve运行群晖"&gt;pve运行群晖
+&lt;/h1&gt;&lt;h2 id="个人期望和解决方案"&gt;个人期望和解决方案
+&lt;/h2&gt;&lt;p&gt;因为黑群晖出过问题，所以有以下需求。&lt;/p&gt;
+&lt;p&gt;1、方便备份整机&lt;/p&gt;
+&lt;p&gt;2、群晖挂了不影响数据访问&lt;/p&gt;
+&lt;h3 id="解决方案"&gt;解决方案
+&lt;/h3&gt;&lt;p&gt;为了满足我上面的要求，我才用 硬盘直通一个单独的lxc容器，然后开smb和webdav/sftp，这个容器称为 filecenter 。群晖用补丁实现 smb挂载的文件的 photo audio video的支持。&lt;/p&gt;
+&lt;h3 id="额外的支持"&gt;额外的支持
+&lt;/h3&gt;&lt;p&gt;群晖不做ssl 和 ddns 。&lt;/p&gt;
+&lt;h5 id="ssl"&gt;ssl
+&lt;/h5&gt;&lt;p&gt;用一个单独的lxc 运行 我自己修改过的 nginxWebUI 处理。&lt;/p&gt;
+&lt;h5 id="ddns"&gt;ddns
+&lt;/h5&gt;&lt;p&gt;用一个单独的lxc 运行 ddns-go&lt;/p&gt;
+&lt;h5 id="对象储存"&gt;对象储存
+&lt;/h5&gt;&lt;p&gt;用一个单独的 lxc 运行 minio&lt;/p&gt;
+&lt;h5 id="git仓库"&gt;git仓库
+&lt;/h5&gt;&lt;p&gt;可以用gitlab实现 我这里直接用阿里的codeup了&lt;/p&gt;
+&lt;h4 id="核心数据异地备份功能"&gt;核心数据异地备份功能
+&lt;/h4&gt;&lt;h6 id="群晖整机定时的备份"&gt;群晖整机定时的备份
+&lt;/h6&gt;&lt;p&gt;lxc单独运行一个alpine，定时任务ssh到pve实现。备份出来的oma，同步到 filecenter的sftp&lt;/p&gt;
+&lt;h6 id="备份到百度云"&gt;备份到百度云
+&lt;/h6&gt;&lt;p&gt;群晖cloud sysnc实现&lt;/p&gt;
+&lt;h6 id="备份到阿里云盘"&gt;备份到阿里云盘
+&lt;/h6&gt;&lt;p&gt;群晖cloud sysnc + alist webdav&lt;/p&gt;
+&lt;p&gt;‍&lt;/p&gt;
+&lt;h2 id="安装"&gt;安装
+&lt;/h2&gt;&lt;h3 id="pve准备"&gt;pve准备
+&lt;/h3&gt;&lt;h4 id="开启核显直通或者gvt-g"&gt;开启核显直通或者gvt-g。
+&lt;/h4&gt;&lt;p&gt;过程 ： &lt;a class="link" href="https://dev.leiyanhui.com/pve/igpu-one-key/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/igpu-one-key/&lt;/a&gt; 创建虚拟机，硬盘Sata，然后稍后删掉&lt;/p&gt;
+&lt;h4 id="准备引导镜像"&gt;准备引导镜像
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/fbelavenuto/arpl/releases" target="_blank" rel="noopener"
+&gt;https://github.com/fbelavenuto/arpl/releases&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img convert -p -f raw -O qcow2 arpl-1.0-beta13a.img arpl-1.0-beta13a.qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 导入
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qm importdisk 5000 /exfat/vm-cnf-and-vdisk-bak/Synology/arpl-1.0-beta13a.qcow2 local --format=qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="编译引导的说明"&gt;编译引导的说明
+&lt;/h4&gt;&lt;p&gt;启动虚拟机，然后按照提示打开网页&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;m&lt;/span&gt; &lt;span class="err"&gt;是选择机型，我这里选&lt;/span&gt; &lt;span class="n"&gt;DS920&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;n&lt;/span&gt; &lt;span class="err"&gt;是选择版本，选最新的&lt;/span&gt; &lt;span class="mi"&gt;42962&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;然后随机序列号&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;其他都不用改动，然后&lt;/span&gt; &lt;span class="err"&gt;选择&lt;/span&gt; &lt;span class="n"&gt;build&lt;/span&gt; &lt;span class="n"&gt;the&lt;/span&gt; &lt;span class="n"&gt;loader&lt;/span&gt; &lt;span class="err"&gt;会自动编译&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;恢复引导&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qm&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="mi"&gt;5000&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Synology&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;arpl&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;beta13a&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# http://10.1.1.70:7681/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;清理引导和系统 到空白&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qm&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="mi"&gt;7000&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;arpl&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;beta13a&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;temp&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;120&lt;/span&gt;&lt;span class="n"&gt;g&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;查看核显&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ls /dev/dri
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;系统和引导备份&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Synology&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;date&lt;/span&gt; &lt;span class="o"&gt;+%&lt;/span&gt;&lt;span class="n"&gt;Y&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;m&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;-%&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;mkdir&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qm&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nb"&gt;load&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qemu&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;img&lt;/span&gt; &lt;span class="nb"&gt;convert&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;f&lt;/span&gt; &lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;O&lt;/span&gt; &lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;sys&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;pve&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;qemu&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;server&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;pve&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/qunhui" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/qunhui&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;‍&lt;/p&gt;</description></item><item><title>群晖7.1.1 开启ssl 并开启自动续签 非docker方法</title><link>https://dev.leiyanhui.com/qh/ssl/</link><pubDate>Wed, 21 Dec 2022 22:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/qh/ssl/</guid><description>&lt;p&gt;首先，你要有公网ip。 ipv6 也行&lt;/p&gt;
+&lt;p&gt;群晖下ssl证书有几种处理方法，&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;是docker 或者vm 运行一个 支持证书续签的服务 然后用-v挂载出来或者用计划任务复制出来&lt;/li&gt;
+&lt;li&gt;常用的宝塔 docker acme.sh 等
+实际上可以直接处理，但是需要pythone3 这个依赖。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="准备"&gt;准备
+&lt;/h2&gt;&lt;h3 id="首先只有一个默认证书才可以"&gt;首先只有一个默认证书才可以
+&lt;/h3&gt;&lt;p&gt;控制面板 安全性 证书 查看只有一个自签证书的情况下&lt;/p&gt;
+&lt;h3 id="域名商处理"&gt;域名商处理
+&lt;/h3&gt;&lt;h4 id="域名商那边获取id-key之类的"&gt;域名商那边获取id key之类的
+&lt;/h4&gt;&lt;p&gt;过程参考对应域名厂商。&lt;/p&gt;
+&lt;h4 id="域名那边创建两个子域名"&gt;域名那边创建两个子域名
+&lt;/h4&gt;&lt;p&gt;例如 &lt;code&gt;jia.leiyanhui.com&lt;/code&gt; A记录到任意一个ip&lt;br&gt;
+然后 &lt;code&gt;*.jia.leiyanhui.com&lt;/code&gt; Cnama 到 &lt;code&gt;jia.leiyanhui.com&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="配置ddns"&gt;配置DDNS
+&lt;/h3&gt;&lt;p&gt;可以在路由器处理，也可以直接在群晖里面处理&lt;/p&gt;
+&lt;h3 id="配置ssl续签脚本"&gt;配置ssl续签脚本
+&lt;/h3&gt;&lt;p&gt;在 file 里面创建一个目录 下载 的脚本 上传到对应目录解压。 &lt;br&gt;
+项目地址：https://github.com/andyzhshg/syno-acme&lt;br&gt;
+详情参考：http://www.up4dev.com/2018/05/29/synology-ssl-wildcard-cert-update/&lt;br&gt;
+注意一点 最后的脚本内容有一个 &lt;code&gt;cert-up.sh update&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update &amp;gt;&amp;gt; /volume1/system_file/syno-acme_log.txt 2&amp;gt;&amp;amp;1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以先手动指定执行一次&lt;code&gt;sudo bash /volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update&lt;/code&gt;
+查看日志：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo cat /volume1/system_file/syno-acme_log.txt
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;没问题的话 &lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt; 和后面的内容可以删掉，也可以改为 &lt;code&gt;&amp;gt;&lt;/code&gt; 例如下面两行都可以&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update &amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="http自动跳转https"&gt;http自动跳转https
+&lt;/h3&gt;&lt;p&gt;打开控制面板找到登录门户，在网页服务处勾选自动将DSM桌面的HTTP连接重定向到HTTPS后点击保存。&lt;/p&gt;
+&lt;h3 id="路由器注意转发端口过来"&gt;路由器注意转发端口过来
+&lt;/h3&gt;&lt;p&gt;过程略&lt;/p&gt;</description></item><item><title>docker运行 官方宝塔</title><link>https://dev.leiyanhui.com/docker/baota/</link><pubDate>Sun, 27 Nov 2022 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/baota/</guid><description>&lt;p&gt;宝塔 终于出官方docker了 基于&lt;code&gt;CentOS 7.9.2009 x86_64&lt;/code&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a class="link" href="https://hub.docker.com/r/btpanel/baota" target="_blank" rel="noopener"
+&gt;https://hub.docker.com/r/btpanel/baota&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class="link" href="https://www.bt.cn/bbs/thread-79499-1-1.html" target="_blank" rel="noopener"
+&gt;https://www.bt.cn/bbs/thread-79499-1-1.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;LNMP镜像大小大概 733.3MB 解压后大概3006.51MB 。。。没得办法，宝塔的依赖项真的是太多了。。。
+在软路由上搞起来先&lt;/p&gt;
+&lt;h2 id="先整理端口"&gt;先整理端口
+&lt;/h2&gt;&lt;p&gt;不打算映射数据出来，方便转移，并预留ssh 和常用端口&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#宝塔面板 22 ssl http phpmyadmin
+-p 51888:8888 -p 51022:22 -p 51443:443 -p 51080:80 -p 51188:888 \
+# 路由器封80 443自定义web端口 以及22重复
+-p 51081:51081 -p 51444:51444 -p 51000:22 \
+# mysql
+-p 51306:3306 \
+# redis
+-p 51379:6379 \
+# pgsql
+-p 51432:5432 \
+# MongoDB
+-p 51017:27017 \
+# 备用端口
+-p 51200-51299:51200-51299 \
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;你问我为啥开这么多端口。。我开心我乐意，反正外网又访问不到。。。&lt;/p&gt;
+&lt;h2 id="镜像和标签的选择"&gt;镜像和标签的选择
+&lt;/h2&gt;&lt;p&gt;latest 标签拉取的是lib标签，安装了面板并且安装集成依赖包，安装每个软件都会快一点。&lt;br&gt;
+fresh 标签表示安装了面板但是没有安装集成依赖包，安装第一个软件会比较慢，因为需要装依赖包。&lt;br&gt;
+lib 标签表示安装了面板并且安装集成依赖包，安装每个软件都会快一点。&lt;br&gt;
+lnmp 标签表示安装了面板、集成包并且集成LNMP【Nginx1.22+MySQL5.7+PHP7.4】arm标签是MySQL5.6&lt;br&gt;
+lamp 标签表示安装了面板、集成包并且集成LAMP【Apache2.4+MySQL5.7+PHP7.4】arm标签是MySQL5.6&lt;br&gt;
+我这里选择&lt;code&gt;lnmp&lt;/code&gt; 经过测试发现，其实还集成了ftp&lt;/p&gt;
+&lt;h2 id="目录的挂载"&gt;目录的挂载
+&lt;/h2&gt;&lt;p&gt;/www/server/data 数据库&lt;br&gt;
+/www/wwwroot 网站目录 或者说 静态文件目录&lt;br&gt;
+/www/server/panel/vhost 虚拟机主机配置文件&lt;br&gt;
+其他目录参考宝塔官网&lt;br&gt;
+我不打算映射出来，因为可以在宝塔内挂载oss之类的网盘自动备份。&lt;br&gt;
+而且不映射任何目录的话，docker的备份和迁移更为简单简单一些。&lt;/p&gt;
+&lt;h2 id="最终命令的整理"&gt;最终命令的整理
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d --restart unless-stopped --name baota \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51888:8888 -p 51022:22 -p 51443:443 -p 51080:80 -p 51188:888 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51081:51081 -p 51444:51444 -p 51000:22 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51306:3306 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51379:6379 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51432:5432 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51017:27017 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51200-51299:51200-51299 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;btpanel/baota:lnmp
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="默认账户名密码-和登录地址"&gt;默认账户名密码 和登录地址
+&lt;/h2&gt;&lt;p&gt;现在，您可以在浏览器访问默认地址 http://您的ip地址:8888/btpanel 上的宝塔面板。
+默认用户：btpanel
+默认密码：btpaneldocker
+默认SSH密码：用户名 root 密码 btpaneldocker&lt;/p&gt;
+&lt;p&gt;默认用户：btpanel&lt;br&gt;
+默认密码：btpaneldocker&lt;br&gt;
+容器默认SSH密码：btpaneldocker&lt;/p&gt;
+&lt;h2 id="其他"&gt;其他
+&lt;/h2&gt;&lt;h3 id="容器内的服务处理"&gt;容器内的服务处理
+&lt;/h3&gt;&lt;p&gt;是使用的&lt;code&gt;/bt.sh&lt;/code&gt; 这个文件，除了默认服务之外，其他服务需要自行添加默认内容&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#!/bin/bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+export PATH
+init_path=/etc/init.d
+Root_Path=`cat /var/bt_setupPath.conf`
+Setup_Path=$Root_Path/server/mysql
+Data_Path=$Root_Path/server/data
+soft_start(){
+${init_path}/nginx start
+${init_path}/php-fpm-74 start
+${init_path}/pure-ftpd start
+${init_path}/bt restart
+pkill crond
+/sbin/crond
+/usr/sbin/sshd -D &amp;amp;
+}
+is_empty_Data(){
+return `ls -A ${Data_Path}/|wc -w`
+}
+init_mysql(){
+# initialize_mysql
+if [ -f /init_mysql.sh ];then
+sh /init_mysql.sh
+rm -f /init_mysql.sh
+fi
+}
+start_mysql(){
+chown -R mysql:mysql ${Data_Path}
+chgrp -R mysql ${Setup_Path}/.
+${init_path}/mysqld start
+rm -f /init_mysql.sh
+}
+soft_start &amp;gt; /dev/null
+is_empty_Data &amp;gt; /dev/null
+if [ $? == 0 ];then
+init_mysql &amp;gt; /dev/null
+else
+start_mysql &amp;gt; /dev/null
+fi
+tail -f /dev/null
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="计划任务的bug"&gt;计划任务的bug
+&lt;/h3&gt;&lt;p&gt;宿主机运行&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; docker exec -it 容器名称baota bash
+pkill crond &amp;amp;&amp;amp; /sbin/crond
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;然后重新添加计划任务&lt;/p&gt;
+&lt;h3 id="容器内的ssh的bug"&gt;容器内的ssh的bug
+&lt;/h3&gt;&lt;p&gt;已经默认安装了openssh，但是可能还需要处理一下才可以连接，注意 复制的时候 要看一下宿主机的情况。如果不是host模式的话不存在这个问题&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#获取容器ID
+docker ps|awk 'NR &amp;gt; 1{print$1}'
+#复制必要密钥文件到容器内
+\cp -r /etc/ssh/ssh_host_* /home/
+chmod 600 /home/ssh_host_*
+docker cp /home/ssh_host_rsa_key 容器ID:/etc/ssh/
+docker cp /home/ssh_host_ecdsa_key 容器ID:/etc/ssh/
+docker cp /home/ssh_host_ed25519_key 容器ID:/etc/ssh/
+#给容器设置一个root密码，qqwwee123替换成自己想要的密码
+docker exec -it 容器ID /bin/bash -c &amp;quot;echo 'qqwwee123'|passwd --stdin root&amp;quot;
+#让sshd运行起来
+docker exec 容器ID /usr/sbin/sshd -D &amp;amp;
+rm -rf /home/ssh_host_*
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="问题和其他bug"&gt;问题和其他bug
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;docker版本更新滞后，也不算大事，宝塔新版问题更多哈哈&lt;/li&gt;
+&lt;li&gt;web控制面板卡顿，web终端卡顿 甚至打不开，不缺点是宝塔新版的问题，还是软路由器性能问题&lt;/li&gt;
+&lt;li&gt;宝塔内置系统防火墙不可用（docker的限制。不过确实没必要）&lt;/li&gt;
+&lt;li&gt;ssl的证书夹在某些特定情况下 无法保存的问题。这个应该是宝塔自己的bug，月经bug 宝塔反反复复，经常间隔几个版本就出现一次 .重新登录一次面板，然后续签一次证书，或者重新部署一次。运气好的话 就好了，或者整个站点都删掉重新添加，运气不好的话，。。。。删了宝塔吧。。&lt;/li&gt;
+&lt;li&gt;innodb_log_buffer_size 的bug，这个以及是宝塔本身的月经bug 反复出现，手动设置一下就好&lt;/li&gt;
+&lt;li&gt;web面板 配置mysql的界面 mysql状态不显示，这个应该也是宝塔自己的bug，月经bug&lt;/li&gt;
+&lt;li&gt;web面板 终端偶尔打不开 应该是xterm和bug，宝塔本身也或许有问题，退出重新登录就好，或者清理浏览器缓存 重新登录&lt;/li&gt;
+&lt;li&gt;通知模块偶尔显示 名称：undefined xxx，无配置。。这个也是宝塔的月经bug&lt;/li&gt;
+&lt;li&gt;不算是问题，但一定注意第一时间修改 面板用户名密码以及ssh的root密码&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="题外话"&gt;题外话
+&lt;/h2&gt;&lt;p&gt;其实已经很久没有新装过宝塔了，然后发现 现在的宝塔 是bug成堆。。。硬硬把用户当作实验台，略有能力的情况下能不用就不用了吧&lt;br&gt;
+以前会去宝塔论坛 认真截图 说复现步骤，反馈，然后论坛客服 除了一堆毫无意义的机械回复，也没啥，有时候反馈一个bug 竟然要回帖数次。。。
+基本上 修补了上一个bug 然后出现新bug&lt;/p&gt;
+&lt;p&gt;正经的生产环境，真的不怎么建议用宝塔。。。毕竟现在docker环境可选多部署一个新环境也不难&lt;/p&gt;</description></item><item><title>docker运行nginx 并反代内网的一些服务，</title><link>https://dev.leiyanhui.com/docker/nginx-proxy-manage/</link><pubDate>Sun, 27 Nov 2022 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/nginx-proxy-manage/</guid><description>&lt;p&gt;本文停止更新，建议使用 nginxwebui ：https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl&lt;/p&gt;
+&lt;p&gt;支持中文，也支持静态站，甚至可以转发php之类的。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;nginx-proxy-manage&lt;/code&gt; 是一个有web管理解决的 纯nginx管理工具，基于node开发的。类似宝塔。。自带了ssl证书管理（基于Let’s Encrypt的）&lt;/p&gt;
+&lt;p&gt;适合 在轻量的主机上运行，例如 软路由。。。&lt;/p&gt;
+&lt;p&gt;比宝塔来说优势有&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;支持更多dns验证api，几乎支持所有的常见国内外域名和dns商，并且支持 acmedns_api&lt;/li&gt;
+&lt;li&gt;更加轻量简单
+缺点嘛，，就是没有别的功能了。只有nginx 和 ssl 。所以很适合 路由上使用&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;要求多的话，还是建议使用宝塔，&lt;a class="link" href="https://dev.leiyanhui.com/docker/baota" target="_blank" rel="noopener"
+&gt;现在宝塔官网已经发布docker&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="基本命令"&gt;基本命令
+&lt;/h2&gt;&lt;p&gt;参考：https://hub.docker.com/r/jlesage/nginx-proxy-manager
+改动一下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --name=nginx-proxy-manager \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 50181:8181 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 50080:8080 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 50443:4443 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; jlesage/nginx-proxy-manager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;web访问端口 是 50080:8080 ssl 50443:4443 管理端口 50181:8181
+默认用户名密码 &lt;code&gt;admin@example.com&lt;/code&gt; &lt;code&gt;changeme&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="后续我发现真正的官网镜像实际不是这个"&gt;后续我发现真正的官网镜像实际不是这个！
+&lt;/h3&gt;&lt;p&gt;而是 &lt;code&gt;jc21/nginx-proxy-manager:latest&lt;/code&gt; 文档地址：https://nginxproxymanager.com/setup/#using-mysql-mariadb-database
+并且官网文档是明确支持ipv6的 只是默认禁用&lt;/p&gt;
+&lt;h2 id="基本使用"&gt;基本使用
+&lt;/h2&gt;&lt;h3 id="修改用户密码"&gt;修改用户密码
+&lt;/h3&gt;&lt;p&gt;登录后就会自动提示修改，按照提示修改一下&lt;/p&gt;
+&lt;h3 id="试着申请个域名ssl"&gt;试着申请个域名ssl
+&lt;/h3&gt;&lt;p&gt;很简单 不用多说，看不懂 自己开翻译软件（吐槽：软路由圈子 英语不好 还不肯开翻译软件的人。。多好。。）&lt;/p&gt;
+&lt;h2 id="这个工具存在的问题"&gt;这个工具存在的问题
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;只支持LE的证书，我本想和acme.sh的配合 使用，发现。。。这货好像把证书放在了数据库里面，，服了。。。然后自定义证书 也只能是上传。。。
+&lt;ul&gt;
+&lt;li&gt;后续发现存放到了/etc/letsencrypt ，但是格式和acme.sh 不能完全兼容。。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;dns api的配置记录不能自动保存，添加多个证书的时候 需要每次都输入一次 api接口的key信息&lt;/li&gt;
+&lt;li&gt;下载回来的证书，只有nginx格式&lt;/li&gt;
+&lt;li&gt;面板本身好像不可以直接启用ssl，应该需要sh进去改配置文件，或者自己代理自己一次&lt;/li&gt;
+&lt;li&gt;没有中文界面&lt;/li&gt;
+&lt;li&gt;镜像体积不小， 182.90MB 左右&lt;/li&gt;
+&lt;li&gt;在主机列表页面直接打开对应的域名，是使用默认端口打开。不会帮你跳到&lt;code&gt;50080:8080 ssl 50443:4443&lt;/code&gt;,我node 水平一般也没有找打 队以ing的文件&lt;/li&gt;
+&lt;li&gt;同时 在反代 pve 或 openwrt等应用的适合，会导致 vnc或者终端控制台打不开。（这个好像是 noVNC 以及xterm.js的问题）
+&lt;ul&gt;
+&lt;li&gt;pve可以用 /etc/pve/local/qemu-server/&lt;!-- raw HTML omitted --&gt;.conf &lt;a class="link" href="https://pve.proxmox.com/wiki/VNC_Client_Access" target="_blank" rel="noopener"
+&gt;添加vnc配置的方法用客户端链接&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;oc的控制docker台 可以用shell登录后 &lt;code&gt; docker exec -it 容器名 /bin/bash&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;或者docker 另外跑一个浏览器 来访问内网的这个web，然后nginx-proxy-manager再套上ssl 就可以了&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;其他暂未发现&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="结论"&gt;结论
+&lt;/h2&gt;&lt;p&gt;很适合要求不高的情况下使用，也适合小白。
+其实 还是建议直接docker跑一个宝塔算了，自己用debian、centos基础做也行，现在宝塔官方也支持docker了&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/docker/baota" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/docker/baota&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="另外一个替代项目"&gt;另外一个替代项目
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://www.nginxwebui.cn/" target="_blank" rel="noopener"
+&gt;https://www.nginxwebui.cn/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;简单看了一下 国产的，支持中文，支持负载均衡，但是证书虽然是用 acme.sh ,但是同样也是 只支持 LE的自动续期和申请。。&lt;/p&gt;
+&lt;p&gt;使用说明 ：https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl&lt;/p&gt;
+&lt;p&gt;官网：https://github.com/cym1102/nginxWebUI#docker%E5%AE%89%E8%A3%85%E8%AF%B4%E6%98%8E&lt;/p&gt;</description></item><item><title>docker 运行证书管理工具acme.sh</title><link>https://dev.leiyanhui.com/docker/acme-sh/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/acme-sh/</guid><description>&lt;p&gt;支持在所有运行docker的设备上 linux系统 windows macos openwrt unraid pve等 自动申请签发证书（爱快这种畸形的除外）&lt;/p&gt;
+&lt;h2 id="简单的运行"&gt;简单的运行
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;docker run --rm -itd \
+-v &amp;quot;$(pwd)/out&amp;quot;:/acme.sh \
+--net=host \
+--name=acme.sh \
+neilpang/acme.sh daemon
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="使用方法"&gt;使用方法
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;docker exec acme.sh --help
+docker exec acme.sh --issue --dns dns_cf -d *.example.com -d example.com
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="指定dns的api"&gt;指定dns的api
+&lt;/h2&gt;&lt;p&gt;走dns验证的，例如cf家的&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;docker run --rm -itd \
+-v &amp;quot;$(pwd)/ssl_out&amp;quot;:/acme.sh \
+-e CF_Email=&amp;quot;example@example.com&amp;quot; \
+-e CF_Key=&amp;quot;asasasasasadasasas&amp;quot; \
+--net=host \
+--name=acme.sh \
+neilpang/acme.sh daemon
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;如果是 dnspod&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;export DP_Key=&amp;quot;sADDsdasdgdsf&amp;quot;
+docker run --rm -itd \
+-v &amp;quot;$(pwd)/ssl_out&amp;quot;:/acme.sh \
+-e DP_Id=&amp;quot;1234&amp;quot; \
+-e DP_Key=&amp;quot;sADDsdasdgdsf&amp;quot; \
+--net=host \
+--name=acme.sh \
+neilpang/acme.sh daemon
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;其他的dns 的api参考 &lt;a class="link" href="https://github.com/acmesh-official/acme.sh/wiki/dnsapi" target="_blank" rel="noopener"
+&gt;https://github.com/acmesh-official/acme.sh/wiki/dnsapi&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;如果不支持自动api的话，参考他官网的别名解析验证 &lt;a class="link" href="https://github.com/acmesh-official/acme.sh/wiki/DNS-alias-mode" target="_blank" rel="noopener"
+&gt;https://github.com/acmesh-official/acme.sh/wiki/DNS-alias-mode&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="进阶"&gt;进阶
+&lt;/h2&gt;&lt;p&gt;可以和其他容器 包括 宝塔 或者 nginx-proxy-manager 配合使用（这两个只支持LE的免费域名，兼容性极差）&lt;/p&gt;
+&lt;h2 id="其他资源"&gt;其他资源
+&lt;/h2&gt;&lt;p&gt;支持180天的 （半年的）泛域名 以及 ip申请 ，应该 还是不支持内网ip的&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://hostloc.com/forum.php?mod=viewthread&amp;amp;tid=1050449" target="_blank" rel="noopener"
+&gt;https://hostloc.com/forum.php?mod=viewthread&amp;tid=1050449&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;作者主页：https://github.com/Neilpang&lt;/p&gt;</description></item><item><title>docker5.7</title><link>https://dev.leiyanhui.com/docker/mysql5-7/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/mysql5-7/</guid><description>&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="n"&gt;mysql5&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;3306&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3306&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;123456&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker_data&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker_data&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker_data&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;logs&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nb"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mf"&gt;5.7&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>输入法的选择，win linux macos 安卓 ios</title><link>https://dev.leiyanhui.com/c/inputexe/</link><pubDate>Sat, 22 Oct 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/c/inputexe/</guid><description>&lt;h1 id="输入法的选择"&gt;输入法的选择
+&lt;/h1&gt;&lt;h2 id="输入法的选择-1"&gt;输入法的选择
+&lt;/h2&gt;&lt;h2 id="先说结论"&gt;先说结论
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;rime为主，独立帐号的百度输入法 辅助&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="本文最后一次更新2022年11月29日"&gt;本文最后一次更新2022年11月29日。
+&lt;/h2&gt;&lt;p&gt;win linux 已经 全部切换到 rime。安卓有客户端，但是研究过怎么用，我安卓是备用电话机。。
+ios 暂时还是用的百度输入法。 美区有&lt;code&gt;iRime&lt;/code&gt; (没开源国区下架了)1.99刀，可以用。
+linux下偶尔也用&lt;code&gt;fcitx-googlepinyin&lt;/code&gt; 比较轻量&lt;/p&gt;
+&lt;p&gt;优点:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;流畅 非常非常流畅，哪怕momo7w这种N年前都百元平板上都可以流畅输入&lt;/li&gt;
+&lt;li&gt;无隐私问题&lt;/li&gt;
+&lt;li&gt;字库可以自己git 或者 坚果云 备份&lt;/li&gt;
+&lt;li&gt;除了ios之外所有平台可用&lt;/li&gt;
+&lt;li&gt;皮肤可以自定义 可以自行配置&lt;/li&gt;
+&lt;li&gt;扩展性很强&lt;/li&gt;
+&lt;li&gt;开源 快平台&lt;/li&gt;
+&lt;li&gt;标准词库格式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;缺点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;新人初次上手难度大 需要设置的地方多 部分配置需要自行修改配置文件&lt;/li&gt;
+&lt;li&gt;没有云输入，也就是新鲜热词词库是没有的&lt;/li&gt;
+&lt;li&gt;linux不支持&lt;code&gt;fcitx-cloudpinyin&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;官网地址：https://rime.im 下载链接：&lt;a class="link" href="https://rime.im/download/" target="_blank" rel="noopener"
+&gt;https://rime.im/download/&lt;/a&gt;
+win下叫做 小狼毫 linux下可选 fcitx-rime(第三方) 或者 ibus-rime
+===========以下是旧文章================&lt;/p&gt;
+&lt;h2 id="再说原因"&gt;再说原因
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;win mac ios 安卓 部分Linux桌面版可以用 词库过得去 ios下基本完美 语音识别准确率过得去&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="不选择其他的原因"&gt;不选择其他的原因
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;· QQ拼音 不支持非Linux 和mac 不考虑 · 搜狗拼音且不说广告【百度拼音可以说没有】，ios下频繁消失的问题频繁出现 · 讯飞 mac和linux支持不好 · 搜狗 另外在多数linux发行版上面没有词库同步&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;#再说缺点&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;· 李彦宏家的 这货&amp;hellip; 隐私问题 独立账号登陆吧 · 设置同步 好像有逻辑问题，比如候选词9个，就不行 · 有时候按错键莫名其妙插入emjo表情，在一些在线编辑器就成了上传图片 · 没有错键识别纠正，比如 jiuzheng 我如果按成kiuzheng 不会自动纠正&lt;/p&gt;
+&lt;/blockquote&gt;</description></item></channel></rss>

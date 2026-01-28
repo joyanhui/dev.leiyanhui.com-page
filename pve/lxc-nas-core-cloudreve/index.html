@@ -1,0 +1,309 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content=" 2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。\ncloudreve 是优秀的国产开源程序，使用golang写的，轻量高性能，3.7版本以后开始支持 wopi扩展office在线编辑。而且可以直接加ssl 以及对象储存支持等\n要说缺点。。。就是ios客户端 收费。。。不过有第三方webdav 客户端这个也不算太大缺点。\n但是 cloudreve 貌似不支持默认路径储存，也就是无法和smb无缝配合,而且他的数据库功能也就限制了，你要使用smb的话，就必须要要 先挂载webdav 再开启smb套娃&mldr;\n买断的话 实际最少价格 是 399 + 398 不便宜，不过好在免费版本也可以用\n本文主要内容\n利用 几个开源golang程序 搭建 轻量但是灵活高性能nas cloudreve 搭建在线web网盘和webdav，acme.sh获取域名证书，rclone挂载到本地，samba wsdd搭建smb，openssh搭建sftp\nalpine的配置 宿主机器 依旧是使用lxc的alpine alpine 容器的创建和基本配置 ：https://dev.leiyanhui.com/pve/lxc-nas\n创建特权容器 10000 ，模板 alpine 3.17 ，磁盘0.5G cpu12核 ，内存 1024 swap 0 开dhcp 并且在选项里面 打开 嵌套 和fuse。 挂载 pve上的物理过来\n1 2 pct set 10000 -mp0 /dev/sda1,mp=/mnt/sda1 pct start 10000 #启动 其他修改源 时区 还有常用工具安装 参考 https://dev.leiyanhui.com/pve/lxc-nas\n"><title>lxc alpine下使用cloudreve替代nginx搭建webdav 并开启smb/nfs和sftp</title><link rel=canonical href=https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="lxc alpine下使用cloudreve替代nginx搭建webdav 并开启smb/nfs和sftp "><meta property='og:description' content=" 2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。\ncloudreve 是优秀的国产开源程序，使用golang写的，轻量高性能，3.7版本以后开始支持 wopi扩展office在线编辑。而且可以直接加ssl 以及对象储存支持等\n要说缺点。。。就是ios客户端 收费。。。不过有第三方webdav 客户端这个也不算太大缺点。\n但是 cloudreve 貌似不支持默认路径储存，也就是无法和smb无缝配合,而且他的数据库功能也就限制了，你要使用smb的话，就必须要要 先挂载webdav 再开启smb套娃&mldr;\n买断的话 实际最少价格 是 399 + 398 不便宜，不过好在免费版本也可以用\n本文主要内容\n利用 几个开源golang程序 搭建 轻量但是灵活高性能nas cloudreve 搭建在线web网盘和webdav，acme.sh获取域名证书，rclone挂载到本地，samba wsdd搭建smb，openssh搭建sftp\nalpine的配置 宿主机器 依旧是使用lxc的alpine alpine 容器的创建和基本配置 ：https://dev.leiyanhui.com/pve/lxc-nas\n创建特权容器 10000 ，模板 alpine 3.17 ，磁盘0.5G cpu12核 ，内存 1024 swap 0 开dhcp 并且在选项里面 打开 嵌套 和fuse。 挂载 pve上的物理过来\n1 2 pct set 10000 -mp0 /dev/sda1,mp=/mnt/sda1 pct start 10000 #启动 其他修改源 时区 还有常用工具安装 参考 https://dev.leiyanhui.com/pve/lxc-nas\n"><meta property='og:url' content='https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Pve'><meta property='article:published_time' content='2023-02-13T07:14:20+08:00'><meta property='article:modified_time' content='2023-02-13T07:14:20+08:00'><meta name=twitter:title content="lxc alpine下使用cloudreve替代nginx搭建webdav 并开启smb/nfs和sftp "><meta name=twitter:description content=" 2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。\ncloudreve 是优秀的国产开源程序，使用golang写的，轻量高性能，3.7版本以后开始支持 wopi扩展office在线编辑。而且可以直接加ssl 以及对象储存支持等\n要说缺点。。。就是ios客户端 收费。。。不过有第三方webdav 客户端这个也不算太大缺点。\n但是 cloudreve 貌似不支持默认路径储存，也就是无法和smb无缝配合,而且他的数据库功能也就限制了，你要使用smb的话，就必须要要 先挂载webdav 再开启smb套娃&mldr;\n买断的话 实际最少价格 是 399 + 398 不便宜，不过好在免费版本也可以用\n本文主要内容\n利用 几个开源golang程序 搭建 轻量但是灵活高性能nas cloudreve 搭建在线web网盘和webdav，acme.sh获取域名证书，rclone挂载到本地，samba wsdd搭建smb，openssh搭建sftp\nalpine的配置 宿主机器 依旧是使用lxc的alpine alpine 容器的创建和基本配置 ：https://dev.leiyanhui.com/pve/lxc-nas\n创建特权容器 10000 ，模板 alpine 3.17 ，磁盘0.5G cpu12核 ，内存 1024 swap 0 开dhcp 并且在选项里面 打开 嵌套 和fuse。 挂载 pve上的物理过来\n1 2 pct set 10000 -mp0 /dev/sda1,mp=/mnt/sda1 pct start 10000 #启动 其他修改源 时区 还有常用工具安装 参考 https://dev.leiyanhui.com/pve/lxc-nas\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#alpine的配置>alpine的配置</a></li><li><a href=#安装-cloudreve>安装 cloudreve</a><ol><li><a href=#配置cloudreve本地储存路径>配置cloudreve本地储存路径</a></li><li><a href=#alpine下配置自动启动和守护>alpine下配置自动启动和守护</a></li><li><a href=#配置ssl>配置ssl</a><ol><li><a href=#acmesh>acme.sh</a></li><li><a href=#配置cloudreve-使用ssl证书>配置cloudreve 使用ssl证书</a></li></ol></li><li><a href=#进阶>进阶</a><ol><li><a href=#数据库>数据库</a></li><li><a href=#在线编辑office>在线编辑office</a></li></ol></li><li><a href=#其他问题>其他问题</a></li></ol></li><li><a href=#本机挂载webdav-为smb和sftp准备>本机挂载webdav 为smb和sftp准备</a><ol><li><a href=#创建webdav密码>创建webdav密码</a></li><li><a href=#挂载>挂载</a><ol><li><a href=#rclone>rclone</a></li><li><a href=#手动挂载>手动挂载</a></li></ol></li><li><a href=#开机自动挂载>开机自动挂载</a></li></ol></li><li><a href=#配置smb>配置smb</a><ol><li><a href=#sftp配置>sftp配置</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/pve/ style=background-color:#efbee3;color:#3d0f32>Pve
+</a><a href=/categories/lxc/ style=background-color:#efbed9;color:#3d0f29>Lxc
+</a><a href=/categories/alpine/ style=background-color:#ddbeef;color:#2c0f3d>Alpine
+</a><a href=/categories/cloudreve/ style=background-color:#bee0ef;color:#0f2f3d>Cloudreve</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/pve/lxc-nas-core-cloudreve/>lxc alpine下使用cloudreve替代nginx搭建webdav 并开启smb/nfs和sftp</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-02-13T07:14:20+08:00>2023-02-13</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><blockquote><p>2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。</p></blockquote><p>cloudreve 是优秀的国产开源程序，使用golang写的，轻量高性能，3.7版本以后开始支持 wopi扩展office在线编辑。而且可以直接加ssl 以及对象储存支持等</p><p>要说缺点。。。就是ios客户端 收费。。。不过有第三方webdav 客户端这个也不算太大缺点。</p><p>但是 cloudreve 貌似不支持默认路径储存，也就是无法和smb无缝配合,而且他的数据库功能也就限制了，你要使用smb的话，就必须要要 先挂载webdav 再开启smb套娃&mldr;</p><p>买断的话 实际最少价格 是 399 + 398 不便宜，不过好在免费版本也可以用</p><p>本文主要内容</p><blockquote><p>利用 几个开源golang程序 搭建 轻量但是灵活高性能nas
+cloudreve 搭建在线web网盘和webdav，acme.sh获取域名证书，rclone挂载到本地，samba wsdd搭建smb，openssh搭建sftp</p></blockquote><h2 id=alpine的配置>alpine的配置</h2><p>宿主机器 依旧是使用lxc的alpine alpine 容器的创建和基本配置 ：<a class=link href=https://dev.leiyanhui.com/pve/lxc-nas target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-nas</a></p><p>创建特权容器 10000 ，模板 alpine 3.17 ，磁盘0.5G cpu12核 ，内存 1024 swap 0 开dhcp 并且在选项里面 打开 嵌套 和fuse。
+挂载 pve上的物理过来</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>pct set 10000  -mp0 /dev/sda1,mp=/mnt/sda1
+</span></span><span class=line><span class=cl>pct start 10000  #启动
+</span></span></code></pre></td></tr></table></div></div><p>其他修改源 时区 还有常用工具安装 参考 <a class=link href=https://dev.leiyanhui.com/pve/lxc-nas target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-nas</a></p><h2 id=安装-cloudreve>安装 cloudreve</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>cd</span> <span class=o>/</span><span class=n>mnt</span><span class=o>/</span><span class=n>sda1</span>
+</span></span><span class=line><span class=cl><span class=n>apk</span> <span class=n>add</span> <span class=n>wget</span>
+</span></span><span class=line><span class=cl><span class=n>wget</span> <span class=n>https</span><span class=p>:</span><span class=o>//</span><span class=n>github</span><span class=o>.</span><span class=n>com</span><span class=o>/</span><span class=n>cloudreve</span><span class=o>/</span><span class=n>Cloudreve</span><span class=o>/</span><span class=n>releases</span><span class=o>/</span><span class=n>download</span><span class=o>/</span><span class=mf>3.7</span><span class=o>.</span><span class=mi>0</span><span class=o>/</span><span class=n>cloudreve_3</span><span class=o>.</span><span class=mf>7.0</span><span class=n>_linux_amd64</span><span class=o>.</span><span class=n>tar</span><span class=o>.</span><span class=n>gz</span>
+</span></span><span class=line><span class=cl><span class=n>tar</span> <span class=o>-</span><span class=n>zxvf</span> <span class=n>cloudreve</span><span class=o>*.</span><span class=n>tar</span><span class=o>.</span><span class=n>gz</span>
+</span></span><span class=line><span class=cl><span class=n>rm</span> <span class=o>-</span><span class=n>rf</span> <span class=n>LICENSE</span> <span class=n>README</span><span class=o>*</span> <span class=n>cloudreve</span><span class=o>*.</span><span class=n>tar</span><span class=o>.</span><span class=n>gz</span>
+</span></span><span class=line><span class=cl><span class=o>./</span><span class=n>cloudreve</span>
+</span></span></code></pre></td></tr></table></div></div><p>启动后会自动显示 端口和 用户密码等</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>[Info]    02-13 14:38:39 Admin user name: admin@cloudreve.org
+</span></span><span class=line><span class=cl>[Info]    2023-02-13 14:38:39 Admin password: HMLXclhK
+</span></span></code></pre></td></tr></table></div></div><p>cloudreve 的本机储存 是放在同目录的upload目录下，所以。。cloudreve 可以直接放到 lxc直通硬盘里面。</p><h3 id=配置cloudreve本地储存路径>配置cloudreve本地储存路径</h3><p>这个步骤可以省略，我这里直接放到了/mnt/sda1/ 并在 另外一个容器中用duplicati+alist 整体备份sda1 到阿里云盘
+1、增加一个本地储存策略 名称“本地机械硬盘” /mnt/sda1/cloudreve/{uid}/{path}<br>2、修改对应用户组 储存策略 为 “本地机械硬盘”</p><h3 id=alpine下配置自动启动和守护>alpine下配置自动启动和守护</h3><p>用supervisor 更简单一些</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>apk add supervisor nano
+</span></span><span class=line><span class=cl>rc-update add supervisord boot
+</span></span><span class=line><span class=cl>service supervisord restart
+</span></span></code></pre></td></tr></table></div></div><p>初始化配置文件</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>echo_supervisord_conf &gt; /etc/supervisord.conf
+</span></span><span class=line><span class=cl>nano  /etc/supervisord.conf
+</span></span></code></pre></td></tr></table></div></div><p>编辑或者添加文件末尾两行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>[include]
+</span></span><span class=line><span class=cl>files = /mnt/sda1/conf/supervisor/*.ini
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>mkdir -p /mnt/sda1/conf/supervisor/
+</span></span><span class=line><span class=cl>nano /mnt/sda1/conf/supervisor/cloudreve.ini
+</span></span></code></pre></td></tr></table></div></div><p>根据自己的情况配置 注意这个文件是ini格式的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>[program:cloudreve]
+</span></span><span class=line><span class=cl>directory=/mnt/sda1/
+</span></span><span class=line><span class=cl>command=/mnt/sda1/cloudreve
+</span></span><span class=line><span class=cl>autostart=true
+</span></span><span class=line><span class=cl>autorestart=true
+</span></span><span class=line><span class=cl>;stderr_logfile=/tmp/cloudreve.err
+</span></span><span class=line><span class=cl>;stdout_logfile=/tmp/cloudreve.log
+</span></span><span class=line><span class=cl>environment=CODENATION_ENV=prod
+</span></span></code></pre></td></tr></table></div></div><p>管理</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>supervisord -c /etc/supervisord.conf
+</span></span><span class=line><span class=cl>supervisorctl start cloudreve
+</span></span><span class=line><span class=cl>supervisorctl restart cloudreve
+</span></span><span class=line><span class=cl>supervisorctl stop cloudreve
+</span></span><span class=line><span class=cl>supervisorctl status cloudreve
+</span></span></code></pre></td></tr></table></div></div><h3 id=配置ssl>配置ssl</h3><p>我这里为了避免麻烦，直接用cloudreve+acme.sh</p><h4 id=acmesh>acme.sh</h4><h5 id=安装>安装</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>apk add curl openssl
+</span></span><span class=line><span class=cl>curl https://get.acme.sh | sh -s email=joyanhui@qq.com
+</span></span></code></pre></td></tr></table></div></div><p>acme.sh 依赖openssl，国内手动安装</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>apk add wget unzip
+</span></span><span class=line><span class=cl>cd ~
+</span></span><span class=line><span class=cl>wget https://ghproxy.com/https://github.com/acmesh-official/acme.sh/archive/refs/heads/master.zip
+</span></span><span class=line><span class=cl>unzip 
+</span></span><span class=line><span class=cl>mv acme.sh-master  .acme.sh
+</span></span><span class=line><span class=cl>rm -rf master.zip .acme.sh/.githu
+</span></span></code></pre></td></tr></table></div></div><h5 id=配置dns>配置dns</h5><p>我这里用的dnspod,先登录到 dnspod 账号, 生成你的 api id 和 api key, 这个简单，自己看dnspod操作即可</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>vi /etc/profile
+</span></span></code></pre></td></tr></table></div></div><p>末尾添加</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=k>export</span> <span class=n>DP_Id</span><span class=o>=</span><span class=s2>&#34;1243354&#34;</span>
+</span></span><span class=line><span class=cl><span class=k>export</span> <span class=n>DP_Key</span><span class=o>=</span><span class=s2>&#34;XXXXXXXXXXXXXXXXXXXX&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>alias</span> <span class=n>acme</span><span class=o>.</span><span class=n>sh</span><span class=o>=/</span><span class=n>root</span><span class=o>/.</span><span class=n>acme</span><span class=o>.</span><span class=n>sh</span><span class=o>/</span><span class=n>acme</span><span class=o>.</span><span class=n>sh</span>
+</span></span></code></pre></td></tr></table></div></div><p>启用和测试</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>source /etc/profile
+</span></span><span class=line><span class=cl>echo $DP_Id
+</span></span></code></pre></td></tr></table></div></div><h5 id=创建证书>创建证书</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>acme.sh --register-account -m joyanhui@qq.com --issue --dns dns_dp -d jia.leiyanhui.com -d *.jia.leiyanhui.com 
+</span></span></code></pre></td></tr></table></div></div><p>其他参数</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>--server letsencrypt  # 更换letsencrypt证书，默认是zerossl的
+</span></span></code></pre></td></tr></table></div></div><p>检查计划任务, 顺带修改一下时间，避开高峰期。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>crontab -e
+</span></span><span class=line><span class=cl>========
+</span></span><span class=line><span class=cl>20 14 * * * &#34;/root/.acme.sh&#34;/acme.sh --cron --home &#34;/root/.acme.sh&#34; &gt; /dev/null
+</span></span></code></pre></td></tr></table></div></div><h4 id=配置cloudreve-使用ssl证书>配置cloudreve 使用ssl证书</h4><p><code>conf.ini</code> 添加一段</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>[SSL]
+</span></span><span class=line><span class=cl>Listen = :5213
+</span></span><span class=line><span class=cl>CertPath = /root/.acme.sh/jia.leiyanhui.com_ecc/fullchain.cer
+</span></span><span class=line><span class=cl>KeyPath = /root/.acme.sh/jia.leiyanhui.com_ecc/jia.leiyanhui.com.key
+</span></span></code></pre></td></tr></table></div></div><p>重启 <code>supervisorctl restart cloudreve</code></p><p>打开 <code>https://10.1.1.80:5213/</code> 查看 当然证书肯定是有问题的，但是可以看到证书对应到域名了。</p><h3 id=进阶>进阶</h3><h4 id=数据库>数据库</h4><p>文件多，或者用户数比较多的情况下，最好启用mysql数据库。</p><h4 id=在线编辑office>在线编辑office</h4><p>使用wopi <a class=link href=https://dev.leiyanhui.com/pve/lxc-nas-office target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-nas-office</a></p><h3 id=其他问题>其他问题</h3><p>目前cloudreve webdav上传的文件不能自动创建缩略图，作者表示3.8版本会修复。</p><h2 id=本机挂载webdav-为smb和sftp准备>本机挂载webdav 为smb和sftp准备</h2><h3 id=创建webdav密码>创建webdav密码</h3><p>cloudreve的webdav密码是独立的，帐号是和用户名的邮箱通用的。<br>前台登录后，点击 链接 webdav 创建新帐号，输入备注，然后密码是自动生成的，用户名是当前用户。</p><h3 id=挂载>挂载</h3><h4 id=rclone>rclone</h4><p>davfs2 的挂载后有一些小问题，不太确定原因。推荐使用rclone</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>curl</span> <span class=o>-</span><span class=n>O</span> <span class=n>https</span><span class=p>:</span><span class=o>//</span><span class=n>downloads</span><span class=o>.</span><span class=n>rclone</span><span class=o>.</span><span class=n>org</span><span class=o>/</span><span class=n>rclone</span><span class=o>-</span><span class=n>current</span><span class=o>-</span><span class=n>linux</span><span class=o>-</span><span class=n>amd64</span><span class=o>.</span><span class=n>zip</span>
+</span></span><span class=line><span class=cl><span class=n>unzip</span> <span class=n>rclone</span><span class=o>-</span><span class=n>current</span><span class=o>-</span><span class=n>linux</span><span class=o>-</span><span class=n>amd64</span><span class=o>.</span><span class=n>zip</span>
+</span></span><span class=line><span class=cl><span class=n>cd</span> <span class=n>rclone</span><span class=o>-*-</span><span class=n>linux</span><span class=o>-</span><span class=n>amd64</span>
+</span></span><span class=line><span class=cl><span class=n>cp</span> <span class=n>rclone</span> <span class=o>/</span><span class=n>usr</span><span class=o>/</span><span class=n>bin</span><span class=o>/</span>
+</span></span><span class=line><span class=cl><span class=n>chown</span> <span class=n>root</span><span class=p>:</span><span class=n>root</span> <span class=o>/</span><span class=n>usr</span><span class=o>/</span><span class=n>bin</span><span class=o>/</span><span class=n>rclone</span>
+</span></span><span class=line><span class=cl><span class=n>chmod</span> <span class=mi>755</span> <span class=o>/</span><span class=n>usr</span><span class=o>/</span><span class=n>bin</span><span class=o>/</span><span class=n>rclone</span>
+</span></span><span class=line><span class=cl><span class=n>rclone</span> <span class=n>config</span> <span class=c1>#按照提示创建一个webdav节点 名称 cloudreve，vendor选择nextcloud就行，按照提示配置账户密码，其他默认</span>
+</span></span></code></pre></td></tr></table></div></div><p>rclone的配置文件如下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>[cloudreve]
+</span></span><span class=line><span class=cl>type = webdav
+</span></span><span class=line><span class=cl>url = https://外网地址:5213/dav
+</span></span><span class=line><span class=cl>vendor = nextcloud
+</span></span><span class=line><span class=cl>user = 你的邮箱
+</span></span><span class=line><span class=cl>pass = 加密后的密码
+</span></span></code></pre></td></tr></table></div></div><h4 id=手动挂载>手动挂载</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>mkdir /mnt/dav
+</span></span><span class=line><span class=cl>apk add fuse
+</span></span><span class=line><span class=cl>rclone mount cloudreve:/ /mnt/dav
+</span></span></code></pre></td></tr></table></div></div><h3 id=开机自动挂载>开机自动挂载</h3><p>这里一方面 需要开机自动运行，一方面还需要cloudreve启动后 才可以。
+证书忽略 <code>--insecure </code>或者 <code>-k</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>serv_http_code=`curl -I -k -m 10 -o /dev/null -s -w %{http_code} https://localhost:5213/`
+</span></span><span class=line><span class=cl>echo $serv_http_code
+</span></span></code></pre></td></tr></table></div></div><p>创建一个脚本 <code>nano /etc/local.d/mount_webdav.start</code> 后台启动一个脚本</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sh /mnt/sda1/mount_webdav.sh &amp;
+</span></span></code></pre></td></tr></table></div></div><p><code>chmod +x /etc/local.d/mount_webdav.start</code><br>以及一个shell用来判断cloudreve的状态，如果没启动 那么尝试去启动，代码很简单。<br><code>nano /mnt/sda1/mount_webdav.sh</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>while :
+</span></span><span class=line><span class=cl>do
+</span></span><span class=line><span class=cl>  serv_http_code=`curl -I -k -m 10 -o /dev/null -s -w %{http_code} https://localhost:5213/`
+</span></span><span class=line><span class=cl>  echo &#34;检查cloudreve状态：&#34;${serv_http_code}
+</span></span><span class=line><span class=cl>  if [ &#34;$serv_http_code&#34; -eq &#34;200&#34; ];then
+</span></span><span class=line><span class=cl>    if grep -qs &#39;/mnt/dav&#39; /proc/mounts; then
+</span></span><span class=line><span class=cl>        echo &#34;已经挂载 不需要做任何事情&#34;
+</span></span><span class=line><span class=cl>        echo &#34;备份数据库文件&#34; &amp;&amp; cp /root/cloudreve.db /mnt/dav/
+</span></span><span class=line><span class=cl>    else
+</span></span><span class=line><span class=cl>      echo &#34;未曾挂载，尝试挂载&#34;
+</span></span><span class=line><span class=cl>      nohup rclone mount cloudreve:/ /mnt/dav &amp;
+</span></span><span class=line><span class=cl>      sleep 3
+</span></span><span class=line><span class=cl>      #echo &#34;备份数据库文件&#34; &amp;&amp; cp /root/cloudreve.db /mnt/dav/
+</span></span><span class=line><span class=cl>    fi 
+</span></span><span class=line><span class=cl>  else
+</span></span><span class=line><span class=cl>        umount /mnt/dav
+</span></span><span class=line><span class=cl>        supervisorctl restart  cloudreve
+</span></span><span class=line><span class=cl>  fi
+</span></span><span class=line><span class=cl>  sleep 10
+</span></span><span class=line><span class=cl>done
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rc-update add local  #添加一个local
+</span></span><span class=line><span class=cl>service local restart
+</span></span></code></pre></td></tr></table></div></div><p>重启测试，<code>ls /mnt/dav</code> 应该可以看到 lost+found 那就是没问题了。</p><h2 id=配置smb>配置smb</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>apk add samba
+</span></span><span class=line><span class=cl>rc-update add samba
+</span></span><span class=line><span class=cl>smbpasswd -a root # 配置用户的 smb密码 注意这个用户和运行cloudreve的用户 必须是同一个 否则会有权限冲突。
+</span></span><span class=line><span class=cl>apk add wsdd #发现服务
+</span></span><span class=line><span class=cl>rc-update add wsdd boot
+</span></span><span class=line><span class=cl>service wsdd restart
+</span></span><span class=line><span class=cl># 创建一个文件夹给 pve用  `mkdir /mnt/dav/pve-node`
+</span></span><span class=line><span class=cl>rm -rf /etc/samba/smb.conf &amp;&amp; nano /etc/samba/smb.conf
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># nano /etc/samba/smb.conf  编辑完成后重启 samba start</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>global<span class=o>]</span>
+</span></span><span class=line><span class=cl>allow insecure wide <span class=nv>links</span> <span class=o>=</span> yes 
+</span></span><span class=line><span class=cl><span class=nv>workgroup</span> <span class=o>=</span> WORKGROUP
+</span></span><span class=line><span class=cl>dos <span class=nv>charset</span> <span class=o>=</span> cp866
+</span></span><span class=line><span class=cl>unix <span class=nv>charset</span> <span class=o>=</span> utf-8
+</span></span><span class=line><span class=cl><span class=o>[</span>webdav<span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=nv>path</span> <span class=o>=</span> /mnt/dav
+</span></span><span class=line><span class=cl><span class=nv>writable</span> <span class=o>=</span> yes
+</span></span><span class=line><span class=cl>write <span class=nv>list</span> <span class=o>=</span> root
+</span></span><span class=line><span class=cl>valid <span class=nv>users</span> <span class=o>=</span> root
+</span></span><span class=line><span class=cl>display <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>unix <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>dos <span class=nv>charset</span> <span class=o>=</span> cp936
+</span></span><span class=line><span class=cl><span class=o>[</span>sda1<span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=nv>path</span> <span class=o>=</span> /mnt/sda1
+</span></span><span class=line><span class=cl><span class=nv>writable</span> <span class=o>=</span> yes
+</span></span><span class=line><span class=cl>write <span class=nv>list</span> <span class=o>=</span> root
+</span></span><span class=line><span class=cl>valid <span class=nv>users</span> <span class=o>=</span> root
+</span></span><span class=line><span class=cl>display <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>unix <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>dos <span class=nv>charset</span> <span class=o>=</span> cp936
+</span></span><span class=line><span class=cl><span class=c1>#下面这段给pve挂载用 mkdir /mnt/sda1/pve</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>pve-node<span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=nv>path</span> <span class=o>=</span> /mnt/dav/pve-node
+</span></span><span class=line><span class=cl><span class=nv>writable</span> <span class=o>=</span> yes
+</span></span><span class=line><span class=cl>write <span class=nv>list</span> <span class=o>=</span> root
+</span></span><span class=line><span class=cl>valid <span class=nv>users</span> <span class=o>=</span> root
+</span></span><span class=line><span class=cl>display <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>unix <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>dos <span class=nv>charset</span> <span class=o>=</span> cp936
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>rc-service samba restart <span class=c1>#重启</span>
+</span></span></code></pre></td></tr></table></div></div><p>windows下应该可以直接能访问了。如果不可以 可能需要 重启几次。</p><h3 id=sftp配置>sftp配置</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>apk add openssh
+</span></span><span class=line><span class=cl>rc-update add sshd boot
+</span></span><span class=line><span class=cl>service sshd restart
+</span></span></code></pre></td></tr></table></div></div><p>允许root 密码登录</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl># nano /etc/ssh/sshd_config 添加或者编辑下面内容 然后重启 service sshd restart
+</span></span><span class=line><span class=cl>PermitRootLogin yes
+</span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/pve/lxc-nas-cloudreve-aria2/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve替代nginx搭建webdav 之aria2离线下载</h2></div></a></article><article><a href=/pve/lxc-nas-office/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve 和 LibreOffice 的配置</h2></div></a></article><article><a href=/pve/lxc-nas-office-onlyoffice/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve 和 onlyoffice 的配置 包括onlyoffice的配置</h2></div></a></article><article><a href=/pve/lxc-nas/><div class=article-details><h2 class=article-title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 总览</h2></div></a></article><article><a href=/pve/lxc-nas-autobackup/><div class=article-details><h2 class=article-title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 异地备份</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.1>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

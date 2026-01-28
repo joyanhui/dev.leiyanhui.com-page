@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Gossip on 小类随手记</title><link>https://dev.leiyanhui.com/categories/gossip/</link><description>Recent content in Gossip on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 20 Dec 2023 18:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/gossip/index.xml" rel="self" type="application/rss+xml"/><item><title>低成本高可用性异地多活跨云部署方案</title><link>https://dev.leiyanhui.com/web/mcloud/</link><pubDate>Wed, 20 Dec 2023 18:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/mcloud/</guid><description>&lt;p&gt;在跨云异地多活部署遇到的最大的两个问题 1 是复杂度 2是成本。 一个项目想达到99.9%的高可用性，并且不依赖云厂商还是非常困难。 &lt;br&gt;
+异地多活有很多实现方法，下面分享一种 较为简单并尽可能的降低成本的方案。以阿里云 腾讯云 华为云，分别 上海 广州 北京 三城。以阿里（上海）和腾讯（广州）为主，华为为辅。&lt;br&gt;
+下文中所有的redis所指均为keydb6.x。&lt;/p&gt;
+&lt;h2 id="主要内容"&gt;主要内容
+&lt;/h2&gt;&lt;p&gt;负载均衡 路由层 业务层 缓存层 数据层 定时备份&lt;/p&gt;
+&lt;h2 id="负载均衡和路由层"&gt;负载均衡和路由层
+&lt;/h2&gt;&lt;p&gt;因为非传统web项目，有客户端，这部分内容集成到客户端。由客户端根据预置规则选择 请求到某一个机房。&lt;/p&gt;
+&lt;h2 id="业务层"&gt;业务层
+&lt;/h2&gt;&lt;p&gt;要全部改造为无状态服务， 部分业务需要完全兼容华为/阿里/腾讯的函数计算，并在对应的云厂商和自己的机器上都有部署。 &lt;br&gt;
+部分业务有读写冲突的情况，虽然多活部署，但是使用消息中间件确保只有一个实例处在运行状态，其他实例等待抢占上位。&lt;/p&gt;
+&lt;h2 id="缓存层和数据层"&gt;缓存层和数据层
+&lt;/h2&gt;&lt;p&gt;应用层对数据库的读写 都在redis中，少数在pgsql。pgsql的数据只作为分析和统计使用。 &lt;br&gt;
+其他需要储存的数据采用云厂商的对象储存。（要优化一下）&lt;/p&gt;
+&lt;h3 id="redis-使用多个集群"&gt;redis 使用多个集群
+&lt;/h3&gt;&lt;h4 id="核心集群跨云跨机房"&gt;核心集群跨云跨机房
+&lt;/h4&gt;&lt;p&gt;读多写少全局写入集群 储存核心数据 至少3主三从分散部署到 三云三城市。&lt;br&gt;
+核心数据主要用于储存一些增长缓慢但是读取频繁的数据。例如 用户信息 物联网设备配置信息等。&lt;br&gt;
+为了防止频繁跨云读取，应用层需要针对性的做一些改造，针对读写非常频繁的数据，本地机房应该开一个redis实例来缓存核心集群的数据降低核心集群压力。&lt;br&gt;
+1、应用层在启动的时候从redis按需要读取数据到本地全局map，并在每次处理请求的时候或者用定时器/消息订阅等方式来判断是否需要重新从redis读取数据。&lt;br&gt;
+2、对读取非常频繁的数据，需要在本机机房搭建一个redis实例用来作为核心集群的从库，核心集群的部分数据，降低核心集群压力，并降低核心集群公网通讯开支。&lt;br&gt;
+3、应用层在写入数据的是，需要按需判断本地redis同步库是否已经同步成功。&lt;/p&gt;
+&lt;h4 id="机房内部缓存"&gt;机房内部缓存
+&lt;/h4&gt;&lt;h5 id="读缓存"&gt;读缓存
+&lt;/h5&gt;&lt;p&gt;上文已经提到，机房内应该增加至少一个redis实例或者集群，用来作为核心集群的从库，作为本地部分数据的读取使用。以降低核心集群的公网通讯开支。&lt;br&gt;
+一致性要求非常高的数据，依旧是从核心集群读取。&lt;/p&gt;
+&lt;h5 id="写缓存的实现"&gt;写缓存的实现
+&lt;/h5&gt;&lt;p&gt;一致性要求不高的数据，写入到本地的redis集群，并安需定时同步到核心集群。例如：设备的在线状态和传感器数据（容许1-2秒延迟，故障时容许10-15秒延迟）&lt;br&gt;
+需要落地持久化的数据，并容许短时间丢失的数据（设备传感器的历史数据容许丢失3-5分钟的）先写入到本地的keydb 开启flash持久化，并定时同步flash文件和rdb aof文件到 本云的对象储存（因为数据庞大，后文针对此方案做了进一步优化降低开支）。
+一致性要求高的数据，直接写入到核心集群。&lt;/p&gt;
+&lt;h4 id="redis同步"&gt;redis同步
+&lt;/h4&gt;&lt;p&gt;除了redis cluster之外使用阿里的RedisShake来做单向同步。&lt;/p&gt;
+&lt;h4 id="pgsql"&gt;pgsql
+&lt;/h4&gt;&lt;h3 id="时序数据kv持久化储存"&gt;时序数据/kv持久化储存
+&lt;/h3&gt;&lt;h4 id="实现"&gt;实现
+&lt;/h4&gt;&lt;p&gt;项目以写为主，读取较少，所以这里直接使用keydb替代redis。同时部署多个集群来作为纯redis 和kv硬盘储存使用。&lt;br&gt;
+没有引入时序数据库，是因为数量没有那么庞大，keddb的flash方案可以满足。&lt;/p&gt;
+&lt;h4 id="容灾和数据合并"&gt;容灾和数据合并
+&lt;/h4&gt;&lt;h5 id="数据合并"&gt;数据合并
+&lt;/h5&gt;&lt;p&gt;因为此项目的这部分数据都是基于设备或用户的，所以同一个设备和同一个数据的历史数据可以合并到同一个key里面 以减少RocksDB（keydb的flash功能基于RocksDB）的小文件数量降低对象储存成本。&lt;br&gt;
+通过k8s/swarm 在阿里云和腾讯云分别 分别部署一个实例。两个实例先查询本地要处理的数据量，并协商以数据量较多的为主实例。两个实例分别合并前一天的历史数据到数组/map ，主实例在处理的时候询问从实例是否有同一个设备/用户的数据，如果有数据交付给主实例处理。如果没有从实例自己处理。 阿里云走内网数据持久到oss 腾讯云云走内网数据持久化到cos。另外一台不限制带宽的服务器同步合并两家对象储存数据保持一致。&lt;br&gt;
+查询的时候，当日数据从keydb查询，前一日数据从对象储存查询。&lt;/p&gt;
+&lt;h2 id="负载均衡和历史数据的处理"&gt;负载均衡和历史数据的处理
+&lt;/h2&gt;&lt;h3 id="设备和app的负载均衡"&gt;设备和app的负载均衡
+&lt;/h3&gt;&lt;p&gt;设备实时数据 接受的应用层 分别部署到阿里云和腾讯云的多台机器上，由客户端先询问服务上的入口应用程序自己应该请求那台服务，并在一定周期内（未断电重启）持续请求这台服务。如果对应的机器负载较大，会通知客户端更换一个别的地址，或者地址连不同的时候客户端也会更换一个地址。（用户的app同样的规则）&lt;/p&gt;
+&lt;h3 id="数据的储存"&gt;数据的储存
+&lt;/h3&gt;&lt;h4 id="实时数据"&gt;实时数据
+&lt;/h4&gt;&lt;p&gt;因为容许部分数据丢失，所以实时数据由对应的devConn服务直接储存到map，而不写入redis。用户端app在查询的时候，会先根据核心redis的从库中的对应设备的记录获取对应设备的服务器地址，直接查询map.&lt;/p&gt;
+&lt;h4 id="历史数据"&gt;历史数据
+&lt;/h4&gt;&lt;p&gt;实时数据需要及时落盘，容许丢失一小部分，但是不能产生大量碎文件，不然会导致后续储存费用太高。&lt;br&gt;
+为了降低io,由devConn自己处理储存问题。储存后如何同步到云储存参考上文。&lt;/p&gt;
+&lt;h2 id="其他"&gt;其他
+&lt;/h2&gt;&lt;p&gt;推荐阅读 &lt;a class="link" href="http://kaito-kidd.com/2021/10/15/what-is-the-multi-site-high-availability-design/" target="_blank" rel="noopener"
+&gt;http://kaito-kidd.com/2021/10/15/what-is-the-multi-site-high-availability-design/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>redis集群Gossip协议占用带宽过大的优化</title><link>https://dev.leiyanhui.com/redis/gossipoptimization/</link><pubDate>Tue, 19 Dec 2023 18:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/redis/gossipoptimization/</guid><description>&lt;p&gt;redis的Cluster集群去中心化，以及高可用和高弹性部署的优势，成为3节点以上redis必选的集群方案。
+keydb兼容redis6.x,并提供比redis性能更好多核优化。另外keydb支持flash储存模式和热数据内存储存，也成为大容量kv数据库的一个优先考虑方案。&lt;/p&gt;
+&lt;p&gt;最近几年云厂商频繁故障，也促使大家开始只使用云厂商的基础服务（主机）而更多的开始选择跨云跨地区部署。&lt;/p&gt;
+&lt;p&gt;而redis的Gossip协议此时会占用大量金贵的公网带宽&lt;/p&gt;
+&lt;h2 id="gossip消息有多大会占用多大带宽"&gt;Gossip消息有多大会占用多大带宽
+&lt;/h2&gt;&lt;p&gt;Redis 实例发送的 PING 消息的消息体是由 clusterMsgDataGossip 结构体组成的。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-c" data-lang="c"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;typedef&lt;/span&gt; &lt;span class="k"&gt;struct&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;char&lt;/span&gt; &lt;span class="n"&gt;nodename&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;CLUSTER_NAMELEN&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt; &lt;span class="c1"&gt;//40字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;uint32_t&lt;/span&gt; &lt;span class="n"&gt;ping_sent&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;//4字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;uint32_t&lt;/span&gt; &lt;span class="n"&gt;pong_received&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;//4字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;char&lt;/span&gt; &lt;span class="n"&gt;ip&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="n"&gt;NET_IP_STR_LEN&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt; &lt;span class="c1"&gt;//46字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;uint16_t&lt;/span&gt; &lt;span class="n"&gt;port&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;//2字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;uint16_t&lt;/span&gt; &lt;span class="n"&gt;cport&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;//2字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;uint16_t&lt;/span&gt; &lt;span class="n"&gt;flags&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;//2字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kt"&gt;uint32_t&lt;/span&gt; &lt;span class="n"&gt;notused1&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;//4字节
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt; &lt;span class="n"&gt;clusterMsgDataGossip&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;一个 Gossip 消息的大小了，即 104 字节。
+每个实例在发送一个 Gossip 消息时，除了会传递自身的状态信息，默认还会传递集群十分之一实例的状态信息。
+所以，对于一个包含了 1000 个实例的集群来说，每个实例发送一个 PING 消息时，会包含 100 个实例的状态信息，总的数据量是 10400 字节，再加上发送实例自身的信息，一个 Gossip 消息大约是 10KB。
+此外，为了让 Slot 映射表能够在不同实例间传播，PING 消息中还带有一个长度为 16,384 bit 的 Bitmap，这个 Bitmap 的每一位对应了一个 Slot，如果某一位为 1，就表示这个 Slot 属于当前实例。这个 Bitmap 大小换算成字节后，是 2KB。我们把实例状态信息和 Slot 分配信息相加，就可以得到一个 PING 消息的大小了，大约是 12KB。
+PONG 消息和 PING 消息的内容一样，所以，它的大小大约是 12KB。每个实例发送了 PING 消息后，还会收到返回的 PONG 消息，两个消息加起来有 24KB。
+如果实例正常处理的单个请求只有几 KB 的话，那么，实例为了维护集群状态一致传输的 PING/PONG 消息，就要比单个业务请求大了。而且，每个实例都会给其它实例发送 PING/PONG 消息。随着集群规模增加，这些心跳消息的数量也会越多，会占据一部分集群的网络通信带宽，进而会降低集群服务正常客户端请求的吞吐量。&lt;/p&gt;
+&lt;h2 id="通讯频率"&gt;通讯频率
+&lt;/h2&gt;&lt;p&gt;Redis Cluster 的实例启动后，默认会每秒从本地的实例列表中随机选出 5 个实例，再从这 5 个实例中找出一个最久没有通信的实例，把 PING 消息发送给该实例。这是实例周期性发送 PING 消息的基本做法。
+这有可能会出现，有些实例一直没有被发送 PING 消息，导致它们维护的集群状态已经过期了。
+为了避免这种情况，Redis Cluster 的实例会按照每 100ms 一次的频率，扫描本地的实例列表，如果发现有实例最近一次接收 PONG 消息的时间，已经大于配置项 cluster-node-timeout 的一半了（cluster-node-timeout/2），就会立刻给该实例发送 PING 消息，更新这个实例上的集群状态信息。
+我们来总结下单实例每秒会发送的 PING 消息数量，如下所示：&lt;/p&gt;
+&lt;p&gt;PING 消息发送数量 = 1 + 10 * 实例数（最近一次接收 PONG 消息的时间超出 cluster-node-timeout/2）&lt;/p&gt;
+&lt;p&gt;假设单个实例检测发现，每 100 毫秒有 10 个实例的 PONG 消息接收超时，那么，这个实例每秒就会发送 101 个 PING 消息，约占 1.2MB/s 带宽。如果集群中有 30 个实例按照这种频率发送消息，就会占用 36MB/s 带宽，这就会挤占集群中用于服务正常请求的带宽。&lt;/p&gt;
+&lt;h2 id="如何降低实例间的通信开销"&gt;如何降低实例间的通信开销
+&lt;/h2&gt;&lt;p&gt;我们现在知道，实例间发送消息的频率有两个。&lt;/p&gt;
+&lt;p&gt;每个实例每 1 秒发送一条 PING 消息。
+这个频率不算高，如果再降低该频率的话，集群中各实例的状态可能就没办法及时传播了。&lt;/p&gt;
+&lt;p&gt;每个实例每 100 毫秒会做一次检测，给 PONG 消息接收超过 cluster-node-timeout/2 的节点发送 PING 消息。&lt;/p&gt;
+&lt;p&gt;实例按照每 100 毫秒进行检测的频率，是 Redis 实例默认的周期性检查任务的统一频率，我们一般不需要修改它。&lt;/p&gt;
+&lt;p&gt;配置项 cluster-node-timeout 定义了集群实例被判断为故障的心跳超时时间，默认是 15 秒。如果 cluster-node-timeout 值比较小，那么，在大规模集群中，就会比较频繁地出现 PONG 消息接收超时的情况。
+为了避免过多的心跳消息挤占集群带宽，我们可以调大 cluster-node-timeout 值，比如说调大到 20 秒或 25 秒。这样一来， PONG 消息接收超时的情况就会有所缓解，单实例也不用频繁地每秒执行 10 次心跳发送操作了。
+如何验证
+为了验证调整 cluster-node-timeout 值后，是否能减少心跳消息占用的集群网络带宽，我给你提个小建议：你可以在调整 cluster-node-timeout 值的前后，使用 tcpdump 命令抓取实例发送心跳信息网络包的情况。
+执行下面的命令后，我们可以抓取到 192.168.10.3 机器上的实例从 16379 端口发送的心跳网络包，并把网络包的内容保存到 r1.cap 文件中：
+bash复制代码tcpdump host 192.168.10.3 port 16379 -i 网卡名 -w /tmp/r1.cap&lt;/p&gt;
+&lt;p&gt;通过分析网络包的数量和大小，就可以判断调整 cluster-node-timeout 值前后，心跳消息占用的带宽情况了。&lt;/p&gt;
+&lt;h3 id="关于codis"&gt;关于Codis
+&lt;/h3&gt;&lt;p&gt;Codis采取单独管理Slot的 以及作为redis的一个前端代理的方式可以不使用Gossip协议，所以没有这部带宽占用。但是codis已经很久不维护，并且引入了中间件以后会降低整体性能。
+所以最好的方法 还是 1、控制集群实例的数量 2、调大cluster-node-timeout 值并做好集群故障/脑裂的自愈&lt;/p&gt;</description></item></channel></rss>
