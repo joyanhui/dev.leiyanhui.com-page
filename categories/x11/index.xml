@@ -1,0 +1,1334 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>X11 on 小类随手记</title><link>https://dev.leiyanhui.com/categories/x11/</link><description>Recent content in X11 on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 07 Jul 2023 11:02:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/x11/index.xml" rel="self" type="application/rss+xml"/><item><title>docker运行debian桌面 包含i3 xrdp（带声音） x11 vnc novnc</title><link>https://dev.leiyanhui.com/docker/debian-desktop/</link><pubDate>Fri, 07 Jul 2023 11:02:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-desktop/</guid><description>&lt;p&gt;debian12 i3 xrdp novnc X11Forwarding include pulseaudio-xrdp&lt;/p&gt;
+&lt;p&gt;没多余的软件，内存占用200M左右，甚至浏览器都没有。 后文有详细的使用方法和 安装其他的软件的方法。&lt;/p&gt;
+&lt;h2 id="本文说明"&gt;本文说明
+&lt;/h2&gt;&lt;p&gt;joyanhui/debian-i3-xrdp-novnc 使用docker 和 lxc/lxd ，本文可能会滞后最新，更多问题问题请查看docker和lxd的使用手册。&lt;br&gt;
+如果您没有使用过i3 openbox lxc等软件，务必仔细阅读本文，至少会让你熟悉了解相关操作。&lt;/p&gt;
+&lt;h2 id="特性"&gt;特性
+&lt;/h2&gt;&lt;p&gt;轻量 干净 基于i3 和 openbox 可以用xrdp novnc(webvnc) vnc x11 等方式运行。&lt;br&gt;
+是一个完整的操作系统，systemd可正常使用，甚至可以再次安装docker&lt;br&gt;
+vnc和novnc使用简洁的原生openbox xrdp使用依赖快捷键但是更高效的i3 &lt;br&gt;
+采用docker 运行lxd的方法 alpine3.18.2 =&amp;gt; lxd &lt;br&gt;
+集成软件：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;debian 12 bookworm&lt;/li&gt;
+&lt;li&gt;i3 openbox polybar rofi alacritty dunst zsh firefox-esr thunar gvfs gvfs-backends gvfs-fuse sshfs&lt;/li&gt;
+&lt;li&gt;tigervnc&lt;/li&gt;
+&lt;li&gt;novnc websockify&lt;/li&gt;
+&lt;li&gt;ttf-wqy-zhenhei fonts-jetbrains-mono fonts-noto-color-emoji 微软雅黑&lt;/li&gt;
+&lt;li&gt;服务管理支持：systemd supervisor&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/docker/debian-desktop-next/" target="_blank" rel="noopener"
+&gt;更新记录和计划&lt;/a&gt; &lt;br&gt;
+&lt;a class="link" href="https://dev.leiyanhui.com/docker/debian-desktop-exec/" target="_blank" rel="noopener"
+&gt;公开的搭建过程&lt;/a&gt; &lt;br&gt;
+&lt;a class="link" href="https://dev.leiyanhui.com/docker/debian-desktop-old-only-docker/" target="_blank" rel="noopener"
+&gt;如果你使用的旧版请查看旧版说明&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="安装"&gt;安装
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --restart&lt;span class="o"&gt;=&lt;/span&gt;always --name dt --hostname dt --privileged&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nb"&gt;true&lt;/span&gt; &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 3389:3389 -p 222:22 -p 2222:2222 -p 8080:8080 -p 5900-5905:5900-5905 -v /mnt:/mnt &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; joyanhui/debian-i3-xrdp-novnc sh /boot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;3389是xrdp端口 2222 是ssh x11端口 8080 是novnc 端口 5900-5905 是vnc端口默认用户是5900 ，222 是alpine容器的ssh端口&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;20230707 之前版本是纯docker实现，不包含浏览器和文件管理器，之后的版本是lxd lxc实现 并带firefox-esr 和thunar 网络挂载 并支持 systemd。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="默认账号-以及相关用户名和密码"&gt;默认账号 以及相关用户名和密码
+&lt;/h2&gt;&lt;p&gt;总共有三个密码：&lt;/p&gt;
+&lt;h3 id="debian的系统用户"&gt;debian的系统用户
+&lt;/h3&gt;&lt;p&gt;用户名：yanhui 密码：1 （只有一个数字1）&lt;br&gt;
+这个用户名密码，同时对应debian的 ssh xrdp 的默认账号 对应默认端口：2222 和 3389
+debian默认的root 没设置密码，禁止ssh登陆&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 修改密码
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker exec -it dt lxc exec dt /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="debian的vnc的密码"&gt;debian的vnc的密码
+&lt;/h3&gt;&lt;p&gt;vnc 密码：111111（六个数字1）&lt;br&gt;
+此密码用于vnc 和novnc登陆 默认用户yanhui的桌面&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 修改密码
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker exec -it dt lxc exec dt /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;su yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;vncpasswd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="alpine的root账户"&gt;alpine的root账户
+&lt;/h3&gt;&lt;p&gt;用户名 root 密码:1（只有一个数字1）&lt;br&gt;
+此密码同时左右 alpine的ssh登陆密码，对应默认端口：222&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 修改密码
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker exec -it dt /bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;部署完毕后，务必第一时间修改密码！&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="为什么选择debian-而不是arch--nixos"&gt;为什么选择debian 而不是arch nixos
+&lt;/h2&gt;&lt;p&gt;因为比Ubuntu干净，debian一直被诟病的包少的问题，debian12 增加了11089个包，总数量已经到了64419，部分官方仓库没有的软件，软件开发者自己一般提供源或者deb。 &lt;br&gt;
+放弃archlinux改debian 是因为有部分商业软件只有deb rpm包aur里面没有，自己解包太麻烦。&lt;br&gt;
+arch和nixos一些其他缺点这里不多说。&lt;br&gt;
+其实最主要的是 不折腾 稳如老狗，以及 个人喜好 以及和服务器端的环境一致性&lt;/p&gt;
+&lt;h2 id="为什么用docker-套lxd"&gt;为什么用docker 套lxd
+&lt;/h2&gt;&lt;p&gt;不直接用lxd 是因为部分环境不支持，另外docker的分层commit 更方便。 更可以推送到自己的私有regditer&lt;br&gt;
+不直接用docker 是因为 docker 限制太多，不算是太完整的系统，lxc lxd 是一个完整的系统。&lt;br&gt;
+所以20230707版本以后 改为 docker运行alpine 然后在alpine内用lxd运行 debian12&lt;br&gt;
+alpine是一个只有3m大小的linux系统，在用lxd嵌套后，比旧方案多占用30-60M内存，80M硬盘，但是带来的是一个完整的linux体验，并且性能吊打虚拟机模式！&lt;/p&gt;
+&lt;h2 id="为什么选择i3-和openbox-怎么换其他桌面"&gt;为什么选择i3 和openbox 怎么换其他桌面
+&lt;/h2&gt;&lt;p&gt;因为轻量，以及个人习惯，你可以自由换成其他任意桌面系统。
+因为i3的高效来自快捷键，但是在浏览器中会有大量快捷键冲突。所以新版本在novnc中使用了同样轻量的openbox。&lt;br&gt;
+而在xrdp中，因为全屏模式 和部分支持rdp的客户端软件 均可做到键盘映射，所以xrdp使用了i3桌面&lt;/p&gt;
+&lt;h3 id="更换为其他桌面的方法"&gt;更换为其他桌面的方法
+&lt;/h3&gt;&lt;p&gt;例如，要换成 xfce4首先安装&lt;code&gt;sudo apt install xfce4&lt;/code&gt; ,然后修改 &lt;code&gt;~/.vnc/xstartup &lt;/code&gt; 可以更换vnc和novnc的桌面。&lt;br&gt;
+修改用户目录下的 &lt;code&gt;~/.xsession&lt;/code&gt; 文件可以替换xrdp的桌面。然后卸载掉i3或者openbox即可:&lt;code&gt;sudo apt purge i3&lt;/code&gt; or &lt;code&gt;sudo apt purge openbox&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="novnc-vnc为什么是黑屏"&gt;novnc vnc为什么是黑屏
+&lt;/h2&gt;&lt;p&gt;就是黑屏的，因为为了节省资源用的没有任何扩展的openbox。 也没有壁纸，右键 有惊喜！&lt;/p&gt;
+&lt;h2 id="怎么启动shell-和常见快捷键"&gt;怎么启动shell 和常见快捷键
+&lt;/h2&gt;&lt;p&gt;基本是i3 的默认快捷键&lt;br&gt;
+点屏幕顶部的 Apps&amp;gt; 系统 &amp;gt;终端 （部分菜单无用，是因为没对应软件，你可以看一下polybar的配置文件 ）&lt;br&gt;
+如果是rdp远程桌面下，按下键盘 ： win+回车 &lt;br&gt;
+启动管理器（开始菜单） :win d&lt;br&gt;
+程序切换 alt+tab
+修改窗口大小：按住win 再按住 鼠标右键 来回拖动&lt;br&gt;
+修改窗口位置：按住win 再按住 鼠标左键 来回拖动&lt;br&gt;
+关闭软件：win shift q&lt;br&gt;
+注销：win shift e&lt;br&gt;
+更多使用方法 自己看一下i3 使用说明&lt;/p&gt;
+&lt;h2 id="如何从宿主机器直接进去debian-shell"&gt;如何从宿主机器直接进去debian shell
+&lt;/h2&gt;&lt;p&gt;两步&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 进入docker alpine
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker exec -it dt /bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 进入lxc
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc exec dt /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 或者直接
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker exec -it dt lxc exec dt /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;第一个dt 是docker的容器名称，第二个 是lxc 的容器名称&lt;br&gt;
+你也可以在登陆 vnc/xrdp后直接运行&lt;/p&gt;
+&lt;h2 id="怎么装中文输入法"&gt;怎么装中文输入法
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install fcitx5 fcitx5-chinese-addons
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;openbox 需要右键手动加载，其他现代的桌面系统，包括i3。安装完成后，注销重新登录一次桌面，会自动加载，拼音输入法可导入搜狗细胞词库，具体自己研究。&lt;br&gt;
+默认中英文切换快捷键是 ctrl+空格 ，如果你在非全屏的xrdp 或novnc /vnc 下切换，注意和本地的输入法快捷键冲突问题。&lt;/p&gt;
+&lt;h2 id="怎么新建用户怎么删除默认用户"&gt;怎么新建用户怎么删除默认用户
+&lt;/h2&gt;&lt;h3 id="新建用户"&gt;新建用户
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo adduser YouName
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo usermod -aG sudo YouName
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="新用户vnc密码"&gt;新用户vnc密码
+&lt;/h4&gt;&lt;p&gt;ssh 或者 xrdp 登陆新用户后，运行 &lt;code&gt;vncpasswd&lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="更新-vnc服务"&gt;更新 vnc服务
+&lt;/h4&gt;&lt;p&gt;修改里面的用户名&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/systemd/system/vncserver@0.service
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/supervisor/conf.d/novnc.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="删除默认用户"&gt;删除默认用户
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo deluser yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /home/yanhui # 在确认用不到以后 再删除 为了不污染全局，桌面相关的配置文件都在这个目录里面
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="怎么修改密码"&gt;怎么修改密码
+&lt;/h2&gt;&lt;h3 id="用户密码"&gt;用户密码
+&lt;/h3&gt;&lt;p&gt;命令：&lt;code&gt;passwd&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="vnc密码"&gt;vnc密码
+&lt;/h3&gt;&lt;p&gt;命令：&lt;code&gt;vncpasswd .vnc/passwd&lt;/code&gt; ，需要重启vnc服务，查看 &lt;code&gt; systemctrl restart vncserver@0&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="x11转发模式如何使用输入法"&gt;x11转发模式如何使用输入法
+&lt;/h2&gt;&lt;p&gt;修改一下fcitx5的中英文切换快捷键，和你当前电脑的不能一样。然后先执行 &lt;code&gt;fcitx5&amp;amp;&lt;/code&gt; 再执行对应的软件。&lt;/p&gt;
+&lt;h2 id="x11-转发模式部分软件很卡"&gt;x11 转发模式部分软件很卡
+&lt;/h2&gt;&lt;p&gt;没得办法，可以适当优化一下自己网上搜吧。另外 火狐在x11转发模式下默认配置要比chrome系更卡。&lt;/p&gt;
+&lt;h2 id="novnc默认地址"&gt;novnc默认地址
+&lt;/h2&gt;&lt;p&gt;http://你的ip:8080/ 其中端口docker内部默认使用8080，外部端口是你自己映射的。&lt;/p&gt;
+&lt;h2 id="novnc如何走https"&gt;novnc如何走https
+&lt;/h2&gt;&lt;p&gt;建议用Nginx 统一反代一下，或带supervisor启动的时候带证书。&lt;/p&gt;
+&lt;h2 id="vnc连不上"&gt;vnc连不上
+&lt;/h2&gt;&lt;p&gt;此问题只在 20230707之前版本存在&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm /tmp/.X0-lock
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;把上面这行代码添加到 /autoStart.sh 第二行，然后重启整个容器&lt;/p&gt;
+&lt;h2 id="天气预报出错以及如何修改天气预报城市"&gt;天气预报出错以及如何修改天气预报城市
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;~/.config/polybar/weather-plugin.py&lt;/code&gt; 这个文件
+天气预报接口 用的openweathermap,内置的我自己的接口，用的人多了会受限制无法使用。&lt;br&gt;
+你自己去注册一个账号，然后创建一个key。查询一下你所需要城市的id，然后修改里面的网址部分的 id（城市） appid（你自己的）&lt;br&gt;
+&lt;code&gt;https://api.openweathermap.org/data/2.5/weather?id=1793724&amp;amp;appid=440b47a5ffbc5421e4a9befcbc4d635b&amp;amp;units=Metric&amp;amp;lang=zh_cn&lt;/code&gt;&lt;br&gt;
+你如果不想用，直接在 polybar的配置文件里面删掉即可。&lt;/p&gt;
+&lt;h2 id="如何调音量"&gt;如何调音量
+&lt;/h2&gt;&lt;p&gt;在i3配置文件里面修改&lt;br&gt;
+调整音量 快捷键：win ctrl ↑ 和 win ctrl ↓，（左右是静音）也可以鼠标移动到 polybar 音量图标位置滚轮调整。&lt;br&gt;
+进阶用法，自己配置i3和polybar&lt;/p&gt;
+&lt;h2 id="vnc-和xrdp-桌面不同步"&gt;vnc 和xrdp 桌面不同步
+&lt;/h2&gt;&lt;p&gt;是的，这是两个虚拟显示，所以不同步。如果要显示同样的内容，可以在xrdp登陆的时候 选择登陆到vnc 而不是org 。&lt;/p&gt;
+&lt;h2 id="novnc-网页访问按键失灵乱跳"&gt;noVNC 网页访问按键失灵乱跳
+&lt;/h2&gt;&lt;p&gt;1、关闭宿主的中文输入法，使用宿主机系统自带的英文输入法&lt;br&gt;
+2、更换浏览器，目前发现chrome edge之类的 在noVNC下兼容性不如新版火狐 火狐 96以后版本测试运行良好，safari 和 ios下的浏览器均不兼容的哈。&lt;/p&gt;
+&lt;h2 id="xrdp-登陆后桌面灰色无显示"&gt;xrdp 登陆后桌面灰色无显示
+&lt;/h2&gt;&lt;p&gt;长期无操作后，锁屏了而已。依次盲输入密码然后按下回车 验证成功后 即可登入桌面。&lt;br&gt;
+如果你不需要锁屏功能，可以删掉 &lt;code&gt;sudo apt purge i3lock&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="没声音或者--顶部音量不显示"&gt;没声音或者 顶部音量不显示
+&lt;/h2&gt;&lt;h3 id="vnc-和x11-没声音"&gt;vnc 和x11 没声音
+&lt;/h3&gt;&lt;p&gt;vnc和x11 就是没声音的话，如果确实要，请用pulseaudio转发 或者换xrdp&lt;/p&gt;
+&lt;h3 id="xrdp的polybar-偶尔不显示音量"&gt;xrdp的polybar 偶尔不显示音量
+&lt;/h3&gt;&lt;p&gt;这个是polybar 在 debian12下 和 pulseaudio-module-xrdp 之间的bug，已经提交过issue，等更新吧。&lt;br&gt;
+临时解决方法,在桌面登陆一会后 重启pulseaudio和polybar&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;killall pulseaudio &amp;amp;&amp;amp; pulseaudio &amp;amp;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh .config/polybar/polybar_run.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;20230707 以后的版本，可以在polybar顶部菜单用依次点击： APPS &amp;gt; polybar &amp;gt; 重启声音 APPS &amp;gt; polybar &amp;gt; 重载polybar&lt;/p&gt;
+&lt;h2 id="如何修改分辨率"&gt;如何修改分辨率
+&lt;/h2&gt;&lt;h3 id="vnc-novnc"&gt;vnc novnc
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/systemd/system/vncserver@0.service # geometry 后面的参数是vnc的分辨率
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="xrdp"&gt;xrdp
+&lt;/h3&gt;&lt;p&gt;xrdp的分辨率 由你的客户端 发起的时候配置&lt;/p&gt;
+&lt;h2 id="openbox的壁纸点好多次才换一张"&gt;openbox的壁纸点好多次才换一张
+&lt;/h2&gt;&lt;p&gt;壁纸是随机更换的默认就带了两张，所以会有50%概率不更换。&lt;/p&gt;
+&lt;h2 id="安装常用软件"&gt;安装常用软件
+&lt;/h2&gt;&lt;p&gt;点屏幕左上角 APPS &amp;gt; 系统 &amp;gt; 终端 输入 &lt;code&gt;sudo apt install &amp;lt;包名&amp;gt;&lt;/code&gt;命令；启动软件 APPS &amp;gt; 系统 &amp;gt; &lt;code&gt;rofi-run&lt;/code&gt; 选择软件或者输入软件名称&lt;br&gt;
+或者xrdp全屏模式下 novnc 左侧快捷键也可： win+回车 win+d&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install firefox-esr # 火狐 20230707以后版本自带
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install chromium #chrome 开源版，闭源版本 去google下载deb 或者添加源
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install nemo nautilus # 文件管理器 任选一个 20230707以后版本自带 thunar
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# todesk 中文不显示 需要另外处理，这里不多说
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://newdl.todesk.com/linux/todesk-v4.3.1.0-amd64.deb
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt-get install ./todesk-v4.3.1.0-amd64.deb #sudo apt purge todesk
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 远程其他电脑
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install freerdp2-x11 #xfreerdp
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install remmina # 可选包 remmina-plugin-x2go
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# neofetch 命令行装b工具
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install neofetch
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# flameshot 截图工具
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install flameshot
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# linuxqq
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://dldir1.qq.com/qqfile/qq/QQNT/ad5b5393/linuxqq_3.1.2-13107_amd64.deb
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt-get install ./linuxqq_3.1.2-13107_amd64.deb
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="如何访问文件"&gt;如何访问文件
+&lt;/h2&gt;&lt;h3 id="thunar--方式"&gt;thunar 方式
+&lt;/h3&gt;&lt;p&gt;20230707以后版本集成了thunar 和smb sshfs webdav访问组件。
+打开 thunar ，地址栏输入：&lt;code&gt;smb://10.1.1.100&lt;/code&gt; 或者&lt;code&gt;dav://10.1.1.100&lt;/code&gt; 即可&lt;/p&gt;
+&lt;h3 id="文件挂载"&gt;文件挂载
+&lt;/h3&gt;&lt;p&gt;参考后文 目录映射 方法&lt;/p&gt;
+&lt;h2 id="不喜欢默认用户的shell"&gt;不喜欢默认用户的shell
+&lt;/h2&gt;&lt;p&gt;默认用户 yanhui的 shell是 zsh 并用oh-my-zsh定制了一下，不喜欢 可以 直接输入exit 退出到bash。 &lt;br&gt;
+然后自己删掉 .bashrc 的最后一行 zsh 三个字母。最后卸载掉 zsh ，并删除 .oh-my-zsh 目录即可&lt;/p&gt;
+&lt;h2 id="pve-lxc-ct-或者docker宿主机-目录映射-端口-和显卡等"&gt;pve lxc ct 或者docker宿主机 目录映射 端口 和显卡等
+&lt;/h2&gt;&lt;h3 id="pve-硬盘到lxc"&gt;pve 硬盘到lxc
+&lt;/h3&gt;&lt;p&gt;请看：https://dev.leiyanhui.com/pve/lxc-mount-dir/&lt;/p&gt;
+&lt;h3 id="docker宿主机-目录映射"&gt;docker宿主机 目录映射
+&lt;/h3&gt;&lt;p&gt;默认 映射 /mnt/sda1 到最终的debian12 &lt;br&gt;
+如果要映射其他目录，先映射到docker内，确保早docker内可以访问的情况下在docker内如下命令映射到 lxc&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt sda1 disk source=/mnt/sda1 path=/mnt/sda1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;更多使用方法，以及权限问题，请参考lxd手册&lt;/p&gt;
+&lt;h3 id="端口"&gt;端口
+&lt;/h3&gt;&lt;p&gt;先映射端口到docker,而后在docker内 用如下命令映射到lxc&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt demoName proxy listen=tcp:0.0.0.0:8888 connect=tcp:127.0.0.1:8888
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;更多使用方法，请参考lxd手册&lt;/p&gt;
+&lt;h3 id="如何使用显卡加速"&gt;如何使用显卡加速
+&lt;/h3&gt;&lt;p&gt;以nvidia为例在创建docker的时候 把显卡挂进去即可&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run ....
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --device /dev/nvidia0:/dev/nvidia0 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --device /dev/nvidiactl:/dev/nvidiactl \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --device /dev/nvidia-uvm:/dev/nvidia-uvm \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ....
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="pve-群晖--unraid-esxi-下的安装方式"&gt;pve 群晖 unraid esxi 下的安装方式
+&lt;/h3&gt;&lt;p&gt;pve下，你可以用lxc/vm 运行docker的方式运行，也可以，从本镜像内提取lxc模板直接导入到 CT容器。
+其他系统 建议直接docker运行&lt;/p&gt;
+&lt;h2 id="目录和文件说明"&gt;目录和文件说明
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;/boot.sh&lt;/code&gt; 在docker内 其他文件在 debian内&lt;/p&gt;
+&lt;h3 id="启动文件"&gt;启动文件
+&lt;/h3&gt;&lt;h4 id="bootsh"&gt;boot.sh
+&lt;/h4&gt;&lt;p&gt;&lt;code&gt;/boot.sh&lt;/code&gt; 在docker内 用于启动alpine的 ssh 和 lxd/lxc 的debian&lt;/p&gt;
+&lt;h4 id="systemd-和-supervisord"&gt;systemd 和 supervisord
+&lt;/h4&gt;&lt;p&gt;systemd 和 supervisord 在 lxc的debian内&lt;br&gt;
+novnc使用supervisord启动:&lt;code&gt;/etc/supervisor/conf.d/&lt;/code&gt;，vnc和其他服务使用systemd启动：&lt;code&gt;/etc/systemd/system/&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="i3-配置文件"&gt;i3 配置文件
+&lt;/h3&gt;&lt;p&gt;/home/yanhui/.config/i3/config&lt;/p&gt;
+&lt;h3 id="openbox配置文件"&gt;openbox配置文件
+&lt;/h3&gt;&lt;p&gt;/home/yanhui/.config/openbox/menu.xml #右键菜单 &lt;br&gt;
+feh.sh rofi.sh #右键菜单对应 壁纸和rofi的的执行脚本&lt;/p&gt;
+&lt;h3 id="壁纸目录"&gt;壁纸目录
+&lt;/h3&gt;&lt;p&gt;i3配置文件调用feh随机选
+/home/yanhui/.config/i3/bg/&lt;/p&gt;
+&lt;h3 id="polybar"&gt;polybar
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;/home/yanhui/.config/polybar/config.ini # polybar的全部配置文件 包括左上角菜单&lt;/li&gt;
+&lt;li&gt;/home/yanhui/.config/polybar/polybar_run.sh # 启动和重启polybar的脚本&lt;/li&gt;
+&lt;li&gt;/home/yanhui/.config/polybar/weather-plugin.py # polybar 天气预报插件 用的 openweathermap.org的接口 内置key用的人多有可能失效，自己去注册一个换掉。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="rofi"&gt;rofi
+&lt;/h3&gt;&lt;p&gt;/home/yanhui/.config/rofi/config.rasi&lt;/p&gt;
+&lt;h3 id="dunst"&gt;dunst
+&lt;/h3&gt;&lt;p&gt;/home/yanhui/.config/dunst/dunstrc&lt;/p&gt;
+&lt;h3 id="alacritty"&gt;alacritty
+&lt;/h3&gt;&lt;p&gt;/home/yanhui/.config/alacritty/alacritty.yml&lt;/p&gt;
+&lt;h3 id="zsh"&gt;zsh
+&lt;/h3&gt;&lt;p&gt;/home/yanhui/.zshrc
+/home/yanhui/.oh-my-zsh&lt;/p&gt;</description></item><item><title>joyanhui/debian-i3-xrdp-novnc 公开的搭建过程</title><link>https://dev.leiyanhui.com/docker/debian-desktop-exec/</link><pubDate>Fri, 07 Jul 2023 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-desktop-exec/</guid><description>&lt;p&gt;未使用Dockerfile 是因为搭建过程略微复杂，如果另外打包出来rootfs 也没有什么意义。所以干脆公开过程。&lt;/p&gt;
+&lt;p&gt;本文可能存在滞后，未经过严格整理和核对,所有历史命令，你在 下述文件中均可以看到&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it dt lxc &lt;span class="nb"&gt;exec&lt;/span&gt; dt cat /root/.bash_history
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it dt lxc &lt;span class="nb"&gt;exec&lt;/span&gt; dt cat /home/yanhui/.bash_history
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it dt lxc &lt;span class="nb"&gt;exec&lt;/span&gt; dt cat /home/yanhui/.zsh_history
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it dt cat /root/.ash_history
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;宿主用alpine&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --restart&lt;span class="o"&gt;=&lt;/span&gt;always --name &lt;span class="nb"&gt;test&lt;/span&gt; --hostname &lt;span class="nb"&gt;test&lt;/span&gt; --privileged&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nb"&gt;true&lt;/span&gt; &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 333:3389 -p 2221:2222 -p 2222:2222 -p 888:8080 -p 6900-6905:5900-5905 -v /mnt:/mnt &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; alpine:3.18.2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it &lt;span class="nb"&gt;test&lt;/span&gt; /bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s1"&gt;&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g&amp;#39;&lt;/span&gt; /etc/apk/repositories
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apk add tzdata
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;Asia/Shanghai&amp;#34;&lt;/span&gt; &amp;gt; /etc/timezone
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apk del tzdata
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apk add openssh lxd lxd-client lxcfs dbus
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s1"&gt;&amp;#39;s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g&amp;#39;&lt;/span&gt; /etc/ssh/sshd_config
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;session optional pam_cgfs.so -c freezer,memory,name=systemd,unified&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /etc/pam.d/system-login
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;lxc.idmap = u 0 100000 65536&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /etc/lxc/default.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;lxc.idmap = g 0 100000 65536&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /etc/lxc/default.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;root:100000:65536&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /etc/subuid
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;root:100000:65536&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /etc/subgid
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;systemd_container=yes&amp;#34;&lt;/span&gt;&amp;gt;&amp;gt; /etc/conf.d/lxc
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 处理 启动文件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;root:1&amp;#34;&lt;/span&gt; &lt;span class="p"&gt;|&lt;/span&gt; chpasswd &lt;span class="c1"&gt;# alpine的root密码改为1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# lxc lxd lxcfs dbus&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;/usr/sbin/sshd -D&amp;#34;&lt;/span&gt; &amp;gt; /boot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;lxd &amp;amp;&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /boot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;lxc start dt &amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /boot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;tail -f /dev/null&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; /boot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;chmod +x /boot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxd &lt;span class="p"&gt;&amp;amp;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxd init &lt;span class="c1"&gt;# 全部默认 除了自动更新那个&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc launch images:debian/12 dt
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 这个错误不影响 ERROR [2023-07-06T21:40:35+08:00] balance: Unable to set cpuset err=&amp;#34;setting cgroup item for the container failed&amp;#34; name=dt value=&amp;#34;0,1,10,11,2,3,4,5,6,7,8,9&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config &lt;span class="nb"&gt;set&lt;/span&gt; dt security.privileged &lt;span class="nb"&gt;true&lt;/span&gt; &lt;span class="c1"&gt;#特权&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config get dt security.privileged &lt;span class="c1"&gt;#检查&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc info dt
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 处理端口映射&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt xrdp proxy &lt;span class="nv"&gt;listen&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:0.0.0.0:3389 &lt;span class="nv"&gt;connect&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:127.0.0.1:3389
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt sshd proxy &lt;span class="nv"&gt;listen&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:0.0.0.0:22 &lt;span class="nv"&gt;connect&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:127.0.0.1:2222
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt novnc proxy &lt;span class="nv"&gt;listen&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:0.0.0.0:8080 &lt;span class="nv"&gt;connect&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:127.0.0.1:8080
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt vnc0 proxy &lt;span class="nv"&gt;listen&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:0.0.0.0:5900 &lt;span class="nv"&gt;connect&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:127.0.0.1:5900
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt vnc1 proxy &lt;span class="nv"&gt;listen&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:0.0.0.0:5901 &lt;span class="nv"&gt;connect&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:127.0.0.1:5901
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt sshd proxy &lt;span class="nv"&gt;listen&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:0.0.0.0:2222 &lt;span class="nv"&gt;connect&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;tcp:127.0.0.1:22
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 删除 lxc config device remove dt sshd&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 挂载目录&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc config device add dt sda1 disk &lt;span class="nv"&gt;source&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;/mnt/sda1 &lt;span class="nv"&gt;path&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;/mnt/sda1 &lt;span class="c1"&gt;# 挂载目录&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt; 10
+&lt;/span&gt;&lt;span class="lnt"&gt; 11
+&lt;/span&gt;&lt;span class="lnt"&gt; 12
+&lt;/span&gt;&lt;span class="lnt"&gt; 13
+&lt;/span&gt;&lt;span class="lnt"&gt; 14
+&lt;/span&gt;&lt;span class="lnt"&gt; 15
+&lt;/span&gt;&lt;span class="lnt"&gt; 16
+&lt;/span&gt;&lt;span class="lnt"&gt; 17
+&lt;/span&gt;&lt;span class="lnt"&gt; 18
+&lt;/span&gt;&lt;span class="lnt"&gt; 19
+&lt;/span&gt;&lt;span class="lnt"&gt; 20
+&lt;/span&gt;&lt;span class="lnt"&gt; 21
+&lt;/span&gt;&lt;span class="lnt"&gt; 22
+&lt;/span&gt;&lt;span class="lnt"&gt; 23
+&lt;/span&gt;&lt;span class="lnt"&gt; 24
+&lt;/span&gt;&lt;span class="lnt"&gt; 25
+&lt;/span&gt;&lt;span class="lnt"&gt; 26
+&lt;/span&gt;&lt;span class="lnt"&gt; 27
+&lt;/span&gt;&lt;span class="lnt"&gt; 28
+&lt;/span&gt;&lt;span class="lnt"&gt; 29
+&lt;/span&gt;&lt;span class="lnt"&gt; 30
+&lt;/span&gt;&lt;span class="lnt"&gt; 31
+&lt;/span&gt;&lt;span class="lnt"&gt; 32
+&lt;/span&gt;&lt;span class="lnt"&gt; 33
+&lt;/span&gt;&lt;span class="lnt"&gt; 34
+&lt;/span&gt;&lt;span class="lnt"&gt; 35
+&lt;/span&gt;&lt;span class="lnt"&gt; 36
+&lt;/span&gt;&lt;span class="lnt"&gt; 37
+&lt;/span&gt;&lt;span class="lnt"&gt; 38
+&lt;/span&gt;&lt;span class="lnt"&gt; 39
+&lt;/span&gt;&lt;span class="lnt"&gt; 40
+&lt;/span&gt;&lt;span class="lnt"&gt; 41
+&lt;/span&gt;&lt;span class="lnt"&gt; 42
+&lt;/span&gt;&lt;span class="lnt"&gt; 43
+&lt;/span&gt;&lt;span class="lnt"&gt; 44
+&lt;/span&gt;&lt;span class="lnt"&gt; 45
+&lt;/span&gt;&lt;span class="lnt"&gt; 46
+&lt;/span&gt;&lt;span class="lnt"&gt; 47
+&lt;/span&gt;&lt;span class="lnt"&gt; 48
+&lt;/span&gt;&lt;span class="lnt"&gt; 49
+&lt;/span&gt;&lt;span class="lnt"&gt; 50
+&lt;/span&gt;&lt;span class="lnt"&gt; 51
+&lt;/span&gt;&lt;span class="lnt"&gt; 52
+&lt;/span&gt;&lt;span class="lnt"&gt; 53
+&lt;/span&gt;&lt;span class="lnt"&gt; 54
+&lt;/span&gt;&lt;span class="lnt"&gt; 55
+&lt;/span&gt;&lt;span class="lnt"&gt; 56
+&lt;/span&gt;&lt;span class="lnt"&gt; 57
+&lt;/span&gt;&lt;span class="lnt"&gt; 58
+&lt;/span&gt;&lt;span class="lnt"&gt; 59
+&lt;/span&gt;&lt;span class="lnt"&gt; 60
+&lt;/span&gt;&lt;span class="lnt"&gt; 61
+&lt;/span&gt;&lt;span class="lnt"&gt; 62
+&lt;/span&gt;&lt;span class="lnt"&gt; 63
+&lt;/span&gt;&lt;span class="lnt"&gt; 64
+&lt;/span&gt;&lt;span class="lnt"&gt; 65
+&lt;/span&gt;&lt;span class="lnt"&gt; 66
+&lt;/span&gt;&lt;span class="lnt"&gt; 67
+&lt;/span&gt;&lt;span class="lnt"&gt; 68
+&lt;/span&gt;&lt;span class="lnt"&gt; 69
+&lt;/span&gt;&lt;span class="lnt"&gt; 70
+&lt;/span&gt;&lt;span class="lnt"&gt; 71
+&lt;/span&gt;&lt;span class="lnt"&gt; 72
+&lt;/span&gt;&lt;span class="lnt"&gt; 73
+&lt;/span&gt;&lt;span class="lnt"&gt; 74
+&lt;/span&gt;&lt;span class="lnt"&gt; 75
+&lt;/span&gt;&lt;span class="lnt"&gt; 76
+&lt;/span&gt;&lt;span class="lnt"&gt; 77
+&lt;/span&gt;&lt;span class="lnt"&gt; 78
+&lt;/span&gt;&lt;span class="lnt"&gt; 79
+&lt;/span&gt;&lt;span class="lnt"&gt; 80
+&lt;/span&gt;&lt;span class="lnt"&gt; 81
+&lt;/span&gt;&lt;span class="lnt"&gt; 82
+&lt;/span&gt;&lt;span class="lnt"&gt; 83
+&lt;/span&gt;&lt;span class="lnt"&gt; 84
+&lt;/span&gt;&lt;span class="lnt"&gt; 85
+&lt;/span&gt;&lt;span class="lnt"&gt; 86
+&lt;/span&gt;&lt;span class="lnt"&gt; 87
+&lt;/span&gt;&lt;span class="lnt"&gt; 88
+&lt;/span&gt;&lt;span class="lnt"&gt; 89
+&lt;/span&gt;&lt;span class="lnt"&gt; 90
+&lt;/span&gt;&lt;span class="lnt"&gt; 91
+&lt;/span&gt;&lt;span class="lnt"&gt; 92
+&lt;/span&gt;&lt;span class="lnt"&gt; 93
+&lt;/span&gt;&lt;span class="lnt"&gt; 94
+&lt;/span&gt;&lt;span class="lnt"&gt; 95
+&lt;/span&gt;&lt;span class="lnt"&gt; 96
+&lt;/span&gt;&lt;span class="lnt"&gt; 97
+&lt;/span&gt;&lt;span class="lnt"&gt; 98
+&lt;/span&gt;&lt;span class="lnt"&gt; 99
+&lt;/span&gt;&lt;span class="lnt"&gt;100
+&lt;/span&gt;&lt;span class="lnt"&gt;101
+&lt;/span&gt;&lt;span class="lnt"&gt;102
+&lt;/span&gt;&lt;span class="lnt"&gt;103
+&lt;/span&gt;&lt;span class="lnt"&gt;104
+&lt;/span&gt;&lt;span class="lnt"&gt;105
+&lt;/span&gt;&lt;span class="lnt"&gt;106
+&lt;/span&gt;&lt;span class="lnt"&gt;107
+&lt;/span&gt;&lt;span class="lnt"&gt;108
+&lt;/span&gt;&lt;span class="lnt"&gt;109
+&lt;/span&gt;&lt;span class="lnt"&gt;110
+&lt;/span&gt;&lt;span class="lnt"&gt;111
+&lt;/span&gt;&lt;span class="lnt"&gt;112
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# debian内处理&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lxc &lt;span class="nb"&gt;exec&lt;/span&gt; dt /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; sed -i &lt;span class="s1"&gt;&amp;#39;s/deb.debian.org/mirrors.ustc.edu.cn/g&amp;#39;&lt;/span&gt; /etc/apt/sources.list
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt update&lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt;apt upgrade
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 基础&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y wget curl nano openssh-server unzip sudo zsh
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 桌面&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install i3 openbox
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 错误不影响 Failed to try-restart systemd-binfmt.service: Unit systemd-binfmt.service is masked.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 字体&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install fonts-jetbrains-mono fonts-noto-color-emoji
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir -p /usr/share/fonts/WindowsFonts &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="nb"&gt;cd&lt;/span&gt; /usr/share/fonts/WindowsFonts
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget -c https://ghproxy.com/https://raw.githubusercontent.com/joyanhui/file.leiyanhui.com/windows_font/msyh.ttc
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;fc-cache -f
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;dpkg-reconfigure locales &lt;span class="c1"&gt;# zh_CN.UTF-8&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 常用组件 状态了 图片查看壁纸 终端 任务切换和运行 shell pythone的模块&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y polybar feh dunst alacritty rofi zsh python3-requests
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 浏览器和文件管理器&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y firefox-esr thunar &lt;span class="c1"&gt;# 不需要可以自己删除 ，占用硬盘400多M&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# thunar网络访问 nas所需要组件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y gvfs gvfs-backends gvfs-fuse sshfs &lt;span class="c1"&gt;# 占用硬盘61M openbox下无法使用&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 中文输入法&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#apt install -y fcitx5-chinese-addons # 740M&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 远程&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y xrdp tigervnc-standalone-server novnc python3-websockify supervisor &lt;span class="c1"&gt;# 194M&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 编译 xrdp 声音&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y pulseaudio
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y build-essential dpkg-dev libpulse-dev git autoconf libtool &lt;span class="c1"&gt;# 此部分组建谨慎删除&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y lsb-release doxygen
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;git clone https://github.com/neutrinolabs/pulseaudio-module-xrdp.git &lt;span class="c1"&gt;# 基于v0.7&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; pulseaudio-module-xrdp
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;scripts/install_pulseaudio_sources_apt.sh &lt;span class="c1"&gt;# debian12 用这，另外一个是scripts/install_pulseaudio_sources_apt_wrapper.sh 不兼容debian12&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;./bootstrap &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; ./configure &lt;span class="nv"&gt;PULSE_DIR&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;~/pulseaudio.src
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;make &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; make install
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 验证&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ls &lt;span class="k"&gt;$(&lt;/span&gt;pkg-config --variable&lt;span class="o"&gt;=&lt;/span&gt;modlibexecdir libpulse&lt;span class="k"&gt;)&lt;/span&gt; &lt;span class="p"&gt;|&lt;/span&gt; grep xrdp &lt;span class="c1"&gt;# module-xrdp-sink.so 和 module-xrdp-source.so 就是成功了&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 用户名&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;useradd -ms /bin/bash yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;yanhui:1&amp;#34;&lt;/span&gt; &lt;span class="p"&gt;|&lt;/span&gt; chpasswd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;usermod -G sudo yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#loginctl enable-linger yanhui # 允许此用户推出登陆后 他的用户服务依旧执行&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 服务处理 vnc 和 novnc&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 处理用户 ======== start&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;su yanhui &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="nb"&gt;cd&lt;/span&gt; ~
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# vnc 密码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;vncpasswd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 默认shell 从 bash转zsh&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;zsh&amp;#34;&lt;/span&gt; &amp;gt;&amp;gt; ~/.bashrc
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# xrdp 默认桌面&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; i3 &amp;gt;/home/yanhui/.xsession
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 壁纸 2张&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir ~/bg &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="nb"&gt;cd&lt;/span&gt; ~/bg
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://raw.githubusercontent.com/joyanhui/file.leiyanhui.com/dwm-wallpaper/green.jpg
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://raw.githubusercontent.com/joyanhui/file.leiyanhui.com/dwm-wallpaper/bing-jurenzhilu.jpg
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# zsh&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; ~
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://github.com/joyanhui/oh-my-zsh/archive/refs/heads/main.zip -O main.zip
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;unzip main.zip &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; mv oh-my-zsh-main/.oh-my-zsh .
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp oh-my-zsh-main/.zshrc .&lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; rm main.zip &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; rm -rf oh-my-zsh-main/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# i3 配置文件 参考：https://github.com/joyanhui/i3w&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# polybar 配置文件 参考：https://github.com/joyanhui/i3w&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# dunst 配置文件 参考：https://github.com/joyanhui/i3w&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# alacritty 配置文件 参考：https://github.com/joyanhui/i3w&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# rofi 配置文件 参考：https://github.com/joyanhui/i3w&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# openbox 配置文件 参考：https://github.com/joyanhui/i3w&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# user-dirs.dirs 配置文件 参考：https://github.com/joyanhui/i3w&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;openbox&amp;#34;&lt;/span&gt; &amp;gt; ~/.vnc/xstartup &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; chmod +x ~/.vnc/xstartup &lt;span class="c1"&gt;# 配置vnc桌面为openbox&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 处理用户 ======== end&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;exit&lt;/span&gt; &lt;span class="c1"&gt;# 退回到root&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 配置vnc&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 参考 /lib/systemd/system/tigervncserver@.service&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat &amp;gt; /etc/systemd/system/vncserver@0.service &lt;span class="s"&gt;&amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;[Unit]
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;Description=Start TightVNC server at startup
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;After=syslog.target network.target
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;[Service]
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;Type=forking
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;User=yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;Group=yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;WorkingDirectory=/home/yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;PIDFile=/home/yanhui/.vnc/%H:%i.pid
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;ExecStartPre=-/usr/bin/vncserver -kill :%i &amp;gt; /dev/null 2&amp;gt;&amp;amp;1
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;ExecStart=/usr/bin/vncserver -geometry 1900x930 -localhost no :%i
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;ExecStop=/usr/bin/vncserver -kill :%i
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;[Install]
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;WantedBy=multi-user.target
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# novnc&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat &amp;gt; /etc/supervisor/conf.d/novnc.conf &lt;span class="s"&gt;&amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;[program:novnc]
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;command= /usr/bin/websockify -D --web=/usr/share/novnc/ 8080 localhost:5900
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;user=yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;autorestart=true
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;priority=999
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;supervisorctl update
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html &lt;span class="c1"&gt;# 首页&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl daemon-reload
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl &lt;span class="nb"&gt;enable&lt;/span&gt; vncserver@0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 清理&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /root/pulseaudio* &lt;span class="c1"&gt;# xrdp 历史文件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#rm /root/.bash_history&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#rm /home/yanhui/.bash_history&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#rm /home/yanhui/.zsh_history&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt autoremove &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt autoclean &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt clean
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;alpine 入口启动文件&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 清理&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /var/cache/apk/*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#rm -rf ~/.ash_history&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;‍&lt;/p&gt;
+&lt;p&gt;备份 docker&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker stop test2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;export&lt;/span&gt; test2 &amp;gt; 3.tar
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker import 1.tar test2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker stop test2 &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; docker rm test2 &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; docker rmi test2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --restart&lt;span class="o"&gt;=&lt;/span&gt;always --name test2 --hostname test2 --privileged&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nb"&gt;true&lt;/span&gt; &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 333:3389 -p 222:2222 -p 888:8080 -p 6900-6905:5900-5905 -v /mnt:/mnt &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; test2 sh /boot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;‍&lt;/p&gt;
+&lt;p&gt;推送到 hub.docker.com&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;logout&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker login
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 推送到阿里云 容器镜像&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# docker login --username=你的用户邮箱 registry.cn-地区.aliyuncs.com&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;datename&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;$(&lt;/span&gt;date +%Y%m%d%H%M%S&lt;span class="k"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker tag test2 joyanhui/debian-i3-xrdp-novnc
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker tag test2 joyanhui/debian-i3-xrdp-novnc:a-lxd-d-&lt;span class="k"&gt;$(&lt;/span&gt;datename&lt;span class="k"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker push joyanhui/debian-i3-xrdp-novnc:a-lxd-d-&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;datename&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker push joyanhui/debian-i3-xrdp-novnc
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>docker joyanhui/debian-i3-xrdp-novnc 更新记录和更新计划</title><link>https://dev.leiyanhui.com/docker/debian-desktop-next/</link><pubDate>Tue, 04 Jul 2023 00:15:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-desktop-next/</guid><description>&lt;h2 id="为什么不经常更新"&gt;为什么不经常更新
+&lt;/h2&gt;&lt;p&gt;因为定位是 xrdp+vnc+novnc+远程声音转发 可用的一个尽可能小巧的稳定linux, 这个基本功能是绝对稳定强壮可用的。&lt;br&gt;
+除非 pulseaudio-module-xrdp 有大版本更新，不然joyanhui/debian-i3-xrdp-novnc 不会继续更新。&lt;br&gt;
+安全更新 自己 &lt;code&gt;apt upgrade&lt;/code&gt; 即可！&lt;/p&gt;
+&lt;h2 id="建议和需求"&gt;建议和需求
+&lt;/h2&gt;&lt;p&gt;mailto: am95YW5odWkoYXQpcXEuY29t （解码后联系）&lt;/p&gt;
+&lt;h2 id="更新计划"&gt;更新计划
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;不代表一定会添加上可能是还在权衡&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;天气预报默认显示 提示修改key&lt;/li&gt;
+&lt;li&gt;openbox 集成dock 或者 任务栏 默认壁纸等&lt;/li&gt;
+&lt;li&gt;默认用户 yanhui 免密码sudo&lt;/li&gt;
+&lt;li&gt;物理机可直接启动版&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="已经完成的"&gt;已经完成的
+&lt;/h2&gt;&lt;h3 id="2023-0708"&gt;2023-0708
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;修复 vnc和 novnc 的自动启动&lt;/li&gt;
+&lt;li&gt;openbox 右键菜单增加 thunar&lt;/li&gt;
+&lt;li&gt;集成 inetutils-ping iproute2 方便使用ping , ip a 命令&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="old"&gt;old
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;alacritty 字体修复【2023-0707】&lt;/li&gt;
+&lt;li&gt;i3 自动隐藏firefox-esr浏览器边框【2023-0707】&lt;/li&gt;
+&lt;li&gt;修复时区 错误 &lt;code&gt;sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime&lt;/code&gt;【2023-0707】&lt;/li&gt;
+&lt;li&gt;用雅黑字体替换zhenhei 【2023-0707】&lt;/li&gt;
+&lt;li&gt;openbox 右键菜单 rofi的提示【2023-0707】&lt;/li&gt;
+&lt;li&gt;polybar 菜单增加 退出 和重启 polybar 【2023-0707】&lt;/li&gt;
+&lt;li&gt;polybar 兼容雅黑字体【2023-0707】&lt;/li&gt;
+&lt;li&gt;集成 thunar gvfs gvfs-backends gvfs-fuse 【2023-0707】&lt;/li&gt;
+&lt;li&gt;集成 compton 【已经完成】&lt;/li&gt;
+&lt;li&gt;天气预报 默认调用 firefox-esr 打开网址 【已经完成】&lt;/li&gt;
+&lt;li&gt;vnc 和xrdp重复调用pulseaudio 导致的冲突问题 【使用双桌面方案解决】&lt;/li&gt;
+&lt;li&gt;默认桌面尝试 兼容 xrdp 和 vnc多显示器 vnc 可能会采用openbox 【已经完成】&lt;/li&gt;
+&lt;li&gt;状态栏 多显示器 【因为双桌面系统 已经不需要，i3现有配置文件可以满足】&lt;/li&gt;
+&lt;/ul&gt;</description></item><item><title>docker运行debian桌面 包含i3 xrdp（带声音） x11 vnc novnc</title><link>https://dev.leiyanhui.com/docker/debian-desktop-old-only-docker/</link><pubDate>Tue, 04 Jul 2023 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/debian-desktop-old-only-docker/</guid><description>&lt;p&gt;本文为旧版本文档，新版文档在 ： &lt;a class="link" href="https://dev.leiyanhui.com/docker/debian-desktop/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/docker/debian-desktop/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;debian12 i3 xrdp novnc X11Forwarding include pulseaudio-xrdp&lt;/p&gt;
+&lt;p&gt;没多余的软件，内存占用200M左右，甚至浏览器都没有。 后文有详细的使用方法和 安装其他的软件的方法。&lt;/p&gt;
+&lt;h3 id="特性"&gt;特性
+&lt;/h3&gt;&lt;p&gt;轻量 干净 基于i3 和 openbox 可以用xrdp novnc(webvnc) vnc x11 等方式运行。&lt;br&gt;
+vnc和novnc使用简洁的原生openbox xrdp使用依赖快捷键但是更高效的i3
+集成软件：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;debian 12 bookworm&lt;/li&gt;
+&lt;li&gt;i3 openbox polybar rofi alacritty dunst zsh&lt;/li&gt;
+&lt;li&gt;supervisord 服务器管理 及python3&lt;/li&gt;
+&lt;li&gt;tigervnc&lt;/li&gt;
+&lt;li&gt;novnc websockify&lt;/li&gt;
+&lt;li&gt;ttf-wqy-zhenhei fonts-jetbrains-mono fonts-noto-color-emoji&lt;br&gt;
+&lt;a class="link" href="https://dev.leiyanhui.com/docker/debian-desktop-next/" target="_blank" rel="noopener"
+&gt;更新记录和计划&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="安装"&gt;安装
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --restart&lt;span class="o"&gt;=&lt;/span&gt;always &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --name debian-i3 --hostname debian-i3 &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 3389:3389 -p 2222:22 &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 8080:8080 -p 5900-5905:5900-5905 &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /mnt:/disk &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -e &lt;span class="nv"&gt;TZ&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;Asia/Shanghai joyanhui/debian-i3-xrdp-novnc /autoStart.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;3389是xrdp端口 2222 是ssh x11端口 8080 是novnc 端口 5900-5905 是vnc端口默认用户是5900&lt;/p&gt;
+&lt;h3 id="默认用户名和密码"&gt;默认用户名和密码
+&lt;/h3&gt;&lt;p&gt;xrdp x11 ssh 的默认用户名：yanhui 密码：1 （只有一个数字1）
+vnc 密码：111111（六个数字1）&lt;/p&gt;
+&lt;h3 id="为什么选择debian"&gt;为什么选择debian
+&lt;/h3&gt;&lt;p&gt;因为比Ubuntu干净，debian一直被诟病的包少的问题，debian12 增加了11089个包，总数量已经到了64419，部分官方仓库没有的软件，软件开发者自己一般提供源或者deb。 &lt;br&gt;
+放弃archlinux改debian 是因为有部分商业软件只有deb rpm包aur里面没有，自己解包太麻烦。 arch的 一些其他缺点这里不多说。&lt;br&gt;
+而且debian12 2年更新 5年安全，以后也可以平滑升级到更新版本。&lt;/p&gt;
+&lt;h3 id="为什么选择i3-和openbox-怎么换其他桌面"&gt;为什么选择i3 和openbox 怎么换其他桌面
+&lt;/h3&gt;&lt;p&gt;因为轻量，以及个人习惯，你可以自由换成其他任意桌面系统。
+因为i3的高效来自快捷键，但是在浏览器中会有大量快捷键冲突。所以新版本在novnc中使用了同样轻量的openbox。&lt;br&gt;
+而在xrdp中，因为全屏模式 和部分支持rdp的客户端软件 均可做到键盘映射，所以xrdp使用了i3桌面&lt;/p&gt;
+&lt;h4 id="更换为其他桌面的方法"&gt;更换为其他桌面的方法
+&lt;/h4&gt;&lt;p&gt;例如，要换成 xfce4首先安装&lt;code&gt;sudo apt install xfce4&lt;/code&gt; ,然后修改 &lt;code&gt;/autoStart.sh&lt;/code&gt; 可以更换vnc和novnc的桌面。&lt;br&gt;
+修改用户目录下的 &lt;code&gt;~/.xsession&lt;/code&gt; 文件可以替换xrdp的桌面。然后卸载掉i3或者openbox即可:&lt;code&gt;sudo apt purge i3&lt;/code&gt; or &lt;code&gt;sudo apt purge openbox&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="novnc-vnc为什么是黑屏"&gt;novnc vnc为什么是黑屏
+&lt;/h3&gt;&lt;p&gt;就是黑屏的，因为为了节省资源用的没有任何扩展的openbox。 右键 有惊喜！&lt;/p&gt;
+&lt;h3 id="怎么启动shell-和常见快捷键"&gt;怎么启动shell 和常见快捷键
+&lt;/h3&gt;&lt;p&gt;基本是i3 的默认快捷键&lt;br&gt;
+点屏幕顶部的 Apps&amp;gt; 系统 &amp;gt;终端 （部分菜单无用，是因为没对应软件，你可以看一下polybar的配置文件 ）&lt;br&gt;
+如果是rdp远程桌面下，按下键盘 ： win+回车 &lt;br&gt;
+启动管理器（开始菜单） :win d&lt;br&gt;
+程序切换 alt+tab
+修改窗口大小：按住win 再按住 鼠标右键 来回拖动&lt;br&gt;
+修改窗口位置：按住win 再按住 鼠标左键 来回拖动&lt;br&gt;
+关闭软件：win shift q&lt;br&gt;
+注销：win shift e&lt;br&gt;
+更多使用方法 自己看一下i3 使用说明&lt;/p&gt;
+&lt;h3 id="怎么装中文输入法"&gt;怎么装中文输入法
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install fcitx5 fcitx5-chinese-addons
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;安装完成后，注销重新登录一次桌面，会自动加载，然后在托盘位置配置添加输入法即可，拼音输入法可导入搜狗细胞词库，具体自己研究。&lt;/p&gt;
+&lt;h3 id="怎么新建用户怎么删除默认用户"&gt;怎么新建用户怎么删除默认用户
+&lt;/h3&gt;&lt;h4 id="新建用户"&gt;新建用户
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo adduser YouName
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo usermod -aG sudo YouName
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h5 id="新用户vnc密码"&gt;新用户vnc密码
+&lt;/h5&gt;&lt;p&gt;ssh 或者 xrdp 登陆新用户后，运行 &lt;code&gt;vncpasswd&lt;/code&gt;&lt;/p&gt;
+&lt;h5 id="更新-vnc服务"&gt;更新 vnc服务
+&lt;/h5&gt;&lt;p&gt;修改里面的用户名&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /autoStart.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="删除默认用户"&gt;删除默认用户
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo deluser yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /home/yanhui # 在确认用不到以后 再删除 为了不污染全局，桌面相关的配置文件都在这个目录里面
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="怎么修改密码"&gt;怎么修改密码
+&lt;/h3&gt;&lt;h4 id="用户密码"&gt;用户密码
+&lt;/h4&gt;&lt;p&gt;命令：&lt;code&gt;passwd&lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="vnc密码"&gt;vnc密码
+&lt;/h4&gt;&lt;p&gt;命令：&lt;code&gt;vncpasswd .vnc/passwd&lt;/code&gt; ，需要重启vnc服务，命令查看 &lt;code&gt;cat /autoStart.sh &lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="x11转发模式如何使用输入法"&gt;x11转发模式如何使用输入法
+&lt;/h3&gt;&lt;p&gt;修改一下fcitx5的中英文切换快捷键，和你当前电脑的不能一样。然后先执行 &lt;code&gt;fcitx5&amp;amp;&lt;/code&gt; 再执行对应的软件。&lt;/p&gt;
+&lt;h3 id="x11-转发模式部分软件很卡"&gt;x11 转发模式部分软件很卡
+&lt;/h3&gt;&lt;p&gt;没得办法，可以适当优化一下自己网上搜吧。另外 火狐在x11转发模式下默认配置要比chrome系更卡。&lt;/p&gt;
+&lt;h3 id="novnc默认地址"&gt;novnc默认地址
+&lt;/h3&gt;&lt;p&gt;http://你的ip:8080/ 其中端口docker内部默认使用80，外部端口是你自己映射的。&lt;/p&gt;
+&lt;h3 id="novnc如何走https"&gt;novnc如何走https
+&lt;/h3&gt;&lt;p&gt;建议用Nginx 统一反代一下，或带supervisor启动的时候带证书。&lt;/p&gt;
+&lt;h3 id="20230704版本vnc连不上"&gt;20230704版本vnc连不上
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm /tmp/.X0-lock
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;把上面这行代码添加到 /autoStart.sh 第二行，然后重启整个容器&lt;/p&gt;
+&lt;h3 id="如何关掉vnc"&gt;如何关掉vnc
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo rm /etc/supervisor/conf.d/novnc.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt purge tigervnc-standalone-server novnc python3-websockify
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 注释掉 /autoStart.sh 的启动命令
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# su -c &amp;#34;/usr/bin/vncserver -xstartup /usr/bin/i3 -geometry 1900x930 -localhost no :0 &amp;#34; yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# sudo apt autoremove &amp;amp;&amp;amp; sudo apt autoclean &amp;amp;&amp;amp; sudo apt clean # 可选清理操作
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;然后卸载&lt;/p&gt;
+&lt;h3 id="天气预报出错以及如何修改天气预报城市"&gt;天气预报出错以及如何修改天气预报城市
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;~/.config/polybar/weather-plugin.py&lt;/code&gt; 这个文件
+天气预报接口 用的openweathermap,内置的我自己的接口，用的人多了会受限制无法使用。&lt;br&gt;
+你自己去注册一个账号，然后创建一个key。查询一下你所需要城市的id，然后修改里面的网址部分的 id（城市） appid（你自己的）&lt;br&gt;
+&lt;code&gt;https://api.openweathermap.org/data/2.5/weather?id=1793724&amp;amp;appid=440b47a5ffbc5421e4a9befcbc4d635b&amp;amp;units=Metric&amp;amp;lang=zh_cn&lt;/code&gt;&lt;br&gt;
+你如果不想用，直接在 polybar的配置文件里面删掉即可。&lt;/p&gt;
+&lt;h3 id="如何调音量"&gt;如何调音量
+&lt;/h3&gt;&lt;p&gt;在i3配置文件里面修改&lt;br&gt;
+调整音量 快捷键：win ctrl ↑ 和 win ctrl ↓，（左右是静音）也可以鼠标移动到 polybar 音量图标位置滚轮调整。&lt;br&gt;
+进阶用法，自己配置i3和polybar&lt;/p&gt;
+&lt;h3 id="vnc-和xrdp-桌面不同步"&gt;vnc 和xrdp 桌面不同步
+&lt;/h3&gt;&lt;p&gt;是的，这是两个虚拟显示，所以不同步。如果要显示同样的内容，可以在xrdp登陆的时候 选择登陆到vnc 而不是org 。&lt;/p&gt;
+&lt;h3 id="novnc-网页访问按键失灵乱跳"&gt;noVNC 网页访问按键失灵乱跳
+&lt;/h3&gt;&lt;p&gt;1、关闭宿主的中文输入法，使用宿主机系统自带的英文输入法&lt;br&gt;
+2、更换浏览器，目前发现chrome edge之类的 在noVNC下兼容性不如新版火狐 火狐 96以后版本测试运行良好，safari 和 ios下的浏览器均不兼容的哈。&lt;/p&gt;
+&lt;h3 id="没声音或者--顶部音量不显示"&gt;没声音或者 顶部音量不显示
+&lt;/h3&gt;&lt;h4 id="vnc-和x11-没声音"&gt;vnc 和x11 没声音
+&lt;/h4&gt;&lt;p&gt;vnc和x11 就是没声音的话，如果确实要，请用pulseaudio转发 或者换xrdp&lt;/p&gt;
+&lt;h4 id="xrdp的polybar-偶尔不显示音量"&gt;xrdp的polybar 偶尔不显示音量
+&lt;/h4&gt;&lt;p&gt;这个是polybar 在 debian12下 和 pulseaudio-module-xrdp 之间的bug，已经提交过issue，等更新吧。&lt;br&gt;
+临时解决方法,在桌面登陆一会后 重启pulseaudio和polybar&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;killall pulseaudio &amp;amp;&amp;amp; pulseaudio &amp;amp;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh .config/polybar/polybar_run.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="如何修改分辨率"&gt;如何修改分辨率
+&lt;/h3&gt;&lt;h4 id="vnc-novnc"&gt;vnc novnc
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /autoStart.sh # geometry 后面的参数是vnc的分辨率
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="xrdp"&gt;xrdp
+&lt;/h4&gt;&lt;p&gt;xrdp的分辨率 由你的客户端 发起的时候配置&lt;/p&gt;
+&lt;h3 id="openbox的壁纸点好多次才换一张"&gt;openbox的壁纸点好多次才换一张
+&lt;/h3&gt;&lt;p&gt;壁纸是随机更换的默认就带了两张，所以会有50%概率不更换。&lt;/p&gt;
+&lt;h3 id="自己添加开机启动项"&gt;自己添加开机启动项
+&lt;/h3&gt;&lt;p&gt;三个方法&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;跟随 i3桌面启动的软件，可以添加到i3 配置文件中。例如截图软件，蓝牙托盘等等&lt;/li&gt;
+&lt;li&gt;后台服务，可以添加到 /autoStart.sh&lt;/li&gt;
+&lt;li&gt;需要守护的后台服务 添加到 supervisor中目录： /etc/supervisor/conf.d/&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="安装常用软件"&gt;安装常用软件
+&lt;/h3&gt;&lt;p&gt;点屏幕左上角 APPS &amp;gt; 系统 &amp;gt; 终端 输入 &lt;code&gt;apt install &lt;/code&gt;命令；启动软件 APPS &amp;gt; 系统 &amp;gt; &lt;code&gt;rofi-run&lt;/code&gt; 选择软件或者输入软件名称&lt;br&gt;
+或者xrdp全屏模式下 novnc 左侧快捷键也可： win+回车 win+d&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install firefox-esr # 火狐
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install chromium #chrome 开源版，闭源版本 去google下载deb 或者添加源
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install thunar nemo nautilus # 任选一个 dolphin有依赖冲突哈 ，参考后面 libpulse-mainloop-glib0 错误的说明
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="libpulse-mainloop-glib0-错误"&gt;libpulse-mainloop-glib0 错误
+&lt;/h4&gt;&lt;p&gt;libpulse-mainloop-glib0 : Depends: libpulse0 (= 16.1+dfsg1-2+b1) but 1:13.99.1-1ubuntu3.10 is to be installed
+部分软件 例如 pavucontrol dolphin 需要新版 libpulse0，但是因为 考虑到pulseaudio-module-xrdp 稳定性，我用的旧版本。
+你可以卸载掉，然后重新编译pulseaudio-module-xrdp。&lt;/p&gt;
+&lt;h3 id="不喜欢默认用户的shell"&gt;不喜欢默认用户的shell
+&lt;/h3&gt;&lt;p&gt;默认用户 yanhui的 shell是 zsh 并用oh-my-zsh定制了一下，不喜欢 可以 直接输入exit 退出到bash。 &lt;br&gt;
+然后自己删掉 .bashrc 的最后一行 zsh 三个字母。最后卸载掉 zsh ，并删除 .oh-my-zsh 目录即可&lt;/p&gt;
+&lt;h3 id="pve-lxc-ct-或者docker宿主机-目录映射-和显卡等"&gt;pve lxc ct 或者docker宿主机 目录映射 和显卡等
+&lt;/h3&gt;&lt;h4 id="pve-硬盘到lxc"&gt;pve 硬盘到lxc
+&lt;/h4&gt;&lt;p&gt;请看：https://dev.leiyanhui.com/pve/lxc-mount-dir/&lt;/p&gt;
+&lt;h4 id="docker宿主机-目录映射"&gt;docker宿主机 目录映射
+&lt;/h4&gt;&lt;p&gt;docker 创建命令 里面的 &lt;code&gt;-v /mnt:/disk &lt;/code&gt; 就是把上层宿主的 /mnt 穿透到容器内部的/disk。
+注意权限问题哈，可以用uid映射方法，权限要求不严格 也可以直接 &lt;code&gt;chmod -R 777 /mnt&lt;/code&gt;解决&lt;/p&gt;
+&lt;h4 id="如何使用显卡加速"&gt;如何使用显卡加速
+&lt;/h4&gt;&lt;p&gt;以nvidia为例在创建docker的时候 把显卡挂进去即可&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --restart=always \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --name debian-i3 --hostname debian-i3 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 3389:3389 -p 2222:22 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 8080:8080 -p 5900-5905:5900-5905 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /mnt:/disk \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --device /dev/nvidia0:/dev/nvidia0 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --device /dev/nvidiactl:/dev/nvidiactl \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --device /dev/nvidia-uvm:/dev/nvidia-uvm \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -e TZ=Asia/Shanghai joyanhui/debian-i3-xrdp-novnc /autoStart.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="目录和文件说明"&gt;目录和文件说明
+&lt;/h3&gt;&lt;h4 id="启动文件"&gt;启动文件
+&lt;/h4&gt;&lt;p&gt;启动文件分两个&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;/autoStart.sh 启动vnc 并启动supervisord&lt;/li&gt;
+&lt;li&gt;/etc/supervisor/conf.d/ supervisord 服务目录&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id="i3-配置文件"&gt;i3 配置文件
+&lt;/h4&gt;&lt;p&gt;/home/yanhui/.config/i3/config&lt;/p&gt;
+&lt;h4 id="openbox配置文件"&gt;openbox配置文件
+&lt;/h4&gt;&lt;p&gt;/home/yanhui/.config/openbox/menu.xml #右键菜单&lt;br&gt;
+feh.sh rofi.sh #右键菜单对应 壁纸和rofi的的执行脚本&lt;/p&gt;
+&lt;h4 id="壁纸目录"&gt;壁纸目录
+&lt;/h4&gt;&lt;p&gt;i3配置文件调用feh随机选
+/home/yanhui/.config/i3/bg/&lt;/p&gt;
+&lt;h4 id="polybar"&gt;polybar
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;/home/yanhui/.config/polybar/config.ini # polybar的全部配置文件 包括左上角菜单&lt;/li&gt;
+&lt;li&gt;/home/yanhui/.config/polybar/polybar_run.sh # 启动和重启polybar的脚本&lt;/li&gt;
+&lt;li&gt;/home/yanhui/.config/polybar/weather-plugin.py # polybar 天气预报插件 用的 openweathermap.org的接口 内置key用的人多有可能失效，自己去注册一个换掉。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id="rofi"&gt;rofi
+&lt;/h4&gt;&lt;p&gt;/home/yanhui/.config/rofi/config.rasi&lt;/p&gt;
+&lt;h4 id="dunst"&gt;dunst
+&lt;/h4&gt;&lt;p&gt;/home/yanhui/.config/dunst/dunstrc&lt;/p&gt;
+&lt;h4 id="alacritty"&gt;alacritty
+&lt;/h4&gt;&lt;p&gt;/home/yanhui/.config/alacritty/alacritty.yml&lt;/p&gt;
+&lt;h4 id="zsh"&gt;zsh
+&lt;/h4&gt;&lt;p&gt;/home/yanhui/.zshrc
+/home/yanhui/.oh-my-zsh&lt;/p&gt;</description></item><item><title>archlinux 打开x11转发</title><link>https://dev.leiyanhui.com/arch/x11-forwarding/</link><pubDate>Wed, 28 Dec 2022 15:20:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/x11-forwarding/</guid><description>&lt;p&gt;arch 的一个家庭server上启用 x11 转发 方便应急的情况下用浏览器备份文件到网页端网盘&lt;/p&gt;
+&lt;p&gt;本文基于 &lt;code&gt;Linux archlinux 6.1.1-zen1-1-zen &lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S xorg-xauth
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nano /etc/ssh/sshd_config
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;sshd_config&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;X11Forwarding yes
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;X11DisplayOffset 10
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;X11UseLocalhost yes
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启sshd 重新链接 ok了&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl restart sshd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&amp;mdash;&amp;mdash; 下面内容作废 &amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;ndash;
+修改 sshd_config&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nano /etc/ssh/sshd_config
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;----下面几行取消#注释---
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#AllowAgentForwarding yes #非必须
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#AllowTcpForwarding yes #非必须
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#X11Forwarding no #取消注释并改为yes
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#X11DisplayOffset 10
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#X11UseLocalhost yes
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#AddressFamily any # 这项下面添加一行 AddressFamily inet
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启ssh后 发现无效 查询wiki后发现需要 xorg-xauth
+安装xorg-xauth&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S xorg-xauth
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;配置&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;touch ~/.Xauthority &amp;amp;&amp;amp; chmod 600 ~/.Xauthority
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启sshd&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl restart sshd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重新链接 ok了&lt;/p&gt;
+&lt;p&gt;参考 &lt;a class="link" href="https://wiki.archlinuxcn.org/wiki/OpenSSH#X11_forwarding" target="_blank" rel="noopener"
+&gt;https://wiki.archlinuxcn.org/wiki/OpenSSH#X11_forwarding&lt;/a&gt;&lt;/p&gt;</description></item><item><title>pve 开启x11转发</title><link>https://dev.leiyanhui.com/pve/x11/</link><pubDate>Sun, 11 Dec 2022 23:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/x11/</guid><description>&lt;p&gt;基于pve7.3 理论上7.x 通用&lt;/p&gt;
+&lt;p&gt;pve7.3 默认安装后不需要编辑sshd_config，直执行 &lt;code&gt;apt install -y xauth&lt;/code&gt; 即可&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y xauth
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/ssh/sshd_config
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;---------------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;X11Forwarding yes
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;X11UseLocalhost no
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启ssh&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl restart sshd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;用 Xming 或者MobaXterm 重新连接上，安装一个图形界面软件 测试，比如 apt install firefox&lt;/p&gt;
+&lt;p&gt;而后测试&lt;/p&gt;</description></item><item><title>pve 修改网卡和ip 主机名称</title><link>https://dev.leiyanhui.com/pve/changip-and-netcard/</link><pubDate>Sun, 11 Dec 2022 23:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/changip-and-netcard/</guid><description>&lt;h2 id="修改网卡"&gt;修改网卡
+&lt;/h2&gt;&lt;p&gt;需要修改配置文件的两处地方&lt;/p&gt;
+&lt;h3 id="查看网卡"&gt;查看网卡
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;ip a&lt;/code&gt; 除去lo和vmbr0 之外的网卡 就是我们需要用的网卡，如果是wifi网卡（一般wl开头的）的话需要额外处理 这里不在记录
+我这里的实际需要的网卡名称为 enp1s0&lt;/p&gt;
+&lt;h3 id="编辑interfaces"&gt;编辑interfaces
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/network/interfaces
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;把 iface xxx inet manual 这行里面的网卡名称修改为enp1s0 &lt;br&gt;
+再把 bridge-ports XXX 后面的网卡名称修改为enp1s0&lt;/p&gt;
+&lt;h2 id="修改ip"&gt;修改ip
+&lt;/h2&gt;&lt;p&gt;需要修改3个文件,注意网关掩码 都根据你的情况修改&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/network/interfaces
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/issue
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/hosts
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启PVE&lt;/p&gt;
+&lt;h2 id="修改主机名"&gt;修改主机名
+&lt;/h2&gt;&lt;p&gt;需要修改两个文件&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/hostname
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/hosts
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果用邮件服务，还要修改&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/postfix/main.cf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item></channel></rss>
