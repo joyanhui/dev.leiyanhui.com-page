@@ -1,0 +1,659 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="NixOS 入门建议：一天上手，从入门到精通 NixOS 的强大和方便毋庸置疑，但很多新人“止步于入门”并非因为nixos真的难，而是路径走错了。本文旨在为你提供一条不折腾、快速入门的渐进式路线。\n一、 准备阶段：你是否适合 NixOS？ 在开始之前，请确保你满足以下条件：\nLinux 基础：熟悉日常 Linux 操作，有修改 dotfiles 的经验，能解决常见的系统问题。 编程思维：不要求是经验程序员，但至少能看懂简单的代码逻辑（Nix 语言本质上是函数式配置语言）。 网络环境：至关重要！ 必须有稳定的“科研上网”手段（建议在路由器层级实现，或准备好全局代理）。 二、 安装：选择最简单的路径 不要挑战高难度安装！\n推荐方式：下载 NixOS GNOME Live ISO。它提供了图形化安装界面），就像安装 Ubuntu 一样简单。 网络代理：如果安装过程下载缓慢，可以在同局域网手机上开启代理工具，并在安装环境中配置代理。 进阶方式：如果你有 Arch Linux 手动安装经验，可以参考 官方安装指南。 三、 核心心法：渐进式迁移（拒绝一口吃胖） 这是新手最容易犯的错误：第一天就想搞定全系统的 Flake + Home Manager 托管，或者直接 Clone 别人的复杂仓库。\n阶段 1：先跑起来（纯 configuration.nix） 只修改 /etc/nixos/configuration.nix。 使用 environment.systemPackages 安装软件。 临时用软件：学会使用 nix-shell -p pkg_name，随用随装，不用不占空间。 阶段 2：接受“过度方案”（Docker & Flatpak） 不要在初期强求所有东西都 Nix 化。 服务类：搞不定的一些服务类的例如nginx/数据库/语言运行开发环境，暂时直接用 Docker。 GUI 软件：Nixpkgs 里没有或有问题的，先用 Flatpak。 AppImage：看你要用的软件有没有Appimage格式，先对付一下。 阶段 3：引入 Flake 与 Home Manager 当你熟悉了 Nix 语法后，再将配置重构为 Flake 结构。 使用 Home Manager 管理用户层面的应用的配置项。 四 : 实战配置范例库 以下代码片段涵盖了从系统基础到开发环境的方方面面，按需查阅，不要全盘照抄。\n"><title>NixOS 入门指南：从新手到高手的渐进式之路(第二版)</title><link rel=canonical href=https://dev.leiyanhui.com/nixos/entrynixos/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="NixOS 入门指南：从新手到高手的渐进式之路(第二版)"><meta property='og:description' content="NixOS 入门建议：一天上手，从入门到精通 NixOS 的强大和方便毋庸置疑，但很多新人“止步于入门”并非因为nixos真的难，而是路径走错了。本文旨在为你提供一条不折腾、快速入门的渐进式路线。\n一、 准备阶段：你是否适合 NixOS？ 在开始之前，请确保你满足以下条件：\nLinux 基础：熟悉日常 Linux 操作，有修改 dotfiles 的经验，能解决常见的系统问题。 编程思维：不要求是经验程序员，但至少能看懂简单的代码逻辑（Nix 语言本质上是函数式配置语言）。 网络环境：至关重要！ 必须有稳定的“科研上网”手段（建议在路由器层级实现，或准备好全局代理）。 二、 安装：选择最简单的路径 不要挑战高难度安装！\n推荐方式：下载 NixOS GNOME Live ISO。它提供了图形化安装界面），就像安装 Ubuntu 一样简单。 网络代理：如果安装过程下载缓慢，可以在同局域网手机上开启代理工具，并在安装环境中配置代理。 进阶方式：如果你有 Arch Linux 手动安装经验，可以参考 官方安装指南。 三、 核心心法：渐进式迁移（拒绝一口吃胖） 这是新手最容易犯的错误：第一天就想搞定全系统的 Flake + Home Manager 托管，或者直接 Clone 别人的复杂仓库。\n阶段 1：先跑起来（纯 configuration.nix） 只修改 /etc/nixos/configuration.nix。 使用 environment.systemPackages 安装软件。 临时用软件：学会使用 nix-shell -p pkg_name，随用随装，不用不占空间。 阶段 2：接受“过度方案”（Docker & Flatpak） 不要在初期强求所有东西都 Nix 化。 服务类：搞不定的一些服务类的例如nginx/数据库/语言运行开发环境，暂时直接用 Docker。 GUI 软件：Nixpkgs 里没有或有问题的，先用 Flatpak。 AppImage：看你要用的软件有没有Appimage格式，先对付一下。 阶段 3：引入 Flake 与 Home Manager 当你熟悉了 Nix 语法后，再将配置重构为 Flake 结构。 使用 Home Manager 管理用户层面的应用的配置项。 四 : 实战配置范例库 以下代码片段涵盖了从系统基础到开发环境的方方面面，按需查阅，不要全盘照抄。\n"><meta property='og:url' content='https://dev.leiyanhui.com/nixos/entrynixos/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Nixos'><meta property='article:published_time' content='2026-01-04T00:00:00+00:00'><meta property='article:modified_time' content='2026-01-04T00:00:00+00:00'><meta name=twitter:title content="NixOS 入门指南：从新手到高手的渐进式之路(第二版)"><meta name=twitter:description content="NixOS 入门建议：一天上手，从入门到精通 NixOS 的强大和方便毋庸置疑，但很多新人“止步于入门”并非因为nixos真的难，而是路径走错了。本文旨在为你提供一条不折腾、快速入门的渐进式路线。\n一、 准备阶段：你是否适合 NixOS？ 在开始之前，请确保你满足以下条件：\nLinux 基础：熟悉日常 Linux 操作，有修改 dotfiles 的经验，能解决常见的系统问题。 编程思维：不要求是经验程序员，但至少能看懂简单的代码逻辑（Nix 语言本质上是函数式配置语言）。 网络环境：至关重要！ 必须有稳定的“科研上网”手段（建议在路由器层级实现，或准备好全局代理）。 二、 安装：选择最简单的路径 不要挑战高难度安装！\n推荐方式：下载 NixOS GNOME Live ISO。它提供了图形化安装界面），就像安装 Ubuntu 一样简单。 网络代理：如果安装过程下载缓慢，可以在同局域网手机上开启代理工具，并在安装环境中配置代理。 进阶方式：如果你有 Arch Linux 手动安装经验，可以参考 官方安装指南。 三、 核心心法：渐进式迁移（拒绝一口吃胖） 这是新手最容易犯的错误：第一天就想搞定全系统的 Flake + Home Manager 托管，或者直接 Clone 别人的复杂仓库。\n阶段 1：先跑起来（纯 configuration.nix） 只修改 /etc/nixos/configuration.nix。 使用 environment.systemPackages 安装软件。 临时用软件：学会使用 nix-shell -p pkg_name，随用随装，不用不占空间。 阶段 2：接受“过度方案”（Docker & Flatpak） 不要在初期强求所有东西都 Nix 化。 服务类：搞不定的一些服务类的例如nginx/数据库/语言运行开发环境，暂时直接用 Docker。 GUI 软件：Nixpkgs 里没有或有问题的，先用 Flatpak。 AppImage：看你要用的软件有没有Appimage格式，先对付一下。 阶段 3：引入 Flake 与 Home Manager 当你熟悉了 Nix 语法后，再将配置重构为 Flake 结构。 使用 Home Manager 管理用户层面的应用的配置项。 四 : 实战配置范例库 以下代码片段涵盖了从系统基础到开发环境的方方面面，按需查阅，不要全盘照抄。\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#一-准备阶段你是否适合-nixos>一、 准备阶段：你是否适合 NixOS？</a></li><li><a href=#二-安装选择最简单的路径>二、 安装：选择最简单的路径</a></li><li><a href=#三-核心心法渐进式迁移拒绝一口吃胖>三、 核心心法：渐进式迁移（拒绝一口吃胖）</a><ol><li><a href=#阶段-1先跑起来纯-configurationnix>阶段 1：先跑起来（纯 <code>configuration.nix</code>）</a></li><li><a href=#阶段-2接受过度方案docker--flatpak>阶段 2：接受“过度方案”（Docker & Flatpak）</a></li><li><a href=#阶段-3引入-flake-与-home-manager>阶段 3：引入 Flake 与 Home Manager</a></li></ol></li><li><a href=#四--实战配置范例库>四 : 实战配置范例库</a><ol><li><a href=#1-基础flake-结构-flakenix>1. 基础Flake 结构 (<code>flake.nix</code>)</a></li><li><a href=#2-现代-linux-必备docker-与-flatpak-配置>2. 现代 Linux 必备：Docker 与 Flatpak 配置</a></li><li><a href=#3-字体与国际化-中文环境>3. 字体与国际化 (中文环境)</a></li><li><a href=#4-输入法-fcitx5--雾凇拼音>4. 输入法 (Fcitx5 + 雾凇拼音)</a><ol><li><a href=#41-主配置-fcitx5-rimenix>4.1 主配置 (<code>fcitx5-rime.nix</code>)</a></li><li><a href=#42-环境变量配置-fcitx5-sessionvariablesnix>4.2 环境变量配置 (<code>fcitx5-sessionVariables.nix</code>)</a></li></ol></li><li><a href=#5-开发环境示例-分语言配置>5. 开发环境示例 (分语言配置)</a><ol><li><a href=#51-通用-cc-与图形开发基础-lang-commonnix>5.1 通用 C/C++ 与图形开发基础 (<code>lang-common.nix</code>)</a></li><li><a href=#52-rust-环境-rustnix>5.2 Rust 环境 (<code>rust.nix</code>)</a></li><li><a href=#53-go-环境-golangnix>5.3 Go 环境 (<code>golang.nix</code>)</a></li><li><a href=#54-nodejs--bun--deno-nodenix>5.4 Node.js / Bun / Deno (<code>node.nix</code>)</a></li><li><a href=#55-python-与-zig>5.5 Python 与 Zig</a></li><li><a href=#56-统一管理环境变量>5.6 统一管理环境变量</a></li></ol></li></ol></li><li><a href=#五-社区与求助>五、 社区与求助</a></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/nixos/ style=background-color:#beefcc;color:#0f3d1d>Nixos</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/nixos/entrynixos/>NixOS 入门指南：从新手到高手的渐进式之路(第二版)</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-01-04T00:00:00Z>2026-01-04</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div></footer></div></header><section class=article-content><h1 id=nixos-入门建议一天上手从入门到精通>NixOS 入门建议：一天上手，从入门到精通</h1><p>NixOS 的强大和方便毋庸置疑，但很多新人“止步于入门”并非因为nixos真的难，而是<strong>路径走错了</strong>。本文旨在为你提供一条不折腾、快速入门的渐进式路线。</p><hr><h2 id=一-准备阶段你是否适合-nixos>一、 准备阶段：你是否适合 NixOS？</h2><p>在开始之前，请确保你满足以下条件：</p><ol><li><strong>Linux 基础</strong>：熟悉日常 Linux 操作，有修改 <code>dotfiles</code> 的经验，能解决常见的系统问题。</li><li><strong>编程思维</strong>：不要求是经验程序员，但至少能看懂简单的代码逻辑（Nix 语言本质上是函数式配置语言）。</li><li><strong>网络环境</strong>：<strong>至关重要！</strong> 必须有稳定的“科研上网”手段（建议在路由器层级实现，或准备好全局代理）。</li></ol><hr><h2 id=二-安装选择最简单的路径>二、 安装：选择最简单的路径</h2><p><strong>不要挑战高难度安装！</strong></p><ul><li><strong>推荐方式</strong>：下载 <strong>NixOS GNOME Live ISO</strong>。它提供了图形化安装界面），就像安装 Ubuntu 一样简单。</li><li><strong>网络代理</strong>：如果安装过程下载缓慢，可以在同局域网手机上开启代理工具，并在安装环境中配置代理。</li><li><strong>进阶方式</strong>：如果你有 Arch Linux 手动安装经验，可以参考 <a class=link href=https://wiki.nixos.org/wiki/NixOS_Installation_Guide/zh target=_blank rel=noopener>官方安装指南</a>。</li></ul><hr><h2 id=三-核心心法渐进式迁移拒绝一口吃胖>三、 核心心法：渐进式迁移（拒绝一口吃胖）</h2><p><strong>这是新手最容易犯的错误：第一天就想搞定全系统的 Flake + Home Manager 托管，或者直接 Clone 别人的复杂仓库。</strong></p><h3 id=阶段-1先跑起来纯-configurationnix>阶段 1：先跑起来（纯 <code>configuration.nix</code>）</h3><ul><li>只修改 <code>/etc/nixos/configuration.nix</code>。</li><li>使用 <code>environment.systemPackages</code> 安装软件。</li><li><strong>临时用软件</strong>：学会使用 <code>nix-shell -p pkg_name</code>，随用随装，不用不占空间。</li></ul><h3 id=阶段-2接受过度方案docker--flatpak>阶段 2：接受“过度方案”（Docker & Flatpak）</h3><ul><li><strong>不要在初期强求所有东西都 Nix 化</strong>。</li><li><strong>服务类</strong>：搞不定的一些服务类的例如nginx/数据库/语言运行开发环境，暂时直接用 <strong>Docker</strong>。</li><li><strong>GUI 软件</strong>：Nixpkgs 里没有或有问题的，先用 <strong>Flatpak</strong>。</li><li><strong>AppImage</strong>：看你要用的软件有没有Appimage格式，先对付一下。</li></ul><h3 id=阶段-3引入-flake-与-home-manager>阶段 3：引入 Flake 与 Home Manager</h3><ul><li>当你熟悉了 Nix 语法后，再将配置重构为 Flake 结构。</li><li>使用 Home Manager 管理用户层面的应用的配置项。</li></ul><hr><h2 id=四--实战配置范例库>四 : 实战配置范例库</h2><p>以下代码片段涵盖了从系统基础到开发环境的方方面面，<strong>按需查阅，不要全盘照抄</strong>。</p><h3 id=1-基础flake-结构-flakenix>1. 基础Flake 结构 (<code>flake.nix</code>)</h3><p>这是系统的总入口，建议放在 <code>~/nixos-config</code> 目录下。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>inputs</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>nixpkgs</span><span class=o>.</span><span class=n>url</span> <span class=o>=</span> <span class=s2>&#34;github:NixOS/nixpkgs/nixos-unstable&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>nixpkgs-stable</span><span class=o>.</span><span class=n>url</span> <span class=o>=</span> <span class=s2>&#34;github:NixOS/nixpkgs/nixos-25.11&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>nixpkgs-master</span><span class=o>.</span><span class=n>url</span> <span class=o>=</span> <span class=s2>&#34;github:NixOS/nixpkgs/master&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>home-manager</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>url</span> <span class=o>=</span> <span class=s2>&#34;github:nix-community/home-manager&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>inputs</span><span class=o>.</span><span class=n>nixpkgs</span><span class=o>.</span><span class=n>follows</span> <span class=o>=</span> <span class=s2>&#34;nixpkgs&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>outputs</span> <span class=o>=</span> <span class=n>inputs</span><span class=o>@</span><span class=p>{</span> <span class=n>nixpkgs</span><span class=o>,</span> <span class=n>home-manager</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>nixosConfigurations</span><span class=o>.</span><span class=n>my-pc</span> <span class=o>=</span> <span class=n>nixpkgs</span><span class=o>.</span><span class=n>lib</span><span class=o>.</span><span class=n>nixosSystem</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>system</span> <span class=o>=</span> <span class=s2>&#34;x86_64-linux&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>modules</span> <span class=o>=</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>        <span class=sr>./configuration.nix</span>  <span class=c1>#你原来的 /etc/nixos/configuration.nix</span>
+</span></span><span class=line><span class=cl>        <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=n>nixpkgs</span><span class=o>.</span><span class=n>overlays</span> <span class=o>=</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>            <span class=p>(</span><span class=n>final</span><span class=p>:</span> <span class=n>prev</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>              <span class=n>stable</span> <span class=o>=</span> <span class=kn>import</span> <span class=n>inputs</span><span class=o>.</span><span class=n>nixpkgs-stable</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>system</span> <span class=o>=</span> <span class=n>prev</span><span class=o>.</span><span class=n>stdenv</span><span class=o>.</span><span class=n>hostPlatform</span><span class=o>.</span><span class=n>system</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>config</span><span class=o>.</span><span class=n>allowUnfree</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>              <span class=p>};</span>
+</span></span><span class=line><span class=cl>              <span class=n>unstable</span> <span class=o>=</span> <span class=kn>import</span> <span class=n>inputs</span><span class=o>.</span><span class=n>nixpkgs</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>system</span> <span class=o>=</span> <span class=n>prev</span><span class=o>.</span><span class=n>stdenv</span><span class=o>.</span><span class=n>hostPlatform</span><span class=o>.</span><span class=n>system</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>config</span><span class=o>.</span><span class=n>allowUnfree</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>              <span class=p>};</span>
+</span></span><span class=line><span class=cl>              <span class=n>master</span> <span class=o>=</span> <span class=kn>import</span> <span class=n>inputs</span><span class=o>.</span><span class=n>nixpkgs-master</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>system</span> <span class=o>=</span> <span class=n>prev</span><span class=o>.</span><span class=n>stdenv</span><span class=o>.</span><span class=n>hostPlatform</span><span class=o>.</span><span class=n>system</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>config</span><span class=o>.</span><span class=n>allowUnfree</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>              <span class=p>};</span>
+</span></span><span class=line><span class=cl>            <span class=p>})</span>
+</span></span><span class=line><span class=cl>          <span class=p>];</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=n>home-manager</span><span class=o>.</span><span class=n>nixosModules</span><span class=o>.</span><span class=n>home-manager</span>
+</span></span><span class=line><span class=cl>      <span class=p>];</span>
+</span></span><span class=line><span class=cl>      <span class=n>specialArgs</span> <span class=o>=</span> <span class=p>{</span> <span class=k>inherit</span> <span class=n>inputs</span><span class=p>;</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>一个典型的 nixos-config 文件结构</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>.
+</span></span><span class=line><span class=cl>├── flake.nix               <span class=c1># 系统总入口，定义 inputs 和 outputs</span>
+</span></span><span class=line><span class=cl>├── flake.lock              <span class=c1># 锁定依赖版本 在 nix flake update的时候自动创建</span>
+</span></span><span class=line><span class=cl>├── machine/                <span class=c1># 硬件与设备特定配置</span>
+</span></span><span class=line><span class=cl>│   ├── hardware-configuration_thinbook_14p_amd.nix <span class=c1>#你原来的 /etc/nixos/hardware-configuration.nix 微调  thinbook_14p_amd是电脑名</span>
+</span></span><span class=line><span class=cl>│   ├── configuration_thinbook_14p_amd.nix <span class=c1># 你原来的 /etc/nixos/configuration.nix 微调 并作为 import其他文件的入口</span>
+</span></span><span class=line><span class=cl>│   ├── ....
+</span></span><span class=line><span class=cl>│   └── subFileList.nix     <span class=c1># 核心调度文件，根据主机名加载不同模块 也可以不需要这个文件 集成到configuration_XXX.nix</span>
+</span></span><span class=line><span class=cl>├── modules/                <span class=c1># 按功能划分的模块化配置</span>
+</span></span><span class=line><span class=cl>│   ├── application/        <span class=c1># 日常应用 (浏览器、聊天工具、常用工具)</span>
+</span></span><span class=line><span class=cl>│   ├── desktopEnv/         <span class=c1># 桌面环境 (GNOME, Cosmic、Wayfire、Hyprland、KDE等)</span>
+</span></span><span class=line><span class=cl>│   ├── ide-editor/         <span class=c1># 编程工具 (VSCode, Zed, Helix、ClaudeCode、GeminiCli 等)</span>
+</span></span><span class=line><span class=cl>│   ├── lang-sdk-lsp/       <span class=c1># 编程语言 SDK 与 LSP 服务</span>
+</span></span><span class=line><span class=cl>│   └── service/            <span class=c1># 系统服务 (Docker, SSH, 数据库, 打印等)</span>
+</span></span><span class=line><span class=cl>├── system-setting/         <span class=c1># 全局系统级别设置</span>
+</span></span><span class=line><span class=cl>│   ├── bootload.nix        <span class=c1># 引导程序配置 (GRUB/Systemd-boot)</span>
+</span></span><span class=line><span class=cl>│   ├── font-i8n.nix        <span class=c1># 字体与国际化</span>
+</span></span><span class=line><span class=cl>│   ├── networking.nix      <span class=c1># 网络与防火墙</span>
+</span></span><span class=line><span class=cl>│   └── theme.nix           <span class=c1># 系统主题与美化</span>
+</span></span><span class=line><span class=cl>├── script/                 <span class=c1># 自动化脚本 (系统更新、备份、清理)</span>
+</span></span><span class=line><span class=cl>├── security/               <span class=c1># 敏感信息管理 (私钥、代理配置、密码) 可把部分nix文件放这里 比如一些敏感的环境变量 别名等</span>
+</span></span><span class=line><span class=cl>└── static_file/            <span class=c1># 静态资源 (壁纸、自定义图标、专用字体)</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=2-现代-linux-必备docker-与-flatpak-配置>2. 现代 Linux 必备：Docker 与 Flatpak 配置</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1># 开启 Docker</span>
+</span></span><span class=line><span class=cl>  <span class=n>virtualisation</span><span class=o>.</span><span class=n>docker</span><span class=o>.</span><span class=n>enable</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=c1># 开启 Flatpak</span>
+</span></span><span class=line><span class=cl>  <span class=n>services</span><span class=o>.</span><span class=n>flatpak</span><span class=o>.</span><span class=n>enable</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=c1># 支持 AppImage</span>
+</span></span><span class=line><span class=cl>  <span class=n>programs</span><span class=o>.</span><span class=n>appimage</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>enable</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>binfmt</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  <span class=n>environment</span><span class=o>.</span><span class=n>systemPackages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span> <span class=n>docker-compose</span> <span class=p>];</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=3-字体与国际化-中文环境>3. 字体与国际化 (中文环境)</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>#i18n.defaultLocale = &#34;zh_CN.UTF-8&#34;;</span>
+</span></span><span class=line><span class=cl>  <span class=n>i18n</span><span class=o>.</span><span class=n>defaultLocale</span> <span class=o>=</span> <span class=s2>&#34;en_US.UTF-8&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>fonts</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>packages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>      <span class=n>source-han-sans</span>  <span class=c1># 思源黑体</span>
+</span></span><span class=line><span class=cl>      <span class=n>source-han-serif</span> <span class=c1># 思源宋体</span>
+</span></span><span class=line><span class=cl>      <span class=n>lxgw-wenkai</span>      <span class=c1># 霞鹜文楷</span>
+</span></span><span class=line><span class=cl>      <span class=n>noto-fonts-emoji</span>
+</span></span><span class=line><span class=cl>      <span class=p>(</span><span class=n>nerdfonts</span><span class=o>.</span><span class=n>override</span> <span class=p>{</span> <span class=n>fonts</span> <span class=o>=</span> <span class=p>[</span> <span class=s2>&#34;JetBrainsMono&#34;</span> <span class=p>];</span> <span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=n>fontconfig</span><span class=o>.</span><span class=n>defaultFonts</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>emoji</span> <span class=o>=</span> <span class=p>[</span> <span class=s2>&#34;Noto Color Emoji&#34;</span> <span class=p>];</span>
+</span></span><span class=line><span class=cl>      <span class=n>monospace</span> <span class=o>=</span> <span class=p>[</span> <span class=s2>&#34;JetBrainsMono Nerd Font&#34;</span> <span class=p>];</span>
+</span></span><span class=line><span class=cl>      <span class=n>sansSerif</span> <span class=o>=</span> <span class=p>[</span> <span class=s2>&#34;Source Han Sans SC&#34;</span> <span class=p>];</span>
+</span></span><span class=line><span class=cl>      <span class=n>serif</span> <span class=o>=</span> <span class=p>[</span> <span class=s2>&#34;Source Han Serif SC&#34;</span> <span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=4-输入法-fcitx5--雾凇拼音>4. 输入法 (Fcitx5 + 雾凇拼音)</h3><p>这个看不懂也没关系，照抄就行了。</p><h4 id=41-主配置-fcitx5-rimenix>4.1 主配置 (<code>fcitx5-rime.nix</code>)</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>let</span>
+</span></span><span class=line><span class=cl>  <span class=n>rime-ice</span> <span class=o>=</span> <span class=n>pkgs</span><span class=o>.</span><span class=n>stdenvNoCC</span><span class=o>.</span><span class=n>mkDerivation</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>pname</span> <span class=o>=</span> <span class=s2>&#34;rime-ice&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>version</span> <span class=o>=</span> <span class=s2>&#34;2024.12.12&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>src</span> <span class=o>=</span> <span class=n>pkgs</span><span class=o>.</span><span class=n>fetchFromGitHub</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>owner</span> <span class=o>=</span> <span class=s2>&#34;iDvel&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>repo</span> <span class=o>=</span> <span class=s2>&#34;rime-ice&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>rev</span> <span class=o>=</span> <span class=s2>&#34;2024.12.12&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>hash</span> <span class=o>=</span> <span class=s2>&#34;sha256-2QZdlLGZwWIesbjYTE/2yhM1hHGVVp7jR02bR0oqxV0=&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>installPhase</span> <span class=o>=</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>      mkdir -p $out/share/rime-data
+</span></span></span><span class=line><span class=cl><span class=s1>      rm -rf ./others
+</span></span></span><span class=line><span class=cl><span class=s1>      rm -f README.md LICENSE
+</span></span></span><span class=line><span class=cl><span class=s1>      rm -rf ./.github
+</span></span></span><span class=line><span class=cl><span class=s1>      rm squirrel.yaml weasel.yaml
+</span></span></span><span class=line><span class=cl><span class=s1>      rm default.yaml custom_phrase.txt
+</span></span></span><span class=line><span class=cl><span class=s1>      cp -r ./* $out/share/rime-data
+</span></span></span><span class=line><span class=cl><span class=s1>    &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>in</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span><span class=o>.</span><span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>xdg</span><span class=o>.</span><span class=n>configFile</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;fcitx5/conf/chttrans.conf&#34;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>force</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>text</span> <span class=o>=</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>          [Global]
+</span></span></span><span class=line><span class=cl><span class=s1>          Engine=OpenCC
+</span></span></span><span class=line><span class=cl><span class=s1>          OpenCCS2TProfile=default
+</span></span></span><span class=line><span class=cl><span class=s1>          OpenCCT2SProfile=default
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>          [Hotkey]
+</span></span></span><span class=line><span class=cl><span class=s1>          0=ControlL+Shift+Alt+L
+</span></span></span><span class=line><span class=cl><span class=s1>        &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>file</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;.local/share/fcitx5/rime&#34;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>source</span> <span class=o>=</span> <span class=s2>&#34;</span><span class=si>${</span><span class=n>rime-ice</span><span class=si>}</span><span class=s2>/share/rime-data&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>recursive</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>onChange</span> <span class=o>=</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>          mkdir -p ~/.local/share/fcitx5/rime
+</span></span></span><span class=line><span class=cl><span class=s1>          chmod -R u+w ~/.local/share/fcitx5/rime
+</span></span></span><span class=line><span class=cl><span class=s1>          rm -f ~/.local/share/fcitx5/rime/*.bin
+</span></span></span><span class=line><span class=cl><span class=s1>          rm -f ~/.local/share/fcitx5/rime/build/*
+</span></span></span><span class=line><span class=cl><span class=s1>        &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;.local/share/fcitx5/rime/default.yaml&#34;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>source</span> <span class=o>=</span> <span class=sr>./rime/default.yaml</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>force</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;.local/share/fcitx5/rime/custom_phrase.txt&#34;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>force</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>source</span> <span class=o>=</span> <span class=sr>../../../security/file/fcitx5_rime_custom_phrase.txt</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>i18n</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>inputMethod</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>type</span> <span class=o>=</span> <span class=s2>&#34;fcitx5&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>enable</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>fcitx5</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>waylandFrontend</span> <span class=o>=</span> <span class=no>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>addons</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>          <span class=n>qt6Packages</span><span class=o>.</span><span class=n>fcitx5-configtool</span>
+</span></span><span class=line><span class=cl>          <span class=n>fcitx5-gtk</span>
+</span></span><span class=line><span class=cl>          <span class=n>libsForQt5</span><span class=o>.</span><span class=n>fcitx5-qt</span>
+</span></span><span class=line><span class=cl>          <span class=n>kdePackages</span><span class=o>.</span><span class=n>fcitx5-qt</span>
+</span></span><span class=line><span class=cl>          <span class=n>fcitx5-lua</span>
+</span></span><span class=line><span class=cl>          <span class=n>fcitx5-fluent</span>
+</span></span><span class=line><span class=cl>          <span class=n>libime</span>
+</span></span><span class=line><span class=cl>          <span class=n>librime-lua</span>
+</span></span><span class=line><span class=cl>          <span class=n>fcitx5-rime</span>
+</span></span><span class=line><span class=cl>          <span class=n>rime-ice</span>
+</span></span><span class=line><span class=cl>        <span class=p>];</span>
+</span></span><span class=line><span class=cl>        <span class=n>settings</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=n>addons</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>classicui</span><span class=o>.</span><span class=n>globalSection</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>              <span class=n>Theme</span> <span class=o>=</span> <span class=s2>&#34;FluentLight-solid&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>              <span class=n>DarkTheme</span> <span class=o>=</span> <span class=s2>&#34;FluentLight-solid&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=p>};</span>
+</span></span><span class=line><span class=cl>          <span class=p>};</span>
+</span></span><span class=line><span class=cl>          <span class=n>inputMethod</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;Groups/0&#34;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>              <span class=n>Name</span> <span class=o>=</span> <span class=s2>&#34;Default&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>              <span class=s2>&#34;Default Layout&#34;</span> <span class=o>=</span> <span class=s2>&#34;us&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>              <span class=n>DefaultIM</span> <span class=o>=</span> <span class=s2>&#34;rime&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=p>};</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;Groups/0/Items/0&#34;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>              <span class=n>Name</span> <span class=o>=</span> <span class=s2>&#34;rime&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=p>};</span>
+</span></span><span class=line><span class=cl>            <span class=n>GroupOrder</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>              <span class=s2>&#34;0&#34;</span> <span class=o>=</span> <span class=s2>&#34;Default&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=p>};</span>
+</span></span><span class=line><span class=cl>          <span class=p>};</span>
+</span></span><span class=line><span class=cl>        <span class=p>};</span>
+</span></span><span class=line><span class=cl>      <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=42-环境变量配置-fcitx5-sessionvariablesnix>4.2 环境变量配置 (<code>fcitx5-sessionVariables.nix</code>)</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span><span class=o>.</span><span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>sessionVariables</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>XMODIFIERS</span> <span class=o>=</span> <span class=s2>&#34;@im=fcitx&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>QT_IM_MODULE</span> <span class=o>=</span> <span class=s2>&#34;fcitx&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>QT_IM_MODULES</span> <span class=o>=</span> <span class=s2>&#34;fcitx;ibus;wayland&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>GTK_IM_MODULE</span> <span class=o>=</span> <span class=s2>&#34;fcitx&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>SDL_IM_MODULE</span> <span class=o>=</span> <span class=s2>&#34;fcitx&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>GLFW_IM_MODULE</span> <span class=o>=</span> <span class=s2>&#34;fcitx&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=5-开发环境示例-分语言配置>5. 开发环境示例 (分语言配置)</h3><p>建议将不同语言的配置拆分为独立文件（如 <code>rust.nix</code>, <code>go.nix</code>），在主配置中按需引入。</p><h4 id=51-通用-cc-与图形开发基础-lang-commonnix>5.1 通用 C/C++ 与图形开发基础 (<code>lang-common.nix</code>)</h4><p>包含 C/C++ 编译链、一些通用的开发工具、及 GUI 开发（如 Flutter/Fyne）所需的底层库。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span><span class=o>.</span><span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>packages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>      <span class=n>gcc</span>
+</span></span><span class=line><span class=cl>      <span class=n>gdb</span>
+</span></span><span class=line><span class=cl>      <span class=n>gnumake</span>
+</span></span><span class=line><span class=cl>      <span class=n>cmake</span>
+</span></span><span class=line><span class=cl>      <span class=n>ninja</span>
+</span></span><span class=line><span class=cl>      <span class=n>pkg-config</span>
+</span></span><span class=line><span class=cl>      <span class=n>openssl</span>
+</span></span><span class=line><span class=cl>      <span class=n>openssl</span><span class=o>.</span><span class=n>dev</span>
+</span></span><span class=line><span class=cl>      <span class=n>mesa</span>
+</span></span><span class=line><span class=cl>      <span class=n>libglvnd</span><span class=o>.</span><span class=n>dev</span>
+</span></span><span class=line><span class=cl>      <span class=n>xorg</span><span class=o>.</span><span class=n>libX11</span><span class=o>.</span><span class=n>dev</span>
+</span></span><span class=line><span class=cl>      <span class=n>xorg</span><span class=o>.</span><span class=n>libXext</span><span class=o>.</span><span class=n>dev</span>
+</span></span><span class=line><span class=cl>      <span class=n>xorg</span><span class=o>.</span><span class=n>libXi</span><span class=o>.</span><span class=n>dev</span>
+</span></span><span class=line><span class=cl>      <span class=n>xorg</span><span class=o>.</span><span class=n>libXrandr</span><span class=o>.</span><span class=n>dev</span>
+</span></span><span class=line><span class=cl>      <span class=n>xorg</span><span class=o>.</span><span class=n>libXrender</span><span class=o>.</span><span class=n>dev</span>
+</span></span><span class=line><span class=cl>      <span class=n>xorg</span><span class=o>.</span><span class=n>libXcursor</span>
+</span></span><span class=line><span class=cl>      <span class=n>xorg</span><span class=o>.</span><span class=n>libXinerama</span>
+</span></span><span class=line><span class=cl>      <span class=n>libxkbcommon</span>
+</span></span><span class=line><span class=cl>      <span class=n>wayland</span>
+</span></span><span class=line><span class=cl>      <span class=n>gtk3</span>
+</span></span><span class=line><span class=cl>    <span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>sessionVariables</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>PKG_CONFIG_PATH</span> <span class=o>=</span> <span class=s2>&#34;</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>openssl</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>libglvnd</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>mesa</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libX11</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXrandr</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXrender</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXcursor</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXinerama</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXi</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXext</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXfixes</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib/pkgconfig:</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>xorgproto</span><span class=si>}</span><span class=s2>/lib/pkgconfig&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>CGO_CFLAGS</span> <span class=o>=</span> <span class=s2>&#34;-I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>xorgproto</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libX11</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXrandr</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXrender</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXcursor</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXinerama</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXi</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXext</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXfixes</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include -I</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>libglvnd</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/include&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>CGO_LDFLAGS</span> <span class=o>=</span> <span class=s2>&#34;-L</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>libglvnd</span><span class=o>.</span><span class=n>dev</span><span class=si>}</span><span class=s2>/lib -L</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libX11</span><span class=si>}</span><span class=s2>/lib -L</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXrandr</span><span class=si>}</span><span class=s2>/lib -L</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXxf86vm</span><span class=si>}</span><span class=s2>/lib -L</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXi</span><span class=si>}</span><span class=s2>/lib -L</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXcursor</span><span class=si>}</span><span class=s2>/lib -L</span><span class=si>${</span><span class=n>pkgs</span><span class=o>.</span><span class=n>xorg</span><span class=o>.</span><span class=n>libXinerama</span><span class=si>}</span><span class=s2>/lib&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=52-rust-环境-rustnix>5.2 Rust 环境 (<code>rust.nix</code>)</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span><span class=o>.</span><span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>packages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>      <span class=n>rustup</span>
+</span></span><span class=line><span class=cl>      <span class=n>rustc</span>
+</span></span><span class=line><span class=cl>    <span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>sessionVariables</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>RUSTUP_HOME</span> <span class=o>=</span> <span class=s2>&#34;$HOME/.rustup&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>CARGO_HOME</span> <span class=o>=</span> <span class=s2>&#34;$HOME/.cargo&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>RUSTUP_DIST_SERVER</span> <span class=o>=</span> <span class=s2>&#34;https://rsproxy.cn&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>RUSTUP_UPDATE_ROOT</span> <span class=o>=</span> <span class=s2>&#34;https://rsproxy.cn/rustup&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=53-go-环境-golangnix>5.3 Go 环境 (<code>golang.nix</code>)</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span><span class=o>.</span><span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>packages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>      <span class=n>go</span>
+</span></span><span class=line><span class=cl>      <span class=n>gopls</span>
+</span></span><span class=line><span class=cl>      <span class=n>golangci-lint</span>
+</span></span><span class=line><span class=cl>      <span class=n>fyne</span> <span class=c1># 依赖 lang-common.nix 内的和图形相关的依赖和环境变量</span>
+</span></span><span class=line><span class=cl>      <span class=n>gofumpt</span>
+</span></span><span class=line><span class=cl>    <span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>sessionVariables</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>GOPROXY</span> <span class=o>=</span> <span class=s2>&#34;https://goproxy.cn,direct&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>sessionPath</span> <span class=o>=</span> <span class=p>[</span> <span class=s2>&#34;/home/</span><span class=si>${</span><span class=n>username</span><span class=si>}</span><span class=s2>/go/bin&#34;</span> <span class=p>];</span> <span class=c1># 其实最好一个单独的nix文件统一管理 Path</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=54-nodejs--bun--deno-nodenix>5.4 Node.js / Bun / Deno (<code>node.nix</code>)</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span><span class=o>.</span><span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>packages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>      <span class=n>nodejs_22</span>
+</span></span><span class=line><span class=cl>      <span class=n>pnpm</span>
+</span></span><span class=line><span class=cl>      <span class=n>bun</span>
+</span></span><span class=line><span class=cl>      <span class=n>deno</span>
+</span></span><span class=line><span class=cl>    <span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>sessionVariables</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>PNPM_HOME</span> <span class=o>=</span> <span class=s2>&#34;/home/</span><span class=si>${</span><span class=n>username</span><span class=si>}</span><span class=s2>/.local/share/pnpm&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>file</span><span class=o>.</span><span class=s2>&#34;.npmrc&#34;</span><span class=o>.</span><span class=n>text</span> <span class=o>=</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>      registry=https://registry.npmmirror.com/
+</span></span></span><span class=line><span class=cl><span class=s1>      global-bin-dir=/home/</span><span class=si>${</span><span class=n>username</span><span class=si>}</span><span class=s1>/.local/share/pnpm/bin
+</span></span></span><span class=line><span class=cl><span class=s1>      store-dir=/home/</span><span class=si>${</span><span class=n>username</span><span class=si>}</span><span class=s1>/.pnpm-store
+</span></span></span><span class=line><span class=cl><span class=s1>    &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=55-python-与-zig>5.5 Python 与 Zig</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span><span class=o>.</span><span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>home</span><span class=o>.</span><span class=n>packages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>      <span class=n>uv</span>
+</span></span><span class=line><span class=cl>      <span class=p>(</span><span class=n>python313</span><span class=o>.</span><span class=n>withPackages</span> <span class=p>(</span><span class=n>ps</span><span class=p>:</span> <span class=k>with</span> <span class=n>ps</span><span class=p>;</span> <span class=p>[</span> <span class=n>pip</span> <span class=n>requests</span> <span class=n>tkinter</span> <span class=n>django</span> <span class=p>]))</span>
+</span></span><span class=line><span class=cl>      <span class=n>unstable</span><span class=o>.</span><span class=n>zig</span>
+</span></span><span class=line><span class=cl>      <span class=n>unstable</span><span class=o>.</span><span class=n>zls</span>
+</span></span><span class=line><span class=cl>    <span class=p>];</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=56-统一管理环境变量>5.6 统一管理环境变量</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>username</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>home</span><span class=o>.</span><span class=n>sessionPath</span> <span class=o>=</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;$HOME/.cargo/bin&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;$HOME/go/bin&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;$HOME/myworkspace/my-opt&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;$HOME/.local/share/pnpm/bin&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;$HOME/android_flutter/android-sdk/cmdline-tools/latest/bin&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;$HOME/android_flutter/android-sdk/platform-tools&#34;</span>
+</span></span><span class=line><span class=cl>      <span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><hr><h2 id=五-社区与求助>五、 社区与求助</h2><ol><li><strong>GitHub 搜索</strong>：搜索 <code>filename:configuration.nix</code> + <code>关键词</code> 是最好的抄作业方式。</li><li><strong>Telegram 中文群</strong>：NixOS 中文社区非常友好，遇到问题请礼貌描述 ，通常会有大神解答。</li><li><strong>官方维基</strong>：<a class=link href=https://wiki.nixos.org/ target=_blank rel=noopener>NixOS Wiki</a> 是最权威的参考资料。</li><li><strong>使用靠谱的AI</strong>：Gemini3目前（2025-12）对nix支持还是不错的，小问题可以找他处理。但是别期望它能解决所有的问题，更不要把希望放到那些遥遥领先的AI大模型上。</li></ol><h2 id=总结>总结</h2><p><strong>渐进式入门，抄作业不要搬作业。</strong>
+先保证系统能用（Docker + Flatpak + 基本配置），再追求纯净（全 Nix 管理），最后再挑战高级技巧（自定义 Overlay、打包）。祝你在 NixOS 的世界里玩得愉快！</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/rust/cosmic/><div class=article-details><h2 class=article-title>cosmic桌面已经完全可用而且非常优秀</h2></div></a></article><article><a href=/nixos/nixos-fyne-flutter/><div class=article-details><h2 class=article-title>Nixos 下go-fyne和flutter等ui开发环境的配置</h2></div></a></article><article><a href=/nixos/windsurf-in-nixos/><div class=article-details><h2 class=article-title>nixos下使用windsurf 编辑器</h2></div></a></article><article><a href=/linux/cosmic-desktop-alpha5/><div class=article-details><h2 class=article-title>cosmic desktop Alpha 5 初体验</h2></div></a></article><article><a href=/nixos/home-manager-china/><div class=article-details><h2 class=article-title>nixos home manager国内使用小技巧</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

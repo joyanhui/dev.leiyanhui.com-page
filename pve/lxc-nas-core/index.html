@@ -1,0 +1,236 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="本文已经更新为 使用cloudreve和davfs 搭建多合1 文件中心 ：https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve\n2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。\n本文 是 pve lxc 搭建nas 的系列文章 的一部分。 因为篇幅较长，所以分开。\n原文索引 ：https://dev.leiyanhui.com/pve/lxc-nas\n本文主要内容 是 直通 硬盘 以及配置 smb sftp webdav 相关 nas的基础应用。\nalpine 容器的创建和基本配置 原文索引 ：https://dev.leiyanhui.com/pve/lxc-nas\n安装sudo nano 1 2 3 4 # 用更加轻量的doas 替代sudo nano替代vi lxc 内运行 apk add doas nano apk del vim ln -s /usr/bin/doas /usr/bin/sudo #替代sudo 添加用户 先添加一个用户 作为 三个服务的登录用户 并给他sudo权限，lxc 内运行\n"><title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 核心 之 smb sftp webdav</title><link rel=canonical href=https://dev.leiyanhui.com/pve/lxc-nas-core/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="pve下使用lxc 直通硬盘搭建 nas 服务  全面替代群晖 freenas OMV 等 核心 之  smb sftp webdav"><meta property='og:description' content="本文已经更新为 使用cloudreve和davfs 搭建多合1 文件中心 ：https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve\n2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。\n本文 是 pve lxc 搭建nas 的系列文章 的一部分。 因为篇幅较长，所以分开。\n原文索引 ：https://dev.leiyanhui.com/pve/lxc-nas\n本文主要内容 是 直通 硬盘 以及配置 smb sftp webdav 相关 nas的基础应用。\nalpine 容器的创建和基本配置 原文索引 ：https://dev.leiyanhui.com/pve/lxc-nas\n安装sudo nano 1 2 3 4 # 用更加轻量的doas 替代sudo nano替代vi lxc 内运行 apk add doas nano apk del vim ln -s /usr/bin/doas /usr/bin/sudo #替代sudo 添加用户 先添加一个用户 作为 三个服务的登录用户 并给他sudo权限，lxc 内运行\n"><meta property='og:url' content='https://dev.leiyanhui.com/pve/lxc-nas-core/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Pve'><meta property='article:published_time' content='2023-02-08T07:14:20+08:00'><meta property='article:modified_time' content='2023-02-08T07:14:20+08:00'><meta name=twitter:title content="pve下使用lxc 直通硬盘搭建 nas 服务  全面替代群晖 freenas OMV 等 核心 之  smb sftp webdav"><meta name=twitter:description content="本文已经更新为 使用cloudreve和davfs 搭建多合1 文件中心 ：https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve\n2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。\n本文 是 pve lxc 搭建nas 的系列文章 的一部分。 因为篇幅较长，所以分开。\n原文索引 ：https://dev.leiyanhui.com/pve/lxc-nas\n本文主要内容 是 直通 硬盘 以及配置 smb sftp webdav 相关 nas的基础应用。\nalpine 容器的创建和基本配置 原文索引 ：https://dev.leiyanhui.com/pve/lxc-nas\n安装sudo nano 1 2 3 4 # 用更加轻量的doas 替代sudo nano替代vi lxc 内运行 apk add doas nano apk del vim ln -s /usr/bin/doas /usr/bin/sudo #替代sudo 添加用户 先添加一个用户 作为 三个服务的登录用户 并给他sudo权限，lxc 内运行\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><ol><li><ol><li><a href=#alpine-容器的创建和基本配置>alpine 容器的创建和基本配置</a></li><li><a href=#安装sudo-nano>安装sudo nano</a></li><li><a href=#添加用户>添加用户</a></li><li><a href=#配置磁盘目录所有者权限>配置磁盘目录所有者权限</a></li></ol></li></ol></li><li><a href=#开启配置sftp-smb-webdav>开启配置sftp smb webdav</a><ol><li><a href=#sftp>sftp</a></li><li><a href=#smb>smb</a><ol><li><a href=#wsdd>wsdd</a></li></ol></li><li><a href=#webdav>webdav</a><ol><li><a href=#nginx一些小问题>nginx一些小问题</a></li></ol></li><li><a href=#清理和备份>清理和备份</a></li><li><a href=#webdav套ssl>webdav套ssl</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/pve/ style=background-color:#efbee3;color:#3d0f32>Pve
+</a><a href=/categories/lxc/ style=background-color:#efbed9;color:#3d0f29>Lxc
+</a><a href=/categories/alpine/ style=background-color:#ddbeef;color:#2c0f3d>Alpine</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/pve/lxc-nas-core/>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 核心 之 smb sftp webdav</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-02-08T07:14:20+08:00>2023-02-08</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 3 分钟</time></div></footer></div></header><section class=article-content><p>本文已经更新为 使用cloudreve和davfs 搭建多合1 文件中心 ：<a class=link href=https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-nas-core-cloudreve</a></p><blockquote><p>2023年6月30日 补充：因cloudreve 的webui其实完成度并不高，office的wopi也有一些问题，issues基本停滞在你提你的作者自己有自己的想法，或者说压根无人处理的状态。 我最终选了filerun 并搭上了filerun的最后一班免费10用户的车。nextcloud 因为web界面一直卡卡的感觉处于备用状态。自己尝试用go 或者rust重写一个webui来用，但是尚未有太多进展。 核心的webdav sftp smb 我全部改为rclone server实现。具体站内搜索。</p></blockquote><p>本文 是 pve lxc 搭建nas 的系列文章 的一部分。 因为篇幅较长，所以分开。</p><p>原文索引 ：<a class=link href=https://dev.leiyanhui.com/pve/lxc-nas target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-nas</a></p><p>本文主要内容 是 直通 硬盘 以及配置 smb sftp webdav 相关 nas的基础应用。</p><h4 id=alpine-容器的创建和基本配置>alpine 容器的创建和基本配置</h4><p>原文索引 ：<a class=link href=https://dev.leiyanhui.com/pve/lxc-nas target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-nas</a></p><h4 id=安装sudo-nano>安装sudo nano</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 用更加轻量的doas 替代sudo  nano替代vi lxc 内运行</span>
+</span></span><span class=line><span class=cl>apk add doas nano
+</span></span><span class=line><span class=cl>apk del vim
+</span></span><span class=line><span class=cl>ln -s /usr/bin/doas  /usr/bin/sudo <span class=c1>#替代sudo</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=添加用户>添加用户</h4><p>先添加一个用户 作为 三个服务的登录用户 并给他sudo权限，lxc 内运行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>adduser -g yanhui
+</span></span><span class=line><span class=cl>adduser yanhui -G wheel  <span class=c1>#添加用戶到wheel 输入密码 </span>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;permit persist :wheel&#34;</span>&gt;/etc/doas.d/doas.conf <span class=c1>#把用户添加到doas</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=配置磁盘目录所有者权限>配置磁盘目录所有者权限</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>chown -R  yanhui:wheel  /mnt/sda1
+</span></span></code></pre></td></tr></table></div></div><h2 id=开启配置sftp-smb-webdav>开启配置sftp smb webdav</h2><h3 id=sftp>sftp</h3><p>直接安装openssh ，不推荐dropbear</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>apk add openssh
+</span></span><span class=line><span class=cl>rc-update add sshd boot
+</span></span><span class=line><span class=cl>service sshd restart
+</span></span></code></pre></td></tr></table></div></div><h3 id=smb>smb</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>apk add samba
+</span></span><span class=line><span class=cl>rc-update add samba
+</span></span><span class=line><span class=cl>smbpasswd -a yanhui <span class=c1># 配置用户的 smb密码</span>
+</span></span><span class=line><span class=cl>rm -rf /etc/samba/smb.conf <span class=o>&amp;&amp;</span> nano /etc/samba/smb.conf
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># nano /etc/samba/smb.conf  编辑完成后重启 samba start</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>global<span class=o>]</span>
+</span></span><span class=line><span class=cl>allow insecure wide <span class=nv>links</span> <span class=o>=</span> yes 
+</span></span><span class=line><span class=cl><span class=nv>workgroup</span> <span class=o>=</span> WORKGROUP
+</span></span><span class=line><span class=cl>dos <span class=nv>charset</span> <span class=o>=</span> cp866
+</span></span><span class=line><span class=cl>unix <span class=nv>charset</span> <span class=o>=</span> utf-8
+</span></span><span class=line><span class=cl><span class=o>[</span>cloudreve<span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=nv>path</span> <span class=o>=</span> /mnt/sda1
+</span></span><span class=line><span class=cl><span class=nv>writable</span> <span class=o>=</span> yes
+</span></span><span class=line><span class=cl>write <span class=nv>list</span> <span class=o>=</span> yanhui
+</span></span><span class=line><span class=cl>valid <span class=nv>users</span> <span class=o>=</span>yanhui
+</span></span><span class=line><span class=cl>display <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>unix <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>dos <span class=nv>charset</span> <span class=o>=</span> cp936
+</span></span><span class=line><span class=cl><span class=c1>#下面这段给pve挂载用 mkdir /mnt/sda1/pve</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>pve<span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=nv>path</span> <span class=o>=</span> /mnt/sda1/pve
+</span></span><span class=line><span class=cl><span class=nv>writable</span> <span class=o>=</span> yes
+</span></span><span class=line><span class=cl>write <span class=nv>list</span> <span class=o>=</span> yanhui
+</span></span><span class=line><span class=cl>valid <span class=nv>users</span> <span class=o>=</span>yanhui
+</span></span><span class=line><span class=cl>display <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>unix <span class=nv>charset</span> <span class=o>=</span> UTF-8
+</span></span><span class=line><span class=cl>dos <span class=nv>charset</span> <span class=o>=</span> cp936
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>rc-service samba restart <span class=c1>#重启</span>
+</span></span></code></pre></td></tr></table></div></div><p>windows资源管理器 打开 <code>\\10.1.1.80</code>​ 即可访问，windows无法发现，是因为没有开始 wdds，需要的话继续</p><h4 id=wsdd>wsdd</h4><p>wsdd 就是 是 smb的网络发现服务。alpine仓库自带<br><a class=link href=https://github.com/christgau/wsdd target=_blank rel=noopener>https://github.com/christgau/wsdd</a></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>apk add wsdd
+</span></span><span class=line><span class=cl>rc-update add wsdd boot
+</span></span><span class=line><span class=cl>service wsdd restart
+</span></span></code></pre></td></tr></table></div></div><h3 id=webdav>webdav</h3><p>选择最熟悉的nginx来处理。nginx搭建的webdav有一些小问题。 推荐使用 cloudreve</p><p>cloudreve搭建网盘 ：<a class=link href=https://dev.leiyanhui.com/pve/lxc-cloudreve target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-cloudreve</a></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>apk add  nginx nginx-mod-http-dav-ext  openssl  nginx-mod-http-headers-more
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;yanhui:</span><span class=k>$(</span>openssl passwd 123456<span class=k>)</span><span class=s2>&#34;</span> &gt;/etc/nginx/.passwords.list <span class=c1># 这个用户和系统用户完全不相关,只是重名</span>
+</span></span></code></pre></td></tr></table></div></div><p>配置nginx运行用户</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>nano /etc/nginx/nginx.conf  <span class=c1># 把 user nginx; 这行注释掉，添加一行  user yanhui wheel;  access_log 这行如果不需要日志也注释掉</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=nginx一些小问题>nginx一些小问题</h4><p>首行添加一行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>load_module</span> <span class=o>/</span><span class=n>usr</span><span class=o>/</span><span class=n>lib</span><span class=o>/</span><span class=n>nginx</span><span class=o>/</span><span class=n>modules</span><span class=o>/</span><span class=n>ngx_http_headers_more_filter_module</span><span class=o>.</span><span class=n>so</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>后面添加一段,http部分</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>map $http_destination $webdav_dest {
+</span></span><span class=line><span class=cl>    ~*https://(.+) http://$1;
+</span></span><span class=line><span class=cl>    default $http_destination;
+</span></span><span class=line><span class=cl>  }
+</span></span></code></pre></td></tr></table></div></div><p>创建webdav用户，通过上面的ngin.conf 我们知道 alpine下配置文件 在 <code>/etc/nginx/http.d/</code>​</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>mv /etc/nginx/http.d/default.conf /etc/nginx/http.d/default.conf-bak
+</span></span><span class=line><span class=cl>nano /etc/nginx/http.d/webdav.conf
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>server <span class=o>{</span>
+</span></span><span class=line><span class=cl>    listen 80<span class=p>;</span> <span class=c1>#这个端口号如果要用80 需要另外处理一下/etc/nginx/nginx.conf</span>
+</span></span><span class=line><span class=cl>    server_name localhost<span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=c1>#打开目录浏览功能</span>
+</span></span><span class=line><span class=cl>        autoindex on<span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=c1>#默认为on，显示出文件的确切大小，单位是bytes</span>
+</span></span><span class=line><span class=cl>        <span class=c1>#显示出文件的大概大小，单位是kB或者MB或者GB</span>
+</span></span><span class=line><span class=cl>        autoindex_exact_size off<span class=p>;</span>
+</span></span><span class=line><span class=cl>         <span class=c1>#时间显示默认为off，显示的文件时间为GMT时间。</span>
+</span></span><span class=line><span class=cl>         <span class=c1>#改为on后，显示的文件时间为文件的服务器时间</span>
+</span></span><span class=line><span class=cl>         autoindex_localtime on<span class=p>;</span>
+</span></span><span class=line><span class=cl>         add_header Cache-Control no-store<span class=p>;</span> <span class=c1>#让浏览器不保存临时文件</span>
+</span></span><span class=line><span class=cl>	<span class=c1># 设置使用utf-8编码,防止中文文件名乱码</span>
+</span></span><span class=line><span class=cl>    	charset utf-8<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=c1># 默认存放文件的路径</span>
+</span></span><span class=line><span class=cl>    	root /mnt/sda1<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	auth_basic              realm_name<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=c1># 用户密码文件存放位置</span>
+</span></span><span class=line><span class=cl>    	auth_basic_user_file    /etc/nginx/.passwords.list<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=c1># dav 允许的操作</span>
+</span></span><span class=line><span class=cl>    	dav_methods     PUT DELETE MKCOL COPY MOVE<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	dav_ext_methods PROPFIND OPTIONS<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=c1># 创建文件的默认权限</span>
+</span></span><span class=line><span class=cl>    	dav_access      user:rw group:rw all:r<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=c1># 临时文件位置</span>
+</span></span><span class=line><span class=cl>    	client_body_temp_path   /tmp<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=c1># 最大上传文件限制, 0表示无限制</span>
+</span></span><span class=line><span class=cl>    	client_max_body_size    0<span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=c1># 允许自动创建文件夹(如果有需要的话)</span>
+</span></span><span class=line><span class=cl>    	create_full_put_path    on<span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>rc-update add nginx
+</span></span><span class=line><span class=cl>rc-service nginx start
+</span></span><span class=line><span class=cl>nginx -s reload <span class=c1># 重载</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>Windows下挂载webdav 建议用第三方工具 (RaiDrive CyberDuck WinSCP)， 默认不支持 非https，大文件 写入有问题</p></blockquote><h3 id=清理和备份>清理和备份</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;===========================&#34;</span> &gt;&gt; /etc/issue
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;====     nas core      ====&#34;</span> &gt;&gt; /etc/issue
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;===========================&#34;</span> &gt;&gt; /etc/issue
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;===========================&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;====     nas core      ====&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;===========================&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;/etc/doas.d/doas.conf&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;/etc/samba/smb.conf  &#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;WebDav paswd /etc/nginx/.passwords.list &#34;</span>&gt;&gt;  /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;/etc/nginx/nginx.conf&#34;</span>&gt;&gt;  /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;/etc/nginx/http.d/webdav.conf&#34;</span>&gt;&gt;  /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;===========================&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;rc-service samba restart&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;rc-service nginx restart&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;rc-service sshd restart&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;===========================&#34;</span> &gt;&gt; /etc/motd
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>rm -rf /var/cache/apk/*
+</span></span><span class=line><span class=cl>rm .ash_history
+</span></span><span class=line><span class=cl>poweroff
+</span></span></code></pre></td></tr></table></div></div><p>lxc 关机备份，备份完成后 系统只有区区的 37M 舒服</p><h3 id=webdav套ssl>webdav套ssl</h3><p>我这里用一个单独的lxc运行 nginx和acme.sh</p><p>详情查看 ：<a class=link href=https://dev.leiyanhui.com/pve/lxc-ssl target=_blank rel=noopener>https://dev.leiyanhui.com/pve/lxc-ssl</a></p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/pve/lxc-nas/><div class=article-details><h2 class=article-title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 总览</h2></div></a></article><article><a href=/pve/lxc-nas-cloudreve-aria2/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve替代nginx搭建webdav 之aria2离线下载</h2></div></a></article><article><a href=/pve/lxc-nas-office/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve 和 LibreOffice 的配置</h2></div></a></article><article><a href=/pve/lxc-nas-office-onlyoffice/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve 和 onlyoffice 的配置 包括onlyoffice的配置</h2></div></a></article><article><a href=/pve/lxc-nas-core-cloudreve/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve替代nginx搭建webdav 并开启smb/nfs和sftp</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
