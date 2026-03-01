@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Virtualbox on 小类随手记</title><link>https://dev.leiyanhui.com/tags/virtualbox/</link><description>Recent content in Virtualbox on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 07 Sep 2022 19:56:11 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/virtualbox/index.xml" rel="self" type="application/rss+xml"/><item><title>virtualbox 迁移到kvm</title><link>https://dev.leiyanhui.com/c/virtualbox-kvm/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/virtualbox-kvm/</guid><description>&lt;h1 id="virtualbox-迁移到kvm"&gt;virtualbox 迁移到kvm
+&lt;/h1&gt;&lt;p&gt;考虑到硬件直通的问题&lt;/p&gt;
+&lt;p&gt;物理机 换到 unraid，原来在virtualbox运行的docker直接挂到了unraid&lt;/p&gt;
+&lt;p&gt;剩下win虚拟机的软件磁盘（vhd vhdx） 还是需要迁移qcow2&lt;/p&gt;
+&lt;p&gt;第一种方案 最简单，创建一个 qcow2 把vhdx文件直接通过nas 复制qcow2分区即可，也可以直接挂载vhd后复制文件&lt;/p&gt;
+&lt;p&gt;第二种方案&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#blkdebug blklogwrites blkverify bochs cloop compress copy-before-write copy-on-read dmg file ftp ftps host_cdrom host_device http https luks nbd null-aio null-co nvme parallels preallocate qcow qcow2 qed quorum raw replication ssh throttle vdi vhdx vmdk vpc vvfat
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;、qed
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# vpc 就是 vhd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /mnt/disk1/domains
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /mnt/disks/HHD/system-vhd-bak/Win-Soft-Data/SOFT.vhd ./
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /mnt/disks/HHD/system-vhd-bak/Win-Soft-Data/IDEs.vhdx ./
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img convert -p -f vpc -O qcow2 SOFT.vhd soft.qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img convert -p -f vhdx -O qcow2 IDEs.vhdx ide.qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;有错误，先
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img check -r all &amp;#39;IDEs.vhdx&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;再转换 就ok了
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;然后挂载到虚拟机 &lt;a class="link" href="https://dev.leiyanhui.com/c/unraid-kvm-add-disk/" target="_blank" rel="noopener"
+&gt;unraid下kvm虚拟机创建和热拔插一个虚拟硬盘 - 小类随手记 (leiyanhui.com)&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virsh detach-disk Win2022 vdb --persistent
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virsh attach-disk Win2022 /mnt/disk1/domains/soft.qcow2 vdb --cache writeback --subdriver qcow2 --config --live
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virsh attach-disk Win2022 /mnt/disk1/domains/ide.qcow2 vdc --cache writeback --subdriver qcow2 --config --live
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;error: Failed to attach disk
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;error: internal error: unable to execute QEMU command &amp;#39;device_add&amp;#39;: Duplicate device ID &amp;#39;virtio-disk2&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;检查发现 是 vdc 被占用了，不知道 改成 vdd 就可以了
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>VirtualBox的优势和为什么选择VirtualBox</title><link>https://dev.leiyanhui.com/c/virtualbox-superiority/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/virtualbox-superiority/</guid><description>&lt;h1 id="virtualbox的优势和为什么选择virtualbox"&gt;VirtualBox的优势和为什么选择VirtualBox
+&lt;/h1&gt;&lt;p&gt;1、VirtualBox 免费开源 2、cpu 内存 和 硬盘 性能并不比vmware差 3、支持vdi vhd vmdk分区格式，自带命令行版本万能转化工具 4、轻巧 5、支持macos 可以支持到13版本[2022-08-29] 6、支持usb 7、VirtualBox 做的vhd或者vdi 可以在物理机直接启动 8、VirtualBox 在多数情况下 运行linux 或者win 在不需要3d的情况下，不管直接运行还是docker 并不比vmware性能差，VirtualBox +linux+docker 的性能，也只是略逊于 wsl+docker Windows vhd的话用BOOTICE.exe之类的的工具直接附加到bcd即可 也可以用ventoy 启动 linux的话 可以用ventoy 启动 详情参考ventoy官网&lt;/p&gt;
+&lt;p&gt;比vmware 或者 hyper-v差的地方 1、教程较少 如果是玩特殊系统新手上手难度较大，比如 最新版黑群晖的教程 就几乎没有，虽然不难，但是新手可能懵逼 2、3d性能比vmware拉胯，当然比hyper-v更拉跨 3、不支持硬件直通，vmware也不支持，exsi pve unraid之类的支持 hyper-v也可以支持&lt;/p&gt;
+&lt;p&gt;什么情况下选择 hyper-v？ hyper-v不支持usb这是很多人 感觉最蛋疼的，可以用 USB Over Network 解决这个问题，其他情况下 hyper-v 性能最优，而且支持vgpu 但是 hyper-v 安装黑苹果 非常麻烦：大致流程是 开启vgpu 或者硬件直通后，以及嵌套虚拟化后 在hv 安装pve 或者unraid 再行安装黑苹果。unraid app市场带一个自动安装工具不过只支持双核cpu&lt;/p&gt;
+&lt;p&gt;什么情况下选择hyper-v 有正版Windows、对性能要求高，完全不玩虚拟macos、不喜欢在虚拟机跑docker 什么情况下选择vmware 完全不玩vhd 可以接受vmware player 或 盗版sn 对VirtualBox不感冒，对3d要求略高一些 什么情况下选择VirtualBox 不会在虚拟机里面打游戏，对3D性能要求不太高，有能力搞定一些特殊的需求 我选择 VirtualBox + vmware 是因为我需要使用vmware跑黑苹果，另外一些商用服务器性质的内容丢到VirtualBox 运行，和hyper-v 以及物理机 之间来回迁移方便。&lt;/p&gt;
+&lt;p&gt;2022年10-07 已经全部迁移到 换kvm了&lt;/p&gt;</description></item><item><title>再议 VirtualBox 与 VMware 对比，VirtualBox 没有你想的那么不堪</title><link>https://dev.leiyanhui.com/c/vm-platform-selection/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/vm-platform-selection/</guid><description>&lt;h1 id="再议-virtualbox-与-vmware-对比virtualbox-没有你想的那么不堪"&gt;再议 VirtualBox 与 VMware 对比，VirtualBox 没有你想的那么不堪
+&lt;/h1&gt;&lt;p&gt;以截止到2022.9.22最新的VirtualBox 6.1.38 和 VMware VMware Workstation Pro16.2.4 对比&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;首先 如果是linux主机 ，首选 kvm 没有之一 kvm下一切都是渣&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;价格：VirtualBox 首选， VirtualBox 免费开源，VMware player免费但是仅限非商业用途，VMware WorkStation 不便宜（接近2k）。这点是很大的影响决策的因素。当然你用盗版VMware或者VMware player，或者非商业 也没啥。&lt;/li&gt;
+&lt;li&gt;轻量：VirtualBox是首选，VirtualBox安装后也就战役红260M硬盘 VMware 1G起步&lt;/li&gt;
+&lt;li&gt;多系统支持：Linux macos Windows都支持 另外VirtualBox支持无图形界面的Linux使用，也有一个基于php的web管理工具phpvirtualbox，VMware不清楚是否有。macos下vmware fusion player也是免费的，但也仅限非商业。&lt;/li&gt;
+&lt;li&gt;虚拟机文件管理：VirtualBox 就三个文件 vdi(虚拟磁盘) vbox(配置文件) prev（vbox的备份），VMware一堆&lt;/li&gt;
+&lt;li&gt;虚拟机磁盘管理：VirtualBox 的注册机制麻烦，自行复制虚拟磁盘后，会uuid冲突需要去修改一次。VMware不存在这问题。好像只有VirtualBox 存在虚拟机介质注册这个机制，而且还会检测uuid冲突&lt;/li&gt;
+&lt;li&gt;虚拟机磁盘格式支持：VirtualBox 支持 vdi vhd vmdk，并自带这三个之外的数种常见磁盘格式的转换。VirtualBox 只支持 vdi磁盘的整理压缩，vhd还是用Windows来。VMware只支持 vmdk但是也其他磁盘格式到vmdk的转换。VirtualBox 对vhd的完美支持，在Windows下管理更方便&lt;/li&gt;
+&lt;li&gt;共享目录：都支持&lt;/li&gt;
+&lt;li&gt;2D性能：Windows下VirtualBox 比kvm和VMware的2D性能更强。有物理机的50%&lt;/li&gt;
+&lt;li&gt;3D性能，VMware性能不错，VirtualBox 凑合。但是VirtualBox 的显卡内存不是网上其他博文说的只可以128M 命令行模式 可以随意改 ，也没有那么不堪。但是VMware的3D性能可以接近物理机60%左右&lt;/li&gt;
+&lt;li&gt;cpu、内存和硬盘性能： 都一样，所有的虚拟机系统基本上都差不多的性能。&lt;/li&gt;
+&lt;li&gt;黑苹果：VMware需要unlock后安装，VirtualBox 需要命令行修改后才可以装最新的 maos11-13。VirtualBox 的macos不支持两个核心以上的macos 会出现一些文件。VMware的不存在这个问题。安装后的macos 都是 半斤八两，应急用没啥问题，做吃力的工作都不现实。尤其3D性能都垃圾。&lt;/li&gt;
+&lt;li&gt;usb3 的支持，都支持。VirtualBox 有一个扩展包，大概几十m，是一个独立在VirtualBox 的扩展包和主版本一起更新。并不存在什么 麻烦的。安装挂载也简单&lt;/li&gt;
+&lt;li&gt;tpm支持：都支持，VirtualBox 支持tpm直通，VMware支持模拟的，是否可以直通不知。只是安装win11的话，这个没差，都可以绕过&lt;/li&gt;
+&lt;li&gt;硬盘直通：都支持，VirtualBox 需要做一个vmdk文件映射物理盘&lt;/li&gt;
+&lt;li&gt;虚拟化嵌套：VirtualBox 支持，VMware应该是不支持的，未测试过。这就导致了虚拟的Windows下 基于hyper-v的wsl docker会有问题吧。&lt;/li&gt;
+&lt;li&gt;半虚拟化：VirtualBox 支持，VMware应该是不支持的，未测试过。另外 kvm hyper-v xen都支持半虚拟化，性能损耗更少&lt;/li&gt;
+&lt;li&gt;软虚拟：VirtualBox 支持，VMware应该是不支持的，未测试过。VirtualBox 可以运行arm的安卓。VMware好像是不可以的。网上大量的安卓模拟器都是内置VirtualBox&lt;/li&gt;
+&lt;li&gt;最新版黑群晖支持：都支持，都一样弄。不存在新版在VirtualBox 装不上的问题，自己弄引导就好了。&lt;/li&gt;
+&lt;li&gt;动态磁盘：都支持&lt;/li&gt;
+&lt;li&gt;网络支持：都支持 桥接 nat ，没差别。&lt;/li&gt;
+&lt;li&gt;命令行启动，注册为Server：都支持&lt;/li&gt;
+&lt;li&gt;动态内存管理：就是可以释放没占用的内存，hyper-v的很秀，VMware支持 ,VirtualBox 也&lt;/li&gt;
+&lt;li&gt;技术文章和第三方支持广泛性：国内VMware的文章更多，某一些特殊系统的安装VMware的教程更多。国内企业选择VMware的也更多。培训和教程也多以VMware为主。VirtualBox 通常被说成一种问题多性能差功能少的&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;其他虚拟机系统缺点&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;kvm，仅适用于Linux，模拟的Windows 3D 2D都拉跨，但是可以用显卡直通和vgpu来提升。非常适合Linux老手使用。Linux的不二选择。也是unraid pve等系统的默认虚拟机系统，群晖也是&lt;/li&gt;
+&lt;li&gt;hyper-v，接近免费，支持 vgpu 支持显卡直通，vgpu。可惜usb支持不佳。如果不是大吞吐量usb设备可以用第三方软件，或者 rdp等解决。&lt;/li&gt;
+&lt;li&gt;ecxi 和基于kvm的unraid pve 群晖等 不在对比之列&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;可以看到VirtualBox 对VMware相比缺点有：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;3D性能VirtualBox 仅支持到DirectX9以及OpenGL3.0，DirectX 11 和 OpenGL 4.1 3D 加速图形支持&lt;/li&gt;
+&lt;li&gt;虚拟最新黑苹果，不支持2个以上核心，不过VMware的macos性能也很拉跨，半斤八两。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;VirtualBox 对比kvm和hyper-v的缺点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不支持显卡直通和vgpu&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;怎么选&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;macos下运行win和macos，不用想 肯定首选是pd虚拟机。如果不玩游戏 自然也可以 VirtualBox 或者vmware fusion&lt;/li&gt;
+&lt;li&gt;Linux下 性能考虑首选kvm，如果不习惯，就选VirtualBox 或者vmware 。无 图形界面的Linux不需要太多3d性能的话，首选VirtualBox&lt;/li&gt;
+&lt;li&gt;win/Linux 需要虚拟化macos，首选VMware，VMware player其实就够了。&lt;/li&gt;
+&lt;li&gt;需要3D性能，显卡直通，那就 kvm hyper-v，exci unraid pve等&lt;/li&gt;
+&lt;li&gt;不需要直通，需要vgpu那就 hyper-v kvm&lt;/li&gt;
+&lt;li&gt;只是需要基本的3D性能，那就VMware 次选VirtualBox&lt;/li&gt;
+&lt;li&gt;macos下运行win，首选Parallels Desktop&lt;/li&gt;
+&lt;li&gt;Linux server下 首选kvm 和VirtualBox&lt;/li&gt;
+&lt;li&gt;win下和Linux 混合商业用途，想省钱，那就首选VirtualBox 了。尤其是运行 不需要3D性能的服务的时候，图形化界面，多格式虚拟磁盘支持。不用usb 还许需要&lt;/li&gt;
+&lt;li&gt;正版window 不需要usb，或者只是简单u盘 rs232之类的，且不需要VMware的情况下（VMware和hyper共存的情况下，VMware性能超级拉跨），首选hyper-v&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我的选择：宿主系统也用来工作，因主要使用的软件不支持Linux winpe后性能拉跨，所以宿主机是Windows。偶尔用macos处理ios签名等问题。有一个Linux server 开发环境但是一直开机的，方便和主linux server 同步以及开发版调试。偶尔替代主力server使用，这个server上有一些敏感内容，且商用。&lt;/p&gt;
+&lt;p&gt;也就是 最终就1-3个虚拟机而已，而且除了macos均没有3d需求，所以VirtualBox 成了首选&lt;/p&gt;</description></item><item><title>VirtualBox 下linux访问物理机windows文件的方法</title><link>https://dev.leiyanhui.com/c/virtualbox-linux-windows/</link><pubDate>Thu, 07 Sep 2017 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/virtualbox-linux-windows/</guid><description>&lt;h1 id="virtualbox-下linux访问物理机windows文件的方法"&gt;VirtualBox 下linux访问物理机windows文件的方法
+&lt;/h1&gt;&lt;p&gt;先在linux下安装增强工具，虚拟机&amp;gt;设备&amp;gt;安装增强功能&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;没有自动挂载cdrom，手动挂载一下 &lt;em&gt;mount /dev/cdrom /home/centos/rom&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;然后cd &lt;em&gt;/home/centos/rom&lt;/em&gt; 再运行 sh VBoxLinuxAdditions.run&lt;/li&gt;
+&lt;li&gt;可能要提前安装一些依赖 apt install kernel sources kernel-devel gcc 或者 yum安装&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;然后添加共享 选择挂载位置，重启虚拟机主机 就可以了&lt;/p&gt;
+&lt;p&gt;文件权限 是 770 root所有 ，貌似无法修改&lt;/p&gt;</description></item></channel></rss>

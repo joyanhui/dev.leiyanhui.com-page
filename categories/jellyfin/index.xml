@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Jellyfin on 小类随手记</title><link>https://dev.leiyanhui.com/categories/jellyfin/</link><description>Recent content in Jellyfin on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 26 Nov 2022 06:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/jellyfin/index.xml" rel="self" type="application/rss+xml"/><item><title>纯docker无盘打造个人媒体中心</title><link>https://dev.leiyanhui.com/docker/mediavodcenter/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/mediavodcenter/</guid><description>&lt;p&gt;博主 已经全部切换到 lxc 方案。暂时抛弃Nastools
+2023-02-17 后使用的方案为：全lxc 每个lxc运行1-多个服务 分开管理&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;lxc 10000 alpine 运行 cloudereve + rclone（挂载cr的webdav） + smb + sftp&lt;/li&gt;
+&lt;li&gt;lxc 10001 alpine 运行 alist 挂网盘&lt;/li&gt;
+&lt;li&gt;lxc 10002 alpine 运行 aria2+ariaNG 和 cloudereve 直通同一个硬盘 处理离线下载&lt;/li&gt;
+&lt;li&gt;lxc 10003 alpine 运行 rclone +crontab 和 duplicati 同步 以及 加密备份文件 到 云盘&lt;/li&gt;
+&lt;li&gt;lxc 10010 alpine 运行 nginx + docker版onlyoffice 和cloudereve配合处理在线文档&lt;/li&gt;
+&lt;li&gt;其他 更多 查看原文：&lt;a class="link" href="https://dev.leiyanhui.com/pve/lxc-nas/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/lxc-nas/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="目标和环境"&gt;目标和环境
+&lt;/h2&gt;&lt;h3 id="环境"&gt;环境
+&lt;/h3&gt;&lt;p&gt;在一个弱鸡电脑上（N2600+4G+32G）用纯docker搭建个人媒体中心&lt;/p&gt;
+&lt;p&gt;并配合 阿里云盘 或者本地硬盘 实现大容量储存，&lt;/p&gt;
+&lt;h3 id="目标"&gt;目标
+&lt;/h3&gt;&lt;p&gt;自动搜索下载自己在豆瓣或者微信标注的影片，并存储到阿里云盘，可以用emby或者阿里云盘客户端app播放。
+进阶目标：自动清理删除许久为观看的电影 节省阿里云盘空间。我只有4T啊。。&lt;/p&gt;
+&lt;h2 id="前置准备工作"&gt;前置准备工作
+&lt;/h2&gt;&lt;p&gt;docker 环境 【&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/openwrt-plus/" target="_blank" rel="noopener"
+&gt;openwrt下docker的和其他插件的安装&lt;/a&gt;和&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/docker-cant-network/" target="_blank" rel="noopener"
+&gt;网络异常处理&lt;/a&gt;】&lt;br&gt;
+豆瓣账号&lt;br&gt;
+我这里docker 就是路由器系统是openwrt,其他linux 操作一样。&lt;/p&gt;
+&lt;h2 id="准备储存"&gt;准备储存
+&lt;/h2&gt;&lt;p&gt;我这里没有额外的多余硬盘做这个工作，所以直接使用阿里云盘了。&lt;br&gt;
+先把阿里云盘挂载到本地。具体方法查看： &lt;a class="link" href="https://dev.leiyanhui.com//openwrt/rclone/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com//openwrt/rclone/&lt;/a&gt;&lt;br&gt;
+如果你有其他硬盘 最好格式好后自行挂载到宿主机。
+我这里单独挂载一个 阿里云盘的目录 空白目录MediaVodCenter 到 &lt;code&gt;/mnt/MediaVodCenter&lt;/code&gt; 稍后会从云盘里面 移动之前的硬盘过来，也会测试下载功能，之所以单独创建一个目录，是为了避免误操作丢失文件&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;使用阿里云盘 就要忍受 刷新延迟带来的麻烦哈。肯定没有本地磁盘来的反应速度快，这个是无论如何也解决不聊的。只能忍受了哦&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="安装配置nastools-媒体中心"&gt;安装配置Nastools 媒体中心
+&lt;/h2&gt;&lt;h3 id="docker安装nastools"&gt;docker安装Nastools
+&lt;/h3&gt;&lt;p&gt;我这里是openwrt 直接用root用户，如果你用其他用户管理，自行查看Nastools文档 &lt;a class="link" href="https://github.com/jxxghp/nas-tools" target="_blank" rel="noopener"
+&gt;https://github.com/jxxghp/nas-tools&lt;/a&gt;
+Nastools 的配置项众多，而且可能会出现依赖变动无法更新的情况，所以单独创建一个目录储存系统配置&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir /mnt/config_MediaVodCenter
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;itd&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="n"&gt;nas&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tools&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;hostname&lt;/span&gt; &lt;span class="n"&gt;nas&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tools&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;50300&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;MediaVodCenter&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;MediaVodCenter&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;config_MediaVodCenter&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PUID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PGID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;UMASK&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;REPO_URL&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;ghproxy&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;com&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;github&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;com&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;jxxghp&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nas&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tools&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;git&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;NASTOOL_AUTO_UPDATE&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="bp"&gt;true&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;jxxghp&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nas&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;tools&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;http://IP:50300/ 去登录，这个docker启动略微慢，稍微等待 默认用户密码：admin/password&lt;/p&gt;
+&lt;h3 id="初步配置nastools"&gt;初步配置Nastools
+&lt;/h3&gt;&lt;p&gt;修改账户名密码，配置。系统提示还要配置&lt;code&gt;TMDB API Key &lt;/code&gt; 下一步去申请&lt;/p&gt;
+&lt;h4 id="注册申请tmdb"&gt;注册申请TMDB
+&lt;/h4&gt;&lt;p&gt;网址 ： &lt;a class="link" href="https://www.themoviedb.org/signup" target="_blank" rel="noopener"
+&gt;https://www.themoviedb.org/signup&lt;/a&gt; 网站虽然是中文的，但是在境外，可能会打不开，挂科研软件或者修改hosts&lt;br&gt;
+注册完成以后登录TMDB，点击首页右上角的头像→帐户设置。&lt;br&gt;
+点击左侧列表的API，然后点击请求API秘钥下面的 click here 再点击 开发者（developer） 同意协议后，继续填写&lt;/p&gt;
+&lt;p&gt;简介的地方填写选择 个人 名称“家用” 地址，写一个内网地址，&lt;code&gt;10.0.0.1&lt;/code&gt; 简介&lt;code&gt;Meet personalized needs, enrich website interfaces and functions&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;会马上生气申请成功，&lt;code&gt;API 密钥 (v3 auth)&lt;/code&gt; 里面的内容就是我们需要的&lt;code&gt;TMDB API Key &lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="继续配置媒体部分设置"&gt;继续配置媒体部分设置
+&lt;/h4&gt;&lt;p&gt;输入上面获取到&lt;code&gt;TMDB API Key &lt;/code&gt; TMDB域名 选择你不挂梯子能打开的 ， 默认文件转移方式 我这里是rclone挂载的阿里云盘 就选择 rclone移动，如你的是物理硬盘或者 nas 自行选择其他方法。&lt;/p&gt;
+&lt;h4 id="准备和配置豆瓣"&gt;准备和配置豆瓣
+&lt;/h4&gt;&lt;h5 id="豆瓣id"&gt;豆瓣id
+&lt;/h5&gt;&lt;p&gt;暂时先只配置豆瓣id ，注册一个豆瓣账号，点个人中心 个人主页 地址栏地址 类似 &lt;code&gt;https://www.douban.com/people/88888/?_i=99999 &lt;/code&gt; 其中888 就是我们的豆瓣id&lt;/p&gt;
+&lt;h5 id="都把cookies"&gt;都把cookies
+&lt;/h5&gt;&lt;p&gt;随便打开一个豆瓣内容页 例如&lt;code&gt;https://movie.douban.com/subject/35197639/&lt;/code&gt; 按F12键(chrome类浏览器)，弹出如图所示的开发页面。点击Network&lt;/p&gt;
+&lt;p&gt;首先点击左上角一个灰色的圈圈，把下面东西的清除一下&lt;/p&gt;
+&lt;p&gt;刷新这个页面，你可以点刷新按钮或者F5键&lt;/p&gt;
+&lt;p&gt;Network页面开始弹出一些东西，不要怕，向上划找到 “35197639/”这一个 然后看右侧的 cookies，找到你的dbcl2，这是根据分号（;）分割的，你把dbcl2:xxx复制下来。（不要把分号复制进来）例：&lt;code&gt;dbcl2=&amp;quot;8888888:AAAAAA&amp;quot;&lt;/code&gt;&lt;/p&gt;
+&lt;h6 id="配置nastools中的豆瓣id和cookies"&gt;配置Nastools中的豆瓣id和cookies
+&lt;/h6&gt;&lt;p&gt;打开nastools ，左侧 设置 豆瓣，分别输入对应的id 数字 和上面的 &lt;code&gt;dbcl2=&amp;quot;8888888:AAAAAA&amp;quot;&lt;/code&gt; 其他也根据需要设置一下&lt;/p&gt;
+&lt;h3 id="安装下载工具qbittorrent"&gt;安装下载工具qBittorrent
+&lt;/h3&gt;&lt;p&gt;我这里用qBittorrent ,并省略了config目录的映射&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;bt&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;WEBUI_PORT&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;50808&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;9821&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;6881&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;9821&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;6881&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;udp&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;50808&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;50808&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;MediaVodCenter&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;downloads&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;unless&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;stopped&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;linuxserver&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;qbittorrent&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="配置qbittorrent"&gt;配置qBittorrent
+&lt;/h3&gt;&lt;p&gt;访问&lt;code&gt;http://10.0.0.1:50808/&lt;/code&gt; webUI 账户：admin 密码：adminadmin&lt;br&gt;
+点 Tools -&amp;gt; options 打开设置窗口 选择 webui 设置用户名 密码 还有 语言简体&lt;/p&gt;
+&lt;h3 id="配置nastools的下载工具"&gt;配置Nastools的下载工具
+&lt;/h3&gt;&lt;p&gt;http://10.0.0.1:50300/ 设置 下载器 选择 qBittorrent 地址输入 宿主地址 10.0.0.1 端口 上面的WEBUI_PORT 50808 输入上面设置的用户密码，测试成功&lt;/p&gt;
+&lt;h3 id="安装媒体中心jellyfin"&gt;安装媒体中心jellyfin
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --name=jellyfin \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 50096:8096 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 7359:7359/udp \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 1900:1900/udp \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /mnt/jellyfin_config:/config \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /mnt/MediaVodCenter:/data \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --restart unless-stopped \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; linuxserver/jellyfin
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个地方 需要注意 /config 目录会吃硬盘空间，某些情况下可能会高达几十个G 注意经常检查,这个是无法避免的&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;硬解问题，稍后晚点配置.我的显示是N2600带的核显GMA3600，上古设备，那时候intel并未开源驱动，所以也就无法硬解。硬解问题，之后会挪到另外一台主机上进行处理。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="配置-jellyfin"&gt;配置 jellyfin
+&lt;/h3&gt;&lt;p&gt;打开 &lt;code&gt;http://10.0.0.1:50096/&lt;/code&gt; 按照提示设置，注意创建文件夹的时候 选择/data&lt;/p&gt;
+&lt;p&gt;然后 点左侧 三个点 打开设置 控制台 高级 api 生成 记住这个 api&lt;/p&gt;
+&lt;h3 id="再nastools-配置jellyfin"&gt;再Nastools 配置jellyfin
+&lt;/h3&gt;&lt;p&gt;http://10.0.0.1:50300/ 设置 媒体服务器 选择jellyfin 地址输入上面 &lt;code&gt;http://10.0.0.1:50096/&lt;/code&gt; apikey 输入刚刚的生成的&lt;/p&gt;
+&lt;h3 id="收工"&gt;收工！
+&lt;/h3&gt;&lt;h3 id="结尾的话"&gt;结尾的话
+&lt;/h3&gt;&lt;p&gt;N2600 性能堪忧，我最终 还是切换到了 i7 8代主机上&lt;/p&gt;</description></item></channel></rss>

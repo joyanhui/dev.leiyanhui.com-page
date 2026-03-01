@@ -1,0 +1,308 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="fake-ip和 redir-host两者区别，哪个好？\n在redir-host模式下，Clash先将域名进行解析，再将具体的IP地址响应给客户端，并且记录其对应关系。\n而在fake-ip模式下则不进行DNS解析，而是直接生成一个“假IP”并响应给客户端，再记录对应关系。\n这可以有如下两个好处： 1、fake-ip的响应会更快(因为会马上给你一个假IP)，如果最后判定为代理，则有可能节省一次本地的DNS请求.在访问国内网站的时候，速度会提升0.1-0.3m 2、不需要担心DNS污染（因为配置文件中的DNS仅用作规则判定）\n坏处 就是，你ping任何域名 获得的ip的都是假的。哪怕不存在的域名。ping的超时时间也肯定是错误的。\n日常使用不会有太大的影响，但是你在内网访问ddns的域名时候，默认请求到你的公网ip然后路由器直接环回到内网。因为这个ip是假的 就导致 无法 完成后面的操作。\n在不配置 smartdns的情况下，使用fake-ip 也不用其它的dns插件。不代理udp（游戏），代理ipv6 。 整体使用感受会很舒适。\n解决方法也很简单，在openclash中 开启fake-ip 后切换到 覆写设置 dns设置 Fake-IP-Filter 里面配置你要绕过 fake-ip 直接访问的域名。\n例如\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 #LAN *.lan *.localdomain *.example *.invalid *.localhost *.test *.local *.home.arpa #放行NTP服务 time.*.com time.*.gov time.*.edu.cn time.*.apple.com time-ios.apple.com time1.*.com time2.*.com time3.*.com time4.*.com time5.*.com time6.*.com time7.*.com ntp.*.com ntp1.*.com ntp2.*.com ntp3.*.com ntp4.*.com ntp5.*.com ntp6.*.com ntp7.*.com *.time.edu.cn *.ntp.org.cn +.pool.ntp.org time1.cloud.tencent.com #放行网易云音乐 music.163.com *.music.163.com *.126.net #百度音乐 musicapi.taihe.com music.taihe.com #酷狗音乐 songsearch.kugou.com trackercdn.kugou.com #酷我音乐 *.kuwo.cn #JOOX音乐 api-jooxtt.sanook.com api.joox.com joox.com #QQ音乐 y.qq.com *.y.qq.com streamoc.music.tc.qq.com mobileoc.music.tc.qq.com isure.stream.qqmusic.qq.com dl.stream.qqmusic.qq.com aqqmusic.tc.qq.com amobile.music.tc.qq.com #虾米音乐 *.xiami.com #咪咕音乐 *.music.migu.cn music.migu.cn #win10本地连接检测 +.msftconnecttest.com +.msftncsi.com #QQ登录 localhost.ptlogin2.qq.com localhost.sec.qq.com +.qq.com +.tencent.com #Game #Nintendo Switch +.srv.nintendo.net *.n.n.srv.nintendo.net #Sony PlayStation +.stun.playstation.net #Microsoft Xbox xbox.*.*.microsoft.com *.*.xboxlive.com xbox.*.microsoft.com xnotify.xboxlive.com #Wotgame +.battlenet.com.cn +.wotgame.cn +.wggames.cn +.wowsgame.cn +.wargaming.net #Golang proxy.golang.org #STUN stun.*.* stun.*.*.* +.stun.*.* +.stun.*.*.* +.stun.*.*.*.* +.stun.*.*.*.*.* #Linksys Router heartbeat.belkin.com *.linksys.com *.linksyssmartwifi.com #ASUS Router *.router.asus.com #Apple Software Update Service mesu.apple.com swscan.apple.com swquery.apple.com swdownload.apple.com swcdn.apple.com swdist.apple.com #Google lens.l.google.com stun.l.google.com na.b.g-tun.com #Netflix +.nflxvideo.net #FinalFantasy XIV Worldwide Server & CN Server *.square-enix.com *.finalfantasyxiv.com *.ffxiv.com *.ff14.sdo.com ff.dorado.sdo.com #Bilibili *.mcdn.bilivideo.cn #Disney Plus +.media.dssott.com #shark007 Codecs shark007.net #Mijia Mijia Cloud #招商银行 +.cmbchina.com +.cmbimg.com #AdGuard local.adguard.org #迅雷 +.sandai.net +.n0808.com #自己 +.leiyanhui.com "><title>fake-ip代理的问题 ddns失效 等</title><link rel=canonical href=https://dev.leiyanhui.com/openwrt/oc-fakeip/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="fake-ip代理的问题  ddns失效 等"><meta property='og:description' content="fake-ip和 redir-host两者区别，哪个好？\n在redir-host模式下，Clash先将域名进行解析，再将具体的IP地址响应给客户端，并且记录其对应关系。\n而在fake-ip模式下则不进行DNS解析，而是直接生成一个“假IP”并响应给客户端，再记录对应关系。\n这可以有如下两个好处： 1、fake-ip的响应会更快(因为会马上给你一个假IP)，如果最后判定为代理，则有可能节省一次本地的DNS请求.在访问国内网站的时候，速度会提升0.1-0.3m 2、不需要担心DNS污染（因为配置文件中的DNS仅用作规则判定）\n坏处 就是，你ping任何域名 获得的ip的都是假的。哪怕不存在的域名。ping的超时时间也肯定是错误的。\n日常使用不会有太大的影响，但是你在内网访问ddns的域名时候，默认请求到你的公网ip然后路由器直接环回到内网。因为这个ip是假的 就导致 无法 完成后面的操作。\n在不配置 smartdns的情况下，使用fake-ip 也不用其它的dns插件。不代理udp（游戏），代理ipv6 。 整体使用感受会很舒适。\n解决方法也很简单，在openclash中 开启fake-ip 后切换到 覆写设置 dns设置 Fake-IP-Filter 里面配置你要绕过 fake-ip 直接访问的域名。\n例如\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 #LAN *.lan *.localdomain *.example *.invalid *.localhost *.test *.local *.home.arpa #放行NTP服务 time.*.com time.*.gov time.*.edu.cn time.*.apple.com time-ios.apple.com time1.*.com time2.*.com time3.*.com time4.*.com time5.*.com time6.*.com time7.*.com ntp.*.com ntp1.*.com ntp2.*.com ntp3.*.com ntp4.*.com ntp5.*.com ntp6.*.com ntp7.*.com *.time.edu.cn *.ntp.org.cn +.pool.ntp.org time1.cloud.tencent.com #放行网易云音乐 music.163.com *.music.163.com *.126.net #百度音乐 musicapi.taihe.com music.taihe.com #酷狗音乐 songsearch.kugou.com trackercdn.kugou.com #酷我音乐 *.kuwo.cn #JOOX音乐 api-jooxtt.sanook.com api.joox.com joox.com #QQ音乐 y.qq.com *.y.qq.com streamoc.music.tc.qq.com mobileoc.music.tc.qq.com isure.stream.qqmusic.qq.com dl.stream.qqmusic.qq.com aqqmusic.tc.qq.com amobile.music.tc.qq.com #虾米音乐 *.xiami.com #咪咕音乐 *.music.migu.cn music.migu.cn #win10本地连接检测 +.msftconnecttest.com +.msftncsi.com #QQ登录 localhost.ptlogin2.qq.com localhost.sec.qq.com +.qq.com +.tencent.com #Game #Nintendo Switch +.srv.nintendo.net *.n.n.srv.nintendo.net #Sony PlayStation +.stun.playstation.net #Microsoft Xbox xbox.*.*.microsoft.com *.*.xboxlive.com xbox.*.microsoft.com xnotify.xboxlive.com #Wotgame +.battlenet.com.cn +.wotgame.cn +.wggames.cn +.wowsgame.cn +.wargaming.net #Golang proxy.golang.org #STUN stun.*.* stun.*.*.* +.stun.*.* +.stun.*.*.* +.stun.*.*.*.* +.stun.*.*.*.*.* #Linksys Router heartbeat.belkin.com *.linksys.com *.linksyssmartwifi.com #ASUS Router *.router.asus.com #Apple Software Update Service mesu.apple.com swscan.apple.com swquery.apple.com swdownload.apple.com swcdn.apple.com swdist.apple.com #Google lens.l.google.com stun.l.google.com na.b.g-tun.com #Netflix +.nflxvideo.net #FinalFantasy XIV Worldwide Server & CN Server *.square-enix.com *.finalfantasyxiv.com *.ffxiv.com *.ff14.sdo.com ff.dorado.sdo.com #Bilibili *.mcdn.bilivideo.cn #Disney Plus +.media.dssott.com #shark007 Codecs shark007.net #Mijia Mijia Cloud #招商银行 +.cmbchina.com +.cmbimg.com #AdGuard local.adguard.org #迅雷 +.sandai.net +.n0808.com #自己 +.leiyanhui.com "><meta property='og:url' content='https://dev.leiyanhui.com/openwrt/oc-fakeip/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Openwrt'><meta property='article:published_time' content='2023-09-19T00:01:20+08:00'><meta property='article:modified_time' content='2023-09-19T00:01:20+08:00'><meta name=twitter:title content="fake-ip代理的问题  ddns失效 等"><meta name=twitter:description content="fake-ip和 redir-host两者区别，哪个好？\n在redir-host模式下，Clash先将域名进行解析，再将具体的IP地址响应给客户端，并且记录其对应关系。\n而在fake-ip模式下则不进行DNS解析，而是直接生成一个“假IP”并响应给客户端，再记录对应关系。\n这可以有如下两个好处： 1、fake-ip的响应会更快(因为会马上给你一个假IP)，如果最后判定为代理，则有可能节省一次本地的DNS请求.在访问国内网站的时候，速度会提升0.1-0.3m 2、不需要担心DNS污染（因为配置文件中的DNS仅用作规则判定）\n坏处 就是，你ping任何域名 获得的ip的都是假的。哪怕不存在的域名。ping的超时时间也肯定是错误的。\n日常使用不会有太大的影响，但是你在内网访问ddns的域名时候，默认请求到你的公网ip然后路由器直接环回到内网。因为这个ip是假的 就导致 无法 完成后面的操作。\n在不配置 smartdns的情况下，使用fake-ip 也不用其它的dns插件。不代理udp（游戏），代理ipv6 。 整体使用感受会很舒适。\n解决方法也很简单，在openclash中 开启fake-ip 后切换到 覆写设置 dns设置 Fake-IP-Filter 里面配置你要绕过 fake-ip 直接访问的域名。\n例如\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 #LAN *.lan *.localdomain *.example *.invalid *.localhost *.test *.local *.home.arpa #放行NTP服务 time.*.com time.*.gov time.*.edu.cn time.*.apple.com time-ios.apple.com time1.*.com time2.*.com time3.*.com time4.*.com time5.*.com time6.*.com time7.*.com ntp.*.com ntp1.*.com ntp2.*.com ntp3.*.com ntp4.*.com ntp5.*.com ntp6.*.com ntp7.*.com *.time.edu.cn *.ntp.org.cn +.pool.ntp.org time1.cloud.tencent.com #放行网易云音乐 music.163.com *.music.163.com *.126.net #百度音乐 musicapi.taihe.com music.taihe.com #酷狗音乐 songsearch.kugou.com trackercdn.kugou.com #酷我音乐 *.kuwo.cn #JOOX音乐 api-jooxtt.sanook.com api.joox.com joox.com #QQ音乐 y.qq.com *.y.qq.com streamoc.music.tc.qq.com mobileoc.music.tc.qq.com isure.stream.qqmusic.qq.com dl.stream.qqmusic.qq.com aqqmusic.tc.qq.com amobile.music.tc.qq.com #虾米音乐 *.xiami.com #咪咕音乐 *.music.migu.cn music.migu.cn #win10本地连接检测 +.msftconnecttest.com +.msftncsi.com #QQ登录 localhost.ptlogin2.qq.com localhost.sec.qq.com +.qq.com +.tencent.com #Game #Nintendo Switch +.srv.nintendo.net *.n.n.srv.nintendo.net #Sony PlayStation +.stun.playstation.net #Microsoft Xbox xbox.*.*.microsoft.com *.*.xboxlive.com xbox.*.microsoft.com xnotify.xboxlive.com #Wotgame +.battlenet.com.cn +.wotgame.cn +.wggames.cn +.wowsgame.cn +.wargaming.net #Golang proxy.golang.org #STUN stun.*.* stun.*.*.* +.stun.*.* +.stun.*.*.* +.stun.*.*.*.* +.stun.*.*.*.*.* #Linksys Router heartbeat.belkin.com *.linksys.com *.linksyssmartwifi.com #ASUS Router *.router.asus.com #Apple Software Update Service mesu.apple.com swscan.apple.com swquery.apple.com swdownload.apple.com swcdn.apple.com swdist.apple.com #Google lens.l.google.com stun.l.google.com na.b.g-tun.com #Netflix +.nflxvideo.net #FinalFantasy XIV Worldwide Server & CN Server *.square-enix.com *.finalfantasyxiv.com *.ffxiv.com *.ff14.sdo.com ff.dorado.sdo.com #Bilibili *.mcdn.bilivideo.cn #Disney Plus +.media.dssott.com #shark007 Codecs shark007.net #Mijia Mijia Cloud #招商银行 +.cmbchina.com +.cmbimg.com #AdGuard local.adguard.org #迅雷 +.sandai.net +.n0808.com #自己 +.leiyanhui.com "></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/fakeip/ style=background-color:#e7efbe;color:#363d0f>Fakeip
+</a><a href=/categories/opwnwrt/ style=background-color:#beefd9;color:#0f3d29>Opwnwrt
+</a><a href=/categories/shellclash/ style=background-color:#efbeed;color:#3d0f3c>Shellclash
+</a><a href=/categories/openclash/ style=background-color:#efbee7;color:#3d0f36>Openclash</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/openwrt/oc-fakeip/>fake-ip代理的问题 ddns失效 等</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-09-19T00:01:20+08:00>2023-09-19</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 2 分钟</time></div></footer></div></header><section class=article-content><p>fake-ip和 redir-host两者区别，哪个好？</p><p>在redir-host模式下，Clash先将域名进行解析，再将具体的IP地址响应给客户端，并且记录其对应关系。</p><p>而在fake-ip模式下则不进行DNS解析，而是直接生成一个“假IP”并响应给客户端，再记录对应关系。</p><p>这可以有如下两个好处：
+1、fake-ip的响应会更快(因为会马上给你一个假IP)，如果最后判定为代理，则有可能节省一次本地的DNS请求.在访问国内网站的时候，速度会提升0.1-0.3m
+2、不需要担心DNS污染（因为配置文件中的DNS仅用作规则判定）</p><p>坏处 就是，你ping任何域名 获得的ip的都是假的。哪怕不存在的域名。ping的超时时间也肯定是错误的。</p><p>日常使用不会有太大的影响，但是你在内网访问ddns的域名时候，默认请求到你的公网ip然后路由器直接环回到内网。因为这个ip是假的 就导致 无法 完成后面的操作。</p><p>在不配置 smartdns的情况下，使用fake-ip 也不用其它的dns插件。不代理udp（游戏），代理ipv6 。
+整体使用感受会很舒适。</p><p>解决方法也很简单，在openclash中 开启fake-ip 后切换到 覆写设置 dns设置 Fake-IP-Filter 里面配置你要绕过 fake-ip 直接访问的域名。</p><p>例如</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=c1>#LAN</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>lan</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>localdomain</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>example</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>invalid</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>localhost</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>test</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>local</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>home</span><span class=o>.</span><span class=n>arpa</span>
+</span></span><span class=line><span class=cl><span class=c1>#放行NTP服务</span>
+</span></span><span class=line><span class=cl><span class=n>time</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time</span><span class=o>.*.</span><span class=n>gov</span>
+</span></span><span class=line><span class=cl><span class=n>time</span><span class=o>.*.</span><span class=n>edu</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=n>time</span><span class=o>.*.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time</span><span class=o>-</span><span class=n>ios</span><span class=o>.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time1</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time2</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time3</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time4</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time5</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time6</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>time7</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp1</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp2</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp3</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp4</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp5</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp6</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ntp7</span><span class=o>.*.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>time</span><span class=o>.</span><span class=n>edu</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>ntp</span><span class=o>.</span><span class=n>org</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>pool</span><span class=o>.</span><span class=n>ntp</span><span class=o>.</span><span class=n>org</span>
+</span></span><span class=line><span class=cl><span class=n>time1</span><span class=o>.</span><span class=n>cloud</span><span class=o>.</span><span class=n>tencent</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#放行网易云音乐</span>
+</span></span><span class=line><span class=cl><span class=n>music</span><span class=o>.</span><span class=mf>163.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>music</span><span class=o>.</span><span class=mf>163.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=mf>126.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=c1>#百度音乐</span>
+</span></span><span class=line><span class=cl><span class=n>musicapi</span><span class=o>.</span><span class=n>taihe</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>music</span><span class=o>.</span><span class=n>taihe</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#酷狗音乐</span>
+</span></span><span class=line><span class=cl><span class=n>songsearch</span><span class=o>.</span><span class=n>kugou</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>trackercdn</span><span class=o>.</span><span class=n>kugou</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#酷我音乐</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>kuwo</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=c1>#JOOX音乐</span>
+</span></span><span class=line><span class=cl><span class=n>api</span><span class=o>-</span><span class=n>jooxtt</span><span class=o>.</span><span class=n>sanook</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>api</span><span class=o>.</span><span class=n>joox</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>joox</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#QQ音乐</span>
+</span></span><span class=line><span class=cl><span class=n>y</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>y</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>streamoc</span><span class=o>.</span><span class=n>music</span><span class=o>.</span><span class=n>tc</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>mobileoc</span><span class=o>.</span><span class=n>music</span><span class=o>.</span><span class=n>tc</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>isure</span><span class=o>.</span><span class=n>stream</span><span class=o>.</span><span class=n>qqmusic</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>dl</span><span class=o>.</span><span class=n>stream</span><span class=o>.</span><span class=n>qqmusic</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>aqqmusic</span><span class=o>.</span><span class=n>tc</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>amobile</span><span class=o>.</span><span class=n>music</span><span class=o>.</span><span class=n>tc</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#虾米音乐</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>xiami</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#咪咕音乐</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>music</span><span class=o>.</span><span class=n>migu</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=n>music</span><span class=o>.</span><span class=n>migu</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=c1>#win10本地连接检测</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>msftconnecttest</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>msftncsi</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#QQ登录</span>
+</span></span><span class=line><span class=cl><span class=n>localhost</span><span class=o>.</span><span class=n>ptlogin2</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>localhost</span><span class=o>.</span><span class=n>sec</span><span class=o>.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>qq</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>tencent</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#Game</span>
+</span></span><span class=line><span class=cl><span class=c1>#Nintendo Switch</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>srv</span><span class=o>.</span><span class=n>nintendo</span><span class=o>.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>n</span><span class=o>.</span><span class=n>n</span><span class=o>.</span><span class=n>srv</span><span class=o>.</span><span class=n>nintendo</span><span class=o>.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=c1>#Sony PlayStation</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>stun</span><span class=o>.</span><span class=n>playstation</span><span class=o>.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=c1>#Microsoft Xbox</span>
+</span></span><span class=line><span class=cl><span class=n>xbox</span><span class=o>.*.*.</span><span class=n>microsoft</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.*.</span><span class=n>xboxlive</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>xbox</span><span class=o>.*.</span><span class=n>microsoft</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>xnotify</span><span class=o>.</span><span class=n>xboxlive</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#Wotgame</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>battlenet</span><span class=o>.</span><span class=n>com</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>wotgame</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>wggames</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>wowsgame</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>wargaming</span><span class=o>.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=c1>#Golang</span>
+</span></span><span class=line><span class=cl><span class=n>proxy</span><span class=o>.</span><span class=n>golang</span><span class=o>.</span><span class=n>org</span>
+</span></span><span class=line><span class=cl><span class=c1>#STUN</span>
+</span></span><span class=line><span class=cl><span class=n>stun</span><span class=o>.*.*</span>
+</span></span><span class=line><span class=cl><span class=n>stun</span><span class=o>.*.*.*</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>stun</span><span class=o>.*.*</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>stun</span><span class=o>.*.*.*</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>stun</span><span class=o>.*.*.*.*</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>stun</span><span class=o>.*.*.*.*.*</span>
+</span></span><span class=line><span class=cl><span class=c1>#Linksys Router</span>
+</span></span><span class=line><span class=cl><span class=n>heartbeat</span><span class=o>.</span><span class=n>belkin</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>linksys</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>linksyssmartwifi</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#ASUS Router</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>router</span><span class=o>.</span><span class=n>asus</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#Apple Software Update Service</span>
+</span></span><span class=line><span class=cl><span class=n>mesu</span><span class=o>.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>swscan</span><span class=o>.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>swquery</span><span class=o>.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>swdownload</span><span class=o>.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>swcdn</span><span class=o>.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>swdist</span><span class=o>.</span><span class=n>apple</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#Google</span>
+</span></span><span class=line><span class=cl><span class=n>lens</span><span class=o>.</span><span class=n>l</span><span class=o>.</span><span class=n>google</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>stun</span><span class=o>.</span><span class=n>l</span><span class=o>.</span><span class=n>google</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>na</span><span class=o>.</span><span class=n>b</span><span class=o>.</span><span class=n>g</span><span class=o>-</span><span class=n>tun</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#Netflix</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>nflxvideo</span><span class=o>.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=c1>#FinalFantasy XIV Worldwide Server &amp; CN Server</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>square</span><span class=o>-</span><span class=n>enix</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>finalfantasyxiv</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>ffxiv</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>ff14</span><span class=o>.</span><span class=n>sdo</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=n>ff</span><span class=o>.</span><span class=n>dorado</span><span class=o>.</span><span class=n>sdo</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#Bilibili</span>
+</span></span><span class=line><span class=cl><span class=o>*.</span><span class=n>mcdn</span><span class=o>.</span><span class=n>bilivideo</span><span class=o>.</span><span class=n>cn</span>
+</span></span><span class=line><span class=cl><span class=c1>#Disney Plus</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>media</span><span class=o>.</span><span class=n>dssott</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#shark007 Codecs </span>
+</span></span><span class=line><span class=cl><span class=n>shark007</span><span class=o>.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=c1>#Mijia</span>
+</span></span><span class=line><span class=cl><span class=n>Mijia</span> <span class=n>Cloud</span>
+</span></span><span class=line><span class=cl><span class=c1>#招商银行</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>cmbchina</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>cmbimg</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#AdGuard</span>
+</span></span><span class=line><span class=cl><span class=n>local</span><span class=o>.</span><span class=n>adguard</span><span class=o>.</span><span class=n>org</span>
+</span></span><span class=line><span class=cl><span class=c1>#迅雷</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>sandai</span><span class=o>.</span><span class=n>net</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>n0808</span><span class=o>.</span><span class=n>com</span>
+</span></span><span class=line><span class=cl><span class=c1>#自己</span>
+</span></span><span class=line><span class=cl><span class=o>+.</span><span class=n>leiyanhui</span><span class=o>.</span><span class=n>com</span>
+</span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/openwrt/smartdns-openclash/><div class=article-details><h2 class=article-title>smartdns和openclash的配合</h2></div></a></article><article><a href=/route/ikuai-bypass-joyanhui/><div class=article-details><h2 class=article-title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</h2></div></a></article><article><a href=/route/ikuai-bypass-joyanhui-old/><div class=article-details><h2 class=article-title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</h2></div></a></article><article><a href=/route/mosdns-all-in-one/><div class=article-details><h2 class=article-title>mosdns all in one 分流加自定义解析，不依赖 AdGuardHome</h2></div></a></article><article><a href=/cloudflare/vless/><div class=article-details><h2 class=article-title>利用cfwokr免费搭建自己的节点</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

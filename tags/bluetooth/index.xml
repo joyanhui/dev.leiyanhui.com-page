@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Bluetooth on 小类随手记</title><link>https://dev.leiyanhui.com/tags/bluetooth/</link><description>Recent content in Bluetooth on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 03 Aug 2022 21:38:29 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/bluetooth/index.xml" rel="self" type="application/rss+xml"/><item><title>archlinux 双蓝牙 配置</title><link>https://dev.leiyanhui.com/linux/arch-bluez/</link><pubDate>Wed, 03 Aug 2022 21:38:29 +0000</pubDate><guid>https://dev.leiyanhui.com/linux/arch-bluez/</guid><description>&lt;h1 id="archlinux-双蓝牙-配置"&gt;archlinux 双蓝牙 配置
+&lt;/h1&gt;&lt;p&gt;我这个本 板载蓝牙有问题，有时候 莫名其妙 会找不到，也连不上ek的键盘 罗技的鼠标 可以链接&lt;/p&gt;
+&lt;p&gt;加了一个usb蓝牙使用&lt;/p&gt;
+&lt;p&gt;所以 我不单需要安装蓝牙 还要处理 双蓝牙的切换，在archinstall安装的kde上 很简单，有自带的工具包&lt;/p&gt;
+&lt;p&gt;现在用的 dwm 就需要自己来搞定。1是驱动和管理程序 2 是系统托盘&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;安装 bluez，这个软件包提供蓝牙协议栈。
+安装 bluez-utils，这个软件包 bluetoothctl 实用程序。另外，也可以安装 bluez-utils-compat(yay) 来获得#弃用的 BlueZ 工具。
+通用蓝牙驱动是 btusb 内核模块。检查模块是否已加载。如果还没有，先加载模块。
+systemctl enable bluetooth
+systemctl start bluetooth
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;先检查蓝牙设备&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; rfkill list
+------
+0: hci0: Bluetooth
+Soft blocked: no
+Hard blocked: no
+1: hci1: Bluetooth
+Soft blocked: no
+Hard blocked: no
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;两个蓝牙都启用状态 r&lt;a class="link" href="https://wiki.archlinux.org/title/Network_configuration/Wireless#Rfkill_caveat" target="_blank" rel="noopener"
+&gt;fkill命令参考&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;为了方便期间 我先拔下usb蓝牙，禁用板载蓝牙&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; rfkill block 0
+rfkill list
+------
+0: hci0: Bluetooth
+Soft blocked: yes
+Hard blocked: no
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Soft blocked: yes 就是禁用了哦&lt;/p&gt;
+&lt;p&gt;启用的话&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; rfkill unblock 0
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;插入usb蓝牙，对应 1&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo pacman -S blueberry
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;先测试了一下 blueberry 60多M 可以使用，在dwm下也有系统托盘 &lt;code&gt;blueberry-tray&lt;/code&gt; 但是不知道怎么添加 搜索设备。。。&lt;/p&gt;
+&lt;p&gt;再 试试 &lt;a class="link" href="https://wiki.archlinux.org/title/Blueman" target="_blank" rel="noopener"
+&gt;bluesman&lt;/a&gt; 和 blueberry 要么太大了 要么不能用 需要一堆依赖的&lt;/p&gt;
+&lt;p&gt;算了 直接使用 bluez自带的 bluetoothctl 吧，执行 bluetoothctl 进去交互&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; #bluetoothctl
+$ bluetoothctl 进入蓝牙管理工具环境
+[bluetooth]# power on 打开蓝牙
+[bluetooth]# agent on 开启代理
+[bluetooth]# scan on 扫描蓝牙设备
+[bluetooth]# pair xx:xx:xx:... 配对该设备
+[bluetooth]# trust xx:xx:xx:... 信任该设备
+[bluetooth]# connect xx:xx:... 连接该设备
+[bluetooth]# disconnect xx:xx:... 断开蓝牙
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这里以链接我的ez键盘为例子
+bluetoothctl
+&amp;mdash;&amp;mdash;
+Agent registered
+[CHG] Controller A0:9F:10:10:99:1F Pairable: yes
+[CHG] Controller 04:7F:0E:14:6A:53 Pairable: yes&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; scan on
+#等一会儿 等显示出来设备名称
+# [NEW] Device DC:2C:26:F5:19:A6 EK871 BT keyboard
+# 先删除
+#disconnect DC:2C:26:F5:19:A6
+pair DC:2C:26:F5:19:A6
+trust DC:2C:26:F5:19:A6
+connect DC:2C:26:F5:19:A6
+# 这样就搞定了
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;后发现 重启好哦usb蓝牙有概率连不上&lt;/p&gt;
+&lt;p&gt;新建一个sh文件&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; # /bin/bash
+sudo rfkill list
+sudo rfkill block 1
+sudo rfkill list
+sudo rfkill unblock 1
+sudo rfkill block 0
+sudo rfkill list
+sudo rfkill unblock 0
+sudo rfkill
+#bluetoothctl
+# scan no
+echo &amp;quot;重新插拔一下 再执行&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;官网wiki ： &lt;a class="link" href="https://wiki.archlinux.org/title/Bluetooth_%28%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87%29" target="_blank" rel="noopener"
+&gt;https://wiki.archlinux.org/title/Bluetooth_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)&lt;/a&gt;&lt;/p&gt;</description></item></channel></rss>

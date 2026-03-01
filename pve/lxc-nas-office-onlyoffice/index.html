@@ -1,0 +1,224 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="因为对LibreOffice的兼容性不看好，加上Collabora Online (LibreOffice Online)的界面语言显示不知道到底和什么有关。加上网络上关于他的资料多数较老。所以继续尝试onlyoffice。\nonlyoffice 社区开源版本，限制20个文件同时编辑。但是因为开源，所以是可以绕过去的。我这里用不到所以没有尝试修改这个限制。\n本文主要内容：\n搭建公网环境可用的onlyoffice 限制仅限自己可用的onlyoffice 基于 pve7.3-4 lxc alpine3.17\n初步搭建。 lxc alpine安装docker 参考之前的文章：基本配置和安装docker https://dev.leiyanhui.com/pve/alpine-docker\n准备证书 我这里是 部署到github上的acme.sh，直接拉回来解压\n1 2 3 wget https://github.com/joyanhui/ssl/raw/main/ssl.zip apk add p7zip 7z x ssl.zip -p密码 #密码和p字母之间没有空格 自动更新 参考 ：https://dev.leiyanhui.com/web/auto-updatessl-form-github\ndocker安装onlyoffice onlyoffice 依赖不少，直接docker弄吧。 我这里证书用nginx处理，方便后面禁止别人使用。\n也可以把证书挂载到 /var/www/onlyoffice/Data/certs/ onlyoffice.crt onlyoffice.key 直接开443。如果你有80和443的话，他好像会自动帮你申请证书。\n1 docker run -itd -p 8080:80 --name office2 -e WOPI_ENABLED=true --restart always -e TZ=Asia/Shanghai onlyoffice/documentserver 打开检查\n1 http://10.1.1.84:8080 群友的,可以参考\n1 docker run -i -t -d -p 9001:80 -p 9002:443 -e WOPI_ENABLED=true -v /root/onlyoffice/DocumentServer/logs:/var/log/onlyoffice -v /root/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data -v /root/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice -v /root/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq -v /root/onlyoffice/DocumentServer/redis:/var/lib/redis -v /root/onlyoffice/DocumentServer/db:/var/lib/postgresql onlyoffice/documentserver nginx反代 alpine下nginx的配置文件 是在 http.d 目录下哈\n"><title>lxc alpine下使用cloudreve 和 onlyoffice 的配置 包括onlyoffice的配置</title><link rel=canonical href=https://dev.leiyanhui.com/pve/lxc-nas-office-onlyoffice/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="lxc alpine下使用cloudreve 和 onlyoffice 的配置 包括onlyoffice的配置"><meta property='og:description' content="因为对LibreOffice的兼容性不看好，加上Collabora Online (LibreOffice Online)的界面语言显示不知道到底和什么有关。加上网络上关于他的资料多数较老。所以继续尝试onlyoffice。\nonlyoffice 社区开源版本，限制20个文件同时编辑。但是因为开源，所以是可以绕过去的。我这里用不到所以没有尝试修改这个限制。\n本文主要内容：\n搭建公网环境可用的onlyoffice 限制仅限自己可用的onlyoffice 基于 pve7.3-4 lxc alpine3.17\n初步搭建。 lxc alpine安装docker 参考之前的文章：基本配置和安装docker https://dev.leiyanhui.com/pve/alpine-docker\n准备证书 我这里是 部署到github上的acme.sh，直接拉回来解压\n1 2 3 wget https://github.com/joyanhui/ssl/raw/main/ssl.zip apk add p7zip 7z x ssl.zip -p密码 #密码和p字母之间没有空格 自动更新 参考 ：https://dev.leiyanhui.com/web/auto-updatessl-form-github\ndocker安装onlyoffice onlyoffice 依赖不少，直接docker弄吧。 我这里证书用nginx处理，方便后面禁止别人使用。\n也可以把证书挂载到 /var/www/onlyoffice/Data/certs/ onlyoffice.crt onlyoffice.key 直接开443。如果你有80和443的话，他好像会自动帮你申请证书。\n1 docker run -itd -p 8080:80 --name office2 -e WOPI_ENABLED=true --restart always -e TZ=Asia/Shanghai onlyoffice/documentserver 打开检查\n1 http://10.1.1.84:8080 群友的,可以参考\n1 docker run -i -t -d -p 9001:80 -p 9002:443 -e WOPI_ENABLED=true -v /root/onlyoffice/DocumentServer/logs:/var/log/onlyoffice -v /root/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data -v /root/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice -v /root/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq -v /root/onlyoffice/DocumentServer/redis:/var/lib/redis -v /root/onlyoffice/DocumentServer/db:/var/lib/postgresql onlyoffice/documentserver nginx反代 alpine下nginx的配置文件 是在 http.d 目录下哈\n"><meta property='og:url' content='https://dev.leiyanhui.com/pve/lxc-nas-office-onlyoffice/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Pve'><meta property='article:published_time' content='2023-02-13T07:14:20+08:00'><meta property='article:modified_time' content='2023-02-13T07:14:20+08:00'><meta name=twitter:title content="lxc alpine下使用cloudreve 和 onlyoffice 的配置 包括onlyoffice的配置"><meta name=twitter:description content="因为对LibreOffice的兼容性不看好，加上Collabora Online (LibreOffice Online)的界面语言显示不知道到底和什么有关。加上网络上关于他的资料多数较老。所以继续尝试onlyoffice。\nonlyoffice 社区开源版本，限制20个文件同时编辑。但是因为开源，所以是可以绕过去的。我这里用不到所以没有尝试修改这个限制。\n本文主要内容：\n搭建公网环境可用的onlyoffice 限制仅限自己可用的onlyoffice 基于 pve7.3-4 lxc alpine3.17\n初步搭建。 lxc alpine安装docker 参考之前的文章：基本配置和安装docker https://dev.leiyanhui.com/pve/alpine-docker\n准备证书 我这里是 部署到github上的acme.sh，直接拉回来解压\n1 2 3 wget https://github.com/joyanhui/ssl/raw/main/ssl.zip apk add p7zip 7z x ssl.zip -p密码 #密码和p字母之间没有空格 自动更新 参考 ：https://dev.leiyanhui.com/web/auto-updatessl-form-github\ndocker安装onlyoffice onlyoffice 依赖不少，直接docker弄吧。 我这里证书用nginx处理，方便后面禁止别人使用。\n也可以把证书挂载到 /var/www/onlyoffice/Data/certs/ onlyoffice.crt onlyoffice.key 直接开443。如果你有80和443的话，他好像会自动帮你申请证书。\n1 docker run -itd -p 8080:80 --name office2 -e WOPI_ENABLED=true --restart always -e TZ=Asia/Shanghai onlyoffice/documentserver 打开检查\n1 http://10.1.1.84:8080 群友的,可以参考\n1 docker run -i -t -d -p 9001:80 -p 9002:443 -e WOPI_ENABLED=true -v /root/onlyoffice/DocumentServer/logs:/var/log/onlyoffice -v /root/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data -v /root/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice -v /root/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq -v /root/onlyoffice/DocumentServer/redis:/var/lib/redis -v /root/onlyoffice/DocumentServer/db:/var/lib/postgresql onlyoffice/documentserver nginx反代 alpine下nginx的配置文件 是在 http.d 目录下哈\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#初步搭建>初步搭建。</a><ol><li><a href=#lxc-alpine安装docker>lxc alpine安装docker</a></li><li><a href=#准备证书>准备证书</a></li><li><a href=#docker安装onlyoffice>docker安装onlyoffice</a></li><li><a href=#nginx反代>nginx反代</a></li><li><a href=#测试>测试</a></li></ol></li><li><a href=#限制只能自己使用>限制只能自己使用</a><ol><li><a href=#初步解决方案>初步解决方案</a></li><li><a href=#限制referers>限制referers</a></li><li><a href=#限制wopisrc>限制wopisrc</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/pve/ style=background-color:#efbee3;color:#3d0f32>Pve
+</a><a href=/categories/lxc/ style=background-color:#efbed9;color:#3d0f29>Lxc
+</a><a href=/categories/alpine/ style=background-color:#ddbeef;color:#2c0f3d>Alpine
+</a><a href=/categories/cloudreve/ style=background-color:#bee0ef;color:#0f2f3d>Cloudreve
+</a><a href=/categories/onlyoffice/ style=background-color:#c2efbe;color:#133d0f>Onlyoffice
+</a><a href=/categories/docker/ style=background-color:#bedaef;color:#0f2a3d>Docker</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/pve/lxc-nas-office-onlyoffice/>lxc alpine下使用cloudreve 和 onlyoffice 的配置 包括onlyoffice的配置</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-02-13T07:14:20+08:00>2023-02-13</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 3 分钟</time></div></footer></div></header><section class=article-content><p>因为对LibreOffice的兼容性不看好，加上Collabora Online (LibreOffice Online)的界面语言显示不知道到底和什么有关。加上网络上关于他的资料多数较老。所以继续尝试onlyoffice。<br>onlyoffice 社区开源版本，限制20个文件同时编辑。但是因为开源，所以是可以绕过去的。我这里用不到所以没有尝试修改这个限制。<br>本文主要内容：</p><ul><li>搭建公网环境可用的onlyoffice</li><li>限制仅限自己可用的onlyoffice</li></ul><p>基于 pve7.3-4 lxc alpine3.17</p><h2 id=初步搭建>初步搭建。</h2><h3 id=lxc-alpine安装docker>lxc alpine安装docker</h3><p>参考之前的文章：基本配置和安装docker <a class=link href=https://dev.leiyanhui.com/pve/alpine-docker target=_blank rel=noopener>https://dev.leiyanhui.com/pve/alpine-docker</a></p><h3 id=准备证书>准备证书</h3><p>我这里是 部署到github上的acme.sh，直接拉回来解压</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>wget https://github.com/joyanhui/ssl/raw/main/ssl.zip
+</span></span><span class=line><span class=cl>apk  add p7zip
+</span></span><span class=line><span class=cl>7z x ssl.zip  -p密码 #密码和p字母之间没有空格
+</span></span></code></pre></td></tr></table></div></div><p>自动更新 参考 ：<a class=link href=https://dev.leiyanhui.com/web/auto-updatessl-form-github target=_blank rel=noopener>https://dev.leiyanhui.com/web/auto-updatessl-form-github</a></p><h3 id=docker安装onlyoffice>docker安装onlyoffice</h3><p>onlyoffice 依赖不少，直接docker弄吧。 我这里证书用nginx处理，方便后面禁止别人使用。<br>也可以把证书挂载到 /var/www/onlyoffice/Data/certs/ <code>onlyoffice.crt onlyoffice.key</code> 直接开443。如果你有80和443的话，他好像会自动帮你申请证书。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>docker run -itd -p 8080:80 --name office2 -e WOPI_ENABLED=true --restart always -e TZ=Asia/Shanghai onlyoffice/documentserver
+</span></span></code></pre></td></tr></table></div></div><p>打开检查</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>http://10.1.1.84:8080
+</span></span></code></pre></td></tr></table></div></div><p>群友的,可以参考</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>docker</span> <span class=n>run</span> <span class=o>-</span><span class=n>i</span> <span class=o>-</span><span class=n>t</span> <span class=o>-</span><span class=n>d</span> <span class=o>-</span><span class=n>p</span> <span class=mi>9001</span><span class=p>:</span><span class=mi>80</span> <span class=o>-</span><span class=n>p</span> <span class=mi>9002</span><span class=p>:</span><span class=mi>443</span>   <span class=o>-</span><span class=n>e</span> <span class=n>WOPI_ENABLED</span><span class=o>=</span><span class=bp>true</span>    <span class=o>-</span><span class=n>v</span> <span class=o>/</span><span class=n>root</span><span class=o>/</span><span class=n>onlyoffice</span><span class=o>/</span><span class=n>DocumentServer</span><span class=o>/</span><span class=n>logs</span><span class=p>:</span><span class=o>/</span><span class=k>var</span><span class=o>/</span><span class=nb>log</span><span class=o>/</span><span class=n>onlyoffice</span>      <span class=o>-</span><span class=n>v</span> <span class=o>/</span><span class=n>root</span><span class=o>/</span><span class=n>onlyoffice</span><span class=o>/</span><span class=n>DocumentServer</span><span class=o>/</span><span class=n>data</span><span class=p>:</span><span class=o>/</span><span class=k>var</span><span class=o>/</span><span class=n>www</span><span class=o>/</span><span class=n>onlyoffice</span><span class=o>/</span><span class=n>Data</span>      <span class=o>-</span><span class=n>v</span> <span class=o>/</span><span class=n>root</span><span class=o>/</span><span class=n>onlyoffice</span><span class=o>/</span><span class=n>DocumentServer</span><span class=o>/</span><span class=n>lib</span><span class=p>:</span><span class=o>/</span><span class=k>var</span><span class=o>/</span><span class=n>lib</span><span class=o>/</span><span class=n>onlyoffice</span>     <span class=o>-</span><span class=n>v</span> <span class=o>/</span><span class=n>root</span><span class=o>/</span><span class=n>onlyoffice</span><span class=o>/</span><span class=n>DocumentServer</span><span class=o>/</span><span class=n>rabbitmq</span><span class=p>:</span><span class=o>/</span><span class=k>var</span><span class=o>/</span><span class=n>lib</span><span class=o>/</span><span class=n>rabbitmq</span>     <span class=o>-</span><span class=n>v</span> <span class=o>/</span><span class=n>root</span><span class=o>/</span><span class=n>onlyoffice</span><span class=o>/</span><span class=n>DocumentServer</span><span class=o>/</span><span class=n>redis</span><span class=p>:</span><span class=o>/</span><span class=k>var</span><span class=o>/</span><span class=n>lib</span><span class=o>/</span><span class=n>redis</span>     <span class=o>-</span><span class=n>v</span> <span class=o>/</span><span class=n>root</span><span class=o>/</span><span class=n>onlyoffice</span><span class=o>/</span><span class=n>DocumentServer</span><span class=o>/</span><span class=n>db</span><span class=p>:</span><span class=o>/</span><span class=k>var</span><span class=o>/</span><span class=n>lib</span><span class=o>/</span><span class=n>postgresql</span>  <span class=n>onlyoffice</span><span class=o>/</span><span class=n>documentserver</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=nginx反代>nginx反代</h3><p>alpine下nginx的配置文件 是在 http.d 目录下哈</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>apk</span> <span class=n>add</span> <span class=n>nginx</span>
+</span></span><span class=line><span class=cl><span class=n>rc</span><span class=o>-</span><span class=n>update</span> <span class=n>add</span> <span class=n>nginx</span>
+</span></span><span class=line><span class=cl><span class=n>rc</span><span class=o>-</span><span class=n>service</span> <span class=n>nginx</span> <span class=n>start</span>
+</span></span><span class=line><span class=cl><span class=n>nginx</span> <span class=o>-</span><span class=n>s</span> <span class=n>reload</span> <span class=c1># 重载</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>mv /etc/nginx/http.d/default.conf /etc/nginx/http.d/default.conf-bak #非必须
+</span></span><span class=line><span class=cl>nano /etc/nginx/http.d/office.conf
+</span></span></code></pre></td></tr></table></div></div><p>内容，如果你还有其他虚拟主机，记得处理 段落位置</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>upstream docservice {
+</span></span><span class=line><span class=cl>  server 127.0.0.1:8080;
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>map $http_host $this_host {
+</span></span><span class=line><span class=cl>    &#34;&#34; $host;
+</span></span><span class=line><span class=cl>    default $http_host;
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>map $http_x_forwarded_proto $the_scheme {
+</span></span><span class=line><span class=cl>     default $http_x_forwarded_proto;
+</span></span><span class=line><span class=cl>     &#34;&#34; $scheme;
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>map $http_x_forwarded_host $the_host {
+</span></span><span class=line><span class=cl>    default $http_x_forwarded_host;
+</span></span><span class=line><span class=cl>    &#34;&#34; $this_host;
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>map $http_upgrade $proxy_connection {
+</span></span><span class=line><span class=cl>  default upgrade;
+</span></span><span class=line><span class=cl>  &#34;&#34; close;
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>proxy_set_header Upgrade $http_upgrade;
+</span></span><span class=line><span class=cl>proxy_set_header Connection $proxy_connection;
+</span></span><span class=line><span class=cl>proxy_set_header X-Forwarded-Host $the_host;
+</span></span><span class=line><span class=cl>proxy_set_header X-Forwarded-Proto $the_scheme;
+</span></span><span class=line><span class=cl>proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>#陷阱主机 为了拦截域名错误的请求
+</span></span><span class=line><span class=cl>server {
+</span></span><span class=line><span class=cl>  listen       10011 ssl;
+</span></span><span class=line><span class=cl>  server_name  trap.ddns.leiyanhui.com *.ddns.leiyanhui.com *.leiyanhui.com;
+</span></span><span class=line><span class=cl>  ssl_certificate /root/ssl/ddns.leiyanhui.com.cer; # fullchain.pem
+</span></span><span class=line><span class=cl>  ssl_certificate_key /root/ssl/ddns.leiyanhui.com.key; #privkey.pem
+</span></span><span class=line><span class=cl>  ssl_verify_client off;
+</span></span><span class=line><span class=cl>  server_tokens off;
+</span></span><span class=line><span class=cl>  root /usr/share/nginx/html;
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>#真实主机
+</span></span><span class=line><span class=cl>server {
+</span></span><span class=line><span class=cl>  listen       10011 ssl;
+</span></span><span class=line><span class=cl>  server_name  office.ddns.leiyanhui.com;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  server_tokens off;
+</span></span><span class=line><span class=cl>  root /usr/share/nginx/html;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  # 证书位置
+</span></span><span class=line><span class=cl>  ssl_certificate /root/ssl/ddns.leiyanhui.com.cer; # fullchain.pem
+</span></span><span class=line><span class=cl>  ssl_certificate_key /root/ssl/ddns.leiyanhui.com.key; #privkey.pem
+</span></span><span class=line><span class=cl>  ssl_verify_client off;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  ssl_ciphers &#34;EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH&#34;;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;
+</span></span><span class=line><span class=cl>  ssl_session_cache  builtin:1000  shared:SSL:10m;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  ssl_prefer_server_ciphers   on;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  add_header Strict-Transport-Security &#34;max-age=1209600; includeSubDomains&#34; always;
+</span></span><span class=line><span class=cl>  add_header X-Content-Type-Options nosniff;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  location / {
+</span></span><span class=line><span class=cl>    proxy_pass http://127.0.0.1:8080;
+</span></span><span class=line><span class=cl>    proxy_http_version 1.1;
+</span></span><span class=line><span class=cl>  }
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><p>另外找到 nginx.conf 的 <code>ssl_session_cache shared:SSL:2m;</code> 注释掉<br>重载nginx <code>nginx -s reload</code></p><h3 id=测试>测试</h3><p>打开网站 <a class=link href=https://office.ddns.leiyanhui.com:10011/ target=_blank rel=noopener>https://office.ddns.leiyanhui.com:10011/</a> 没问题了，在cloudreve 后台面板中 图像预览中配置
+<code>https://office.ddns.leiyanhui.com:10011/hosting/discovery</code> 打开office文档测试</p><blockquote><p>注意和Collabora Online (LibreOffice Online)不同的地方。onlyoffice 对 doc xsl ppt 旧版格式 是不支持的，这个困扰我好久，最后在 cloudreve作者的提醒下 才知道，必须用 docx xslx pptx</p></blockquote><h2 id=限制只能自己使用>限制只能自己使用</h2><p>因为onlyoffice 没有验证功能，所以任何人知道你接口地址 后 都可以访问你。那么就会导致 很容易超过20个文件的限制。而且自己资源被别人白嫖你心理也不爽。</p><h3 id=初步解决方案>初步解决方案</h3><p>前面 nginx 配置的 server_name 的 域名弄一个复杂的子域名 ，例如上例中的 <code>office.ddns.leiyanhui.com</code> 修改成 <code>office-ankN35wvy5owLv-3JtR8cCguagRct.ddns.leiyanhui.com</code><br>如果要这样做，这个子域名 必须是泛域名的一个下级域名，dns解析记录里面 不应该有他。<br>比如，我的*.ddns.leiyanhui.com cname 到ddns.leiyanhui.com，ddns.leiyanhui.com 配置了ddns。这样几乎没有被扫到可能性。</p><p>然后分享预览，最好也关闭。不然依旧会暴露。</p><h3 id=限制referers>限制referers</h3><p>前面的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>  location / {
+</span></span><span class=line><span class=cl>    proxy_pass http://127.0.0.1:8080;
+</span></span><span class=line><span class=cl>    proxy_http_version 1.1;
+</span></span><span class=line><span class=cl>  }
+</span></span></code></pre></td></tr></table></div></div><p>修改为</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  location / {
+</span></span><span class=line><span class=cl>        valid_referers none blocked 调用域名.com onlyoffice的域名.com;
+</span></span><span class=line><span class=cl>        if ($invalid_referer) {return 403;}
+</span></span><span class=line><span class=cl>        proxy_pass http://127.0.0.1:8080;
+</span></span><span class=line><span class=cl>        proxy_http_version 1.1;
+</span></span><span class=line><span class=cl>  }
+</span></span></code></pre></td></tr></table></div></div><p>同时把 cloudreve和onlyoffice 的地址添加进去即可</p><h3 id=限制wopisrc>限制wopisrc</h3><p>在前面的 location / 再添加一段</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>  location /hosting/wopi {
+</span></span><span class=line><span class=cl>        if ( $args ~ wopisrc=https%3A%2F%2F你的域名.com%3A ) {
+</span></span><span class=line><span class=cl>                proxy_pass http://127.0.0.1:8080;
+</span></span><span class=line><span class=cl>                }
+</span></span><span class=line><span class=cl>        proxy_http_version 1.1;
+</span></span><span class=line><span class=cl>  }
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>%3A 是冒号转义符 后面跟的端口号，如果你的没有记得删除%3A。</p></blockquote></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/pve/lxc-nas-office/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve 和 LibreOffice 的配置</h2></div></a></article><article><a href=/pve/lxc-nas-cloudreve-aria2/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve替代nginx搭建webdav 之aria2离线下载</h2></div></a></article><article><a href=/pve/lxc-nas-core-cloudreve/><div class=article-details><h2 class=article-title>lxc alpine下使用cloudreve替代nginx搭建webdav 并开启smb/nfs和sftp</h2></div></a></article><article><a href=/pve/lxc-nas-autobackup/><div class=article-details><h2 class=article-title>pve下使用lxc 直通硬盘搭建 nas 服务 全面替代群晖 freenas OMV 等 异地备份</h2></div></a></article><article><a href=/pve/ipsec/><div class=article-details><h2 class=article-title>pve下以lxc模式运行 ipsec （套docker）</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

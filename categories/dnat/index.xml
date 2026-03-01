@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>DNAT on 小类随手记</title><link>https://dev.leiyanhui.com/categories/dnat/</link><description>Recent content in DNAT on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 11 Sep 2023 07:15:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/dnat/index.xml" rel="self" type="application/rss+xml"/><item><title>openwrt更换openssh后无法ssh登陆root的解决方法</title><link>https://dev.leiyanhui.com/openwrt/openssh/</link><pubDate>Mon, 11 Sep 2023 07:15:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/openssh/</guid><description>&lt;p&gt;openwrt默认是使用dropbear，虽然轻量，但是使用起来会带来一些麻烦。 你可以通过修改dropbear端口再安装openssh 或者 在编译固件的时候直接编译进去。&lt;/p&gt;
+&lt;p&gt;但是你会发root登陆，不上。如果 dropbear 还可以登陆 或者有显示器，那么修改/etc/ssh/sshd_config 后重启ssh即可。&lt;/p&gt;
+&lt;p&gt;如果只有网页可以登陆。 那么打开 启动脚本：http://10.1.1.1/cgi-bin/luci/admin/system/startup&lt;/p&gt;
+&lt;p&gt;在exit 0 前面 输入 几行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/bin/cp -n /etc/ssh/sshd_config /etc/ssh/sshd_config-bak
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &amp;#39;s/#PermitRootLogin without-password/PermitRootLogin yes/g&amp;#39; /etc/ssh/sshd_config
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &amp;#39;s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g&amp;#39; /etc/ssh/sshd_config
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;有的版本是 without-password 有的版本是 prohibit-password，所以添加两行。
+然后重启路由器即可 用root密码登陆。&lt;/p&gt;
+&lt;p&gt;或者 干脆直接写入key 也是在 exit 0 前面&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir -p /root/.ssh/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat &amp;gt; /root/.ssh/authorized_keys &amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;...你的key内容...
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EOF
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;chmod -R 600 ~/.ssh/authorized_keys
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>openwrt内网设备无法通过外网域名/ip访问的解决</title><link>https://dev.leiyanhui.com/openwrt/dnat/</link><pubDate>Mon, 11 Sep 2023 07:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/dnat/</guid><description>&lt;p&gt;默认情况下，直接在openwrt配置端口转发，会自动启用 NAT 环回。 但是在部分固件下，尤其是存在docker 和ipsec等服务的时候 就会失效。&lt;/p&gt;
+&lt;p&gt;在帮多个网友排查处理的时候 总结出来的小经验：不讲复杂的原理，只说实现方法&lt;/p&gt;
+&lt;h3 id="常见解决方法"&gt;常见解决方法
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;修改 wan=&amp;gt; lan的防火墙配置 （ 旧版有效）&lt;/li&gt;
+&lt;li&gt;在对应的端口转发的位置 关闭重新打开启用 NAT 环回 （看脸）&lt;/li&gt;
+&lt;li&gt;修改/etc/sysctl.conf （部分固件有效）&lt;/li&gt;
+&lt;li&gt;/etc/dnsmasq.hosts 即 dnsmasq 在科学软件劫持dns后概率失效 且仅限基于域名的业务&lt;/li&gt;
+&lt;li&gt;内网机器hosts大法 （肯定有效，但是仅限域名业务）&lt;/li&gt;
+&lt;li&gt;别名主机大法 （有效，但是仅限域名业务）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;前面几种方法 网上都有对应的教材不用细说，在不同的源码固件下不太通用，在更新内核后也有可能失效。这里只说 最后一种方法。&lt;/p&gt;
+&lt;h3 id="最通用的解决方法"&gt;最通用的解决方法
+&lt;/h3&gt;&lt;p&gt;别名主机&lt;/p&gt;
+&lt;h4 id="luci"&gt;luci
+&lt;/h4&gt;&lt;p&gt;根据版本不同，入口位置不同 一般在 http://&lt;!-- raw HTML omitted --&gt;/cgi-bin/luci/admin/network/dhcp 别名主机 的位置&lt;/p&gt;
+&lt;h4 id="uci"&gt;uci
+&lt;/h4&gt;&lt;p&gt;和luci一样，但是可以直接shell运行，更简单直观。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;uci add dhcp domain
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;uci set dhcp.@domain[-1].name=&amp;#39;域名地址&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;uci add_list dhcp.@domain[-1].ip=&amp;#39;10.1.1.50&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;uci commit dhcp
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/init.d/dnsmasq restart
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;注意 如论是别名主机 还是 hosts 都不支持泛域名,要支持泛域名只有dnsmasq。&lt;/p&gt;
+&lt;h3 id="最后"&gt;最后
+&lt;/h3&gt;&lt;h4 id="月经bug"&gt;月经bug
+&lt;/h4&gt;&lt;p&gt;openwrt 这个问题，在不同的版本，包括官方版都反复出现。 用的还算稳定的情况下，尽量不折腾。浪费青春。&lt;/p&gt;
+&lt;h4 id="建议"&gt;建议
+&lt;/h4&gt;&lt;p&gt;不是太特殊的情况下，建议用别名主机的来处理。如果有特殊需求，建议弃用docker ，opkg的软件还是蛮多的，部分没有的可以用可以在其他机器上用 docker导出后 在openwrt chroot使用。&lt;/p&gt;</description></item></channel></rss>

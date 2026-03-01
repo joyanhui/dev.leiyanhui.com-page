@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Slave on 小类随手记</title><link>https://dev.leiyanhui.com/categories/slave/</link><description>Recent content in Slave on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 23 Feb 2023 07:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/slave/index.xml" rel="self" type="application/rss+xml"/><item><title>同一台机器搭建多个redis实例 并测试主从同步</title><link>https://dev.leiyanhui.com/web/redis-more/</link><pubDate>Thu, 23 Feb 2023 07:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/redis-more/</guid><description>&lt;p&gt;场景：
+核心数据 主从同步 持久化&lt;br&gt;
+非核心 大并发 可以接受丢失但是尽量不丢失的，主从同步 ，从机持久化&lt;br&gt;
+日志类数据 需要转存 但是可以接受丢失 不开主从 不持久化&lt;/p&gt;
+&lt;p&gt;最简单的方法 还是创建多个实例来处理。下面记录过程。&lt;/p&gt;
+&lt;h5 id="redis"&gt;redis
+&lt;/h5&gt;&lt;h6 id="准备配置文件"&gt;准备配置文件
+&lt;/h6&gt;&lt;p&gt;需要三个实例，分别 是 ①核心数据 需要同步容灾 需要持久化 需要oss转存 ②临时数据 处理一些 limt 验证码等 不持久 不同步 ③设备日志临时存储 限制大小可丢一部分&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget http://repo.huaweicloud.com/redis/redis-7.0.8.tar.gz &lt;span class="c1"&gt;#菊花家 官网https://github.com/redis/redis/archive/7.0.8.tar.gz&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;tar -zxvf redis-7.0.8.tar.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp ./redis-7.0.8/redis.conf /root/redis/redis-template.conf &lt;span class="c1"&gt;#备份一份&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf redis-7.0.8*
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h6 id="修改配置"&gt;修改配置
+&lt;/h6&gt;&lt;p&gt;持久化 ，只有main节点需要 并且是混合持久化 即：1秒aof一次 根据规则再压缩，默认配置文件 是关闭 rdb的但是开了 appendfsync everysec 1秒一次 以及 aof-use-rdb-preamble ，增长比例 &lt;code&gt;auto-aof-rewrite-percentage&lt;/code&gt; 为100 文件大小 auto-aof-rewrite-min-size 64mb ，no-appendfsync-on-rewrite 默认为 no 就是 主线程和和子线程冲突 的时候，等待 会偶发堵塞但是不会丢数据。cache的 也默认开持久化，暂时不关闭，no-appendfsync-on-rewrite 改为yes 就是冲突的时候用硬盘缓存解决。 默认持久化文件：dump.rdb appendonly.aof&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;export&lt;/span&gt; &lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;db
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /data/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;main&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;* &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; cp /root/redis/redis-template.conf /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@# requirepass foobared@requirepass cx6hYJcCpZybXT112233@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#修改密码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@appendonly no@appendonly yes@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# appendonly 打开混合持久化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@bind 127.0.0.1 -::1@#bind 127.0.0.1 -::1@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# ip&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#启动 新版docker的redis 需要手动指定配置文件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker stop &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; docker rm &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --name &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; --hostname &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; -p 6381:6379 &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf:/redis.conf -v /root/redis/date-&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;:/data --restart&lt;span class="o"&gt;=&lt;/span&gt;always &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; redis:7.0.8-alpine3.17 redis-server /redis.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker logs -f -t --since&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;2020-02-08&amp;#34;&lt;/span&gt; --tail&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;50&lt;/span&gt; &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#其他&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@no-appendfsync-on-rewrite no@no-appendfsync-on-rewrite yes@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#避开堵塞但是可能会丢数据 &amp;lt;不建议&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;ram&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;export&lt;/span&gt; &lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;ram
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /data/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;main&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;* &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; cp /root/redis/redis-template.conf /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@# requirepass foobared@requirepass cx6hYJcCpZybXT112233@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#修改密码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@bind 127.0.0.1 -::1@#bind 127.0.0.1 -::1@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# ip&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s1"&gt;&amp;#39;s@# save &amp;#34;&amp;#34;@save &amp;#34;&amp;#34;@g&amp;#39;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# 取消持久化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker stop &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; docker rm &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --name &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; --hostname &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; -p 6382:6379 &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf:/redis.conf --restart&lt;span class="o"&gt;=&lt;/span&gt;always &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; redis:7.0.8-alpine3.17 redis-server /redis.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;devlog&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;export&lt;/span&gt; &lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;devlog
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /data/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;* &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; cp /root/redis/redis-template.conf /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@# requirepass foobared@requirepass cx6hYJcCpZybXT112233@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#修改密码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@bind 127.0.0.1 -::1@#bind 127.0.0.1 -::1@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# ip&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s1"&gt;&amp;#39;s@# save &amp;#34;&amp;#34;@save &amp;#34;&amp;#34;@g&amp;#39;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# 取消持久化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 执行 ram的命令创建docker之前 再 限制一下大小&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@# maxmemory &amp;lt;bytes&amp;gt;@maxmemory 268435456@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#限制 256M&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@# maxmemory &amp;lt;bytes&amp;gt;@maxmemory 536870912@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#限制 512M&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@# maxmemory &amp;lt;bytes&amp;gt;@maxmemory 1073741824@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#限制 1G&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker stop &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; docker rm &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --name &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; --hostname &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; -p 6383:6379 &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf:/redis.conf --restart&lt;span class="o"&gt;=&lt;/span&gt;always &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; redis:7.0.8-alpine3.17 redis-server /redis.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;redis命令查看限制：info memory
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最后 创建一个 slave-test 作为从机测试&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;export&lt;/span&gt; &lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;slave-test
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf /data/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;* &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; cp /root/redis/redis-template.conf /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@# requirepass foobared@requirepass cx6hYJcCpZybXT112233@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;#修改密码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s@bind 127.0.0.1 -::1@#bind 127.0.0.1 -::1@g&amp;#34;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# ip&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s1"&gt;&amp;#39;s@# save &amp;#34;&amp;#34;@save &amp;#34;&amp;#34;@g&amp;#39;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# 取消持久化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s1"&gt;&amp;#39;s@# masterauth &amp;lt;master-password&amp;gt;@masterauth cx6hYJcCpZybXT112233@g&amp;#39;&lt;/span&gt; /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf &lt;span class="c1"&gt;# 设置主的密码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker stop &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; docker rm &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --name &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; --hostname &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; -p 6389:6379 &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v /root/redis/&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;redisName&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;.conf:/redis.conf --restart&lt;span class="o"&gt;=&lt;/span&gt;always &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; redis:7.0.8-alpine3.17 redis-server /redis.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker restart slave-test
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 切换为 从机&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it slave-test redis-cli -h localhost -p &lt;span class="m"&gt;6379&lt;/span&gt; -a cx6hYJcCpZybXT112233 SLAVEOF 10.1.1.111 &lt;span class="m"&gt;6381&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 切换为 主机&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it slave-test redis-cli -h localhost -p &lt;span class="m"&gt;6379&lt;/span&gt; -a cx6hYJcCpZybXT112233 slaveof NO ONE
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;从机 从主机 同步的数据，如果主机是持久化，从级没有开启，但是丛机 会持久化这部分数据。&lt;/li&gt;
+&lt;li&gt;从机可以从0数据 或者有一部分数据 或者 有其他数据 开始切换为从机模式&lt;/li&gt;
+&lt;li&gt;从机 的数据 在开启 主从 后 会丢失，从机进入从模式后 无法写入数据&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在简单的逻辑下，可以用shell脚本 免登录处理。&lt;/p&gt;
+&lt;p&gt;强制关闭 程序后，再进行切换操作。&lt;/p&gt;</description></item></channel></rss>

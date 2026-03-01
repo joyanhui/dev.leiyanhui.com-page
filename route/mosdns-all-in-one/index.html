@@ -1,0 +1,390 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='AdGuardHome 的主要优点是可视化，有去广告规则可用。 但是AdGuardHome自己的分流规则配置较为复杂，有第三方提供分流规则，但是实际测试因为无法使用adg的并发查询以及adg自身的性能局限所以效果并不好。所以一般都是和msdns配合使用，例如 mosdns代理两个adg分别负责国内和国外dns,或者adg作为前端后端使用modns。\n但是如果你对可视化管理和dns统计没啥需求的话，完全没必要，单独mosdns即可完成。\n下文以pve lxc alpine为例 openwrt或其他linux发行版同样操作\n安装 直接下载 mosdns 下载unzip解压到 /opt/mosdns运行 ./mosdns service install 即可。\n准备几个规则文件 主要是 国内ip清单 国内名站域名清单 国外名站域名清单 一个空白的hosts.txt 如果你有自选cf ip需求还需要准备 cf ip自动列表\n1 2 3 4 5 6 7 8 9 cd /opt/mosdns/ wget https://raw.githubusercontent.com/IceCodeNew/4Share/master/geoip_china/china_ip_list.txt -O geoip_cn.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt -O geosite_category-ads-all.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt -O geosite_geolocation-!cn.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt -O geosite_cn.txt echo "localhost 127.0.0.1"> /opt/mosdns/hosts.txt #注意格式和系统的hosts文件不一样 wget https://www.cloudflare.com/ips-v4 -O cf4.txt #cf ip地址 wget https://www.cloudflare.com/ips-v6 -O cf6.txt cat cf4.txt <(echo) cf6.txt >geoip_cloudflare.txt #合并 可选的自建doh 目的是在深度学习环境不用的情况下依旧可以正确返回域名实际ip. https://dev.leiyanhui.com/route/safe-dns 查看 cfwork自建doh\n'><title>mosdns all in one 分流加自定义解析，不依赖 AdGuardHome</title><link rel=canonical href=https://dev.leiyanhui.com/route/mosdns-all-in-one/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="mosdns all in one 分流加自定义解析，不依赖 AdGuardHome"><meta property='og:description' content='AdGuardHome 的主要优点是可视化，有去广告规则可用。 但是AdGuardHome自己的分流规则配置较为复杂，有第三方提供分流规则，但是实际测试因为无法使用adg的并发查询以及adg自身的性能局限所以效果并不好。所以一般都是和msdns配合使用，例如 mosdns代理两个adg分别负责国内和国外dns,或者adg作为前端后端使用modns。\n但是如果你对可视化管理和dns统计没啥需求的话，完全没必要，单独mosdns即可完成。\n下文以pve lxc alpine为例 openwrt或其他linux发行版同样操作\n安装 直接下载 mosdns 下载unzip解压到 /opt/mosdns运行 ./mosdns service install 即可。\n准备几个规则文件 主要是 国内ip清单 国内名站域名清单 国外名站域名清单 一个空白的hosts.txt 如果你有自选cf ip需求还需要准备 cf ip自动列表\n1 2 3 4 5 6 7 8 9 cd /opt/mosdns/ wget https://raw.githubusercontent.com/IceCodeNew/4Share/master/geoip_china/china_ip_list.txt -O geoip_cn.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt -O geosite_category-ads-all.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt -O geosite_geolocation-!cn.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt -O geosite_cn.txt echo "localhost 127.0.0.1"> /opt/mosdns/hosts.txt #注意格式和系统的hosts文件不一样 wget https://www.cloudflare.com/ips-v4 -O cf4.txt #cf ip地址 wget https://www.cloudflare.com/ips-v6 -O cf6.txt cat cf4.txt <(echo) cf6.txt >geoip_cloudflare.txt #合并 可选的自建doh 目的是在深度学习环境不用的情况下依旧可以正确返回域名实际ip. https://dev.leiyanhui.com/route/safe-dns 查看 cfwork自建doh\n'><meta property='og:url' content='https://dev.leiyanhui.com/route/mosdns-all-in-one/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Route'><meta property='article:published_time' content='2023-11-21T19:14:20+08:00'><meta property='article:modified_time' content='2023-11-21T19:14:20+08:00'><meta name=twitter:title content="mosdns all in one 分流加自定义解析，不依赖 AdGuardHome"><meta name=twitter:description content='AdGuardHome 的主要优点是可视化，有去广告规则可用。 但是AdGuardHome自己的分流规则配置较为复杂，有第三方提供分流规则，但是实际测试因为无法使用adg的并发查询以及adg自身的性能局限所以效果并不好。所以一般都是和msdns配合使用，例如 mosdns代理两个adg分别负责国内和国外dns,或者adg作为前端后端使用modns。\n但是如果你对可视化管理和dns统计没啥需求的话，完全没必要，单独mosdns即可完成。\n下文以pve lxc alpine为例 openwrt或其他linux发行版同样操作\n安装 直接下载 mosdns 下载unzip解压到 /opt/mosdns运行 ./mosdns service install 即可。\n准备几个规则文件 主要是 国内ip清单 国内名站域名清单 国外名站域名清单 一个空白的hosts.txt 如果你有自选cf ip需求还需要准备 cf ip自动列表\n1 2 3 4 5 6 7 8 9 cd /opt/mosdns/ wget https://raw.githubusercontent.com/IceCodeNew/4Share/master/geoip_china/china_ip_list.txt -O geoip_cn.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt -O geosite_category-ads-all.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt -O geosite_geolocation-!cn.txt wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt -O geosite_cn.txt echo "localhost 127.0.0.1"> /opt/mosdns/hosts.txt #注意格式和系统的hosts文件不一样 wget https://www.cloudflare.com/ips-v4 -O cf4.txt #cf ip地址 wget https://www.cloudflare.com/ips-v6 -O cf6.txt cat cf4.txt <(echo) cf6.txt >geoip_cloudflare.txt #合并 可选的自建doh 目的是在深度学习环境不用的情况下依旧可以正确返回域名实际ip. https://dev.leiyanhui.com/route/safe-dns 查看 cfwork自建doh\n'></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#安装>安装</a></li><li><a href=#准备几个规则文件>准备几个规则文件</a></li><li><a href=#可选的自建doh>可选的自建doh</a></li><li><a href=#configyaml>config.yaml</a></li><li><a href=#部署>部署</a><ol><li><a href=#路由器和内网机器>路由器和内网机器</a></li><li><a href=#clash>clash</a></li><li><a href=#外网部署>外网部署</a></li></ol></li><li><a href=#存在的问题>存在的问题</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/ikuai/ style=background-color:#eabeef;color:#390f3d>Ikuai
+</a><a href=/categories/openclash/ style=background-color:#efbee7;color:#3d0f36>Openclash
+</a><a href=/categories/openwrt/ style=background-color:#bedbef;color:#0f2b3d>Openwrt
+</a><a href=/categories/mosdns/ style=background-color:#c2beef;color:#130f3d>Mosdns
+</a><a href=/categories/adguardhome/ style=background-color:#beefc9;color:#0f3d1a>AdGuardHome</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/route/mosdns-all-in-one/>mosdns all in one 分流加自定义解析，不依赖 AdGuardHome</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-11-21T19:14:20+08:00>2023-11-21</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><p>AdGuardHome 的主要优点是可视化，有去广告规则可用。 但是AdGuardHome自己的分流规则配置较为复杂，有第三方提供分流规则，但是实际测试因为无法使用adg的并发查询以及adg自身的性能局限所以效果并不好。所以一般都是和msdns配合使用，例如 mosdns代理两个adg分别负责国内和国外dns,或者adg作为前端后端使用modns。<br>但是如果你对可视化管理和dns统计没啥需求的话，完全没必要，单独mosdns即可完成。</p><p>下文以pve lxc alpine为例 openwrt或其他linux发行版同样操作</p><h2 id=安装>安装</h2><p>直接下载 mosdns 下载unzip解压到 /opt/mosdns运行 ./mosdns service install 即可。</p><h2 id=准备几个规则文件>准备几个规则文件</h2><p>主要是 国内ip清单 国内名站域名清单 国外名站域名清单 一个空白的hosts.txt 如果你有自选cf ip需求还需要准备 cf ip自动列表</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl><span class=nb>cd</span> /opt/mosdns/
+</span></span><span class=line><span class=cl>wget  https://raw.githubusercontent.com/IceCodeNew/4Share/master/geoip_china/china_ip_list.txt -O geoip_cn.txt
+</span></span><span class=line><span class=cl>wget  https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt -O geosite_category-ads-all.txt
+</span></span><span class=line><span class=cl>wget  https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt -O geosite_geolocation-!cn.txt
+</span></span><span class=line><span class=cl>wget  https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt -O geosite_cn.txt
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;localhost 127.0.0.1&#34;</span>&gt; /opt/mosdns/hosts.txt <span class=c1>#注意格式和系统的hosts文件不一样</span>
+</span></span><span class=line><span class=cl>wget https://www.cloudflare.com/ips-v4 -O cf4.txt <span class=c1>#cf ip地址</span>
+</span></span><span class=line><span class=cl>wget https://www.cloudflare.com/ips-v6 -O cf6.txt
+</span></span><span class=line><span class=cl>cat cf4.txt  &lt;<span class=o>(</span><span class=nb>echo</span><span class=o>)</span>  cf6.txt &gt;geoip_cloudflare.txt  <span class=c1>#合并</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=可选的自建doh>可选的自建doh</h2><p>目的是在深度学习环境不用的情况下依旧可以正确返回域名实际ip.
+<a class=link href=https://dev.leiyanhui.com/route/safe-dns target=_blank rel=noopener>https://dev.leiyanhui.com/route/safe-dns</a> 查看 cfwork自建doh</p><h2 id=configyaml>config.yaml</h2><p>基本逻辑，国内域名<code>geosite_cn.txt</code>使用国内dns（dot）并发解析，国外域名<code>geosite_geolocation-!cn.txt</code>使用 国外dns和自建doh解析<br>如果非清单内的域名，并且国内dns查询的一个域名返回的是一个非国内ip，那么使用国外 国外dns和自建doh解析 重新解析一次解决被污染问题<br>因为去广告<code>geosite_category-ads-all.txt</code> 会导致一些问题，并且我这里没这个需求，所以没有添加去广告规则。你可以自己添加上</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>cat &gt; /opt/mosdns/config.yaml <span class=s>&lt;&lt; \EOF
+</span></span></span><span class=line><span class=cl><span class=s>log:
+</span></span></span><span class=line><span class=cl><span class=s>  level: error #日志级别。可选 &#34;debug&#34; &#34;info&#34; &#34;warn&#34; &#34;error&#34;。默认 &#34;info&#34;
+</span></span></span><span class=line><span class=cl><span class=s>  file: &#34;/opt/mosdns/log.log&#34;
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s># API 入口设置
+</span></span></span><span class=line><span class=cl><span class=s>api:
+</span></span></span><span class=line><span class=cl><span class=s>  http: &#34;0.0.0.0:9091&#34;
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>include: []
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>plugins:
+</span></span></span><span class=line><span class=cl><span class=s>  # 自定义hosts 注意格式和系统hosts不同 支持泛域名domain和fulldomain
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: mosdns_hosts
+</span></span></span><span class=line><span class=cl><span class=s>    type: hosts
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      files:
+</span></span></span><span class=line><span class=cl><span class=s>        - &#34;/opt/mosdns/hosts.txt&#34;
+</span></span></span><span class=line><span class=cl><span class=s># 测试pipeline ./mosdns probe pipeline tls://101.226.4.6
+</span></span></span><span class=line><span class=cl><span class=s>  # 阿里和360的不支持
+</span></span></span><span class=line><span class=cl><span class=s>  # 转发至本地服务器 国内解析
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: forward_local
+</span></span></span><span class=line><span class=cl><span class=s>    type: forward
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      concurrent: 3 #mosdns限制最大3并发
+</span></span></span><span class=line><span class=cl><span class=s>      upstreams: #因为最大3并发所以三个就够了自己选速度好的
+</span></span></span><span class=line><span class=cl><span class=s>        - addr: &#34;tls://223.5.5.5&#34; #阿里
+</span></span></span><span class=line><span class=cl><span class=s>          enable_pipeline: false
+</span></span></span><span class=line><span class=cl><span class=s>        - addr: &#34;tls://1.12.12.12&#34; #腾讯 dnspod
+</span></span></span><span class=line><span class=cl><span class=s>          enable_pipeline: true
+</span></span></span><span class=line><span class=cl><span class=s>        - addr: &#34;tls://101.226.4.6&#34; #360电信
+</span></span></span><span class=line><span class=cl><span class=s>          enable_pipeline: false
+</span></span></span><span class=line><span class=cl><span class=s>  # 转发至远程服务器 境外解析上游
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: forward_remote
+</span></span></span><span class=line><span class=cl><span class=s>    type: forward
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      concurrent: 3 #最大3并发
+</span></span></span><span class=line><span class=cl><span class=s>      upstreams:
+</span></span></span><span class=line><span class=cl><span class=s>        - addr: tls://8.8.8.8
+</span></span></span><span class=line><span class=cl><span class=s>          enable_pipeline: true
+</span></span></span><span class=line><span class=cl><span class=s>        - addr: tls://1.1.1.1
+</span></span></span><span class=line><span class=cl><span class=s>          enable_pipeline: true
+</span></span></span><span class=line><span class=cl><span class=s>        - addr: https://你的自建doh地址
+</span></span></span><span class=line><span class=cl><span class=s>          bootstrap: 223.5.5.5 #bootstrap地址负责解析doh域名 只能udp
+</span></span></span><span class=line><span class=cl><span class=s>          bootstrap_version: 4 #解析的doh域名返回ipv4还是v6
+</span></span></span><span class=line><span class=cl><span class=s>          enable_pipeline: false
+</span></span></span><span class=line><span class=cl><span class=s>          enable_http3: false #http3 udp不稳 还是强制走http2
+</span></span></span><span class=line><span class=cl><span class=s>  # 国内域名
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: geosite_cn
+</span></span></span><span class=line><span class=cl><span class=s>    type: domain_set
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      files:
+</span></span></span><span class=line><span class=cl><span class=s>        - &#34;/opt/mosdns/geosite_cn.txt&#34;
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 国内 IP
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: geoip_cn
+</span></span></span><span class=line><span class=cl><span class=s>    type: ip_set
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      files:
+</span></span></span><span class=line><span class=cl><span class=s>        - &#34;/opt/mosdns/geoip_cn.txt&#34;
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 国外域名
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: geosite_no_cn
+</span></span></span><span class=line><span class=cl><span class=s>    type: domain_set
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      files:
+</span></span></span><span class=line><span class=cl><span class=s>        - &#34;/opt/mosdns/geosite_geolocation-!cn.txt&#34;
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 缓存
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: lazy_cache
+</span></span></span><span class=line><span class=cl><span class=s>    type: cache
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      size: 20000
+</span></span></span><span class=line><span class=cl><span class=s>      lazy_cache_ttl: 86400
+</span></span></span><span class=line><span class=cl><span class=s>      #dump_file: &#34;/opt/mosdns/cache.dump&#34;
+</span></span></span><span class=line><span class=cl><span class=s>      #dump_interval: 600
+</span></span></span><span class=line><span class=cl><span class=s>  # 国内解析
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: local_sequence
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $forward_local
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 国外解析
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: remote_sequence
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: prefer_ipv4
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $forward_remote
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 有响应终止返回
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: has_resp_sequence
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - matches: has_resp
+</span></span></span><span class=line><span class=cl><span class=s>        exec: accept
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # fallback 用本地服务器 sequence
+</span></span></span><span class=line><span class=cl><span class=s>  # 返回非国内 ip 则 drop_resp
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: query_is_local_ip
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $local_sequence
+</span></span></span><span class=line><span class=cl><span class=s>      - matches: &#34;!resp_ip $geoip_cn&#34;
+</span></span></span><span class=line><span class=cl><span class=s>        exec: drop_resp
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # fallback 用远程服务器 sequence
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: query_is_remote
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $remote_sequence
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # fallback 用远程服务器 sequence
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: fallback
+</span></span></span><span class=line><span class=cl><span class=s>    type: fallback
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      primary: query_is_local_ip
+</span></span></span><span class=line><span class=cl><span class=s>      secondary: query_is_remote
+</span></span></span><span class=line><span class=cl><span class=s>      threshold: 500
+</span></span></span><span class=line><span class=cl><span class=s>      always_standby: true
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 查询国内域名
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: query_is_local_domain
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - matches: qname $geosite_cn
+</span></span></span><span class=line><span class=cl><span class=s>        exec: $local_sequence
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 查询国外域名
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: query_is_no_local_domain
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - matches: qname $geosite_no_cn
+</span></span></span><span class=line><span class=cl><span class=s>        exec: $remote_sequence
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  # 主要的运行逻辑插件
+</span></span></span><span class=line><span class=cl><span class=s>  # sequence 插件中调用的插件 tag 必须在 sequence 前定义，
+</span></span></span><span class=line><span class=cl><span class=s>  # 否则 sequence 找不到对应插件。
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: main_sequence
+</span></span></span><span class=line><span class=cl><span class=s>    type: sequence
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $mosdns_hosts
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: query_summary entry
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $lazy_cache
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $query_is_local_domain
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: jump has_resp_sequence
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $query_is_no_local_domain
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: jump has_resp_sequence
+</span></span></span><span class=line><span class=cl><span class=s>      - exec: $fallback
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>  #### 最后配置 server........略
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: server
+</span></span></span><span class=line><span class=cl><span class=s>    type: udp_server # 目前有 udp/tcp/http_server
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      entry: main_sequence
+</span></span></span><span class=line><span class=cl><span class=s>      listen: 0.0.0.0:53
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: server_tcp
+</span></span></span><span class=line><span class=cl><span class=s>    type: tcp_server
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      entry: main_sequence
+</span></span></span><span class=line><span class=cl><span class=s>      listen: 0.0.0.0:53
+</span></span></span><span class=line><span class=cl><span class=s>  - tag: &#34;server_http&#34;
+</span></span></span><span class=line><span class=cl><span class=s>    type: &#34;http_server&#34;
+</span></span></span><span class=line><span class=cl><span class=s>    args:
+</span></span></span><span class=line><span class=cl><span class=s>      entries:                 # []extry
+</span></span></span><span class=line><span class=cl><span class=s>        - path: /dns-query     # 本路径执行   
+</span></span></span><span class=line><span class=cl><span class=s>          exec: main_sequence # 可执行插件的 tag。  
+</span></span></span><span class=line><span class=cl><span class=s>      src_ip_header: &#34;X-Forwarded-For&#34;  # 从 HTTP 头获取用户 IP。
+</span></span></span><span class=line><span class=cl><span class=s>      listen: 0.0.0.0:80  # 监听地址。
+</span></span></span><span class=line><span class=cl><span class=s>      cert: &#34;&#34; # 留空 cert 和 key 后会禁用 TLS。 这里没有配置证书，外网使用另外有acme和nginx处理https
+</span></span></span><span class=line><span class=cl><span class=s>      key: &#34;&#34; 
+</span></span></span><span class=line><span class=cl><span class=s>      idle_timeout: 10       # 空连接超时。单位秒。默认 30。
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span><span class=line><span class=cl>/etc/init.d/mosdns restart
+</span></span></code></pre></td></tr></table></div></div><h2 id=部署>部署</h2><h3 id=路由器和内网机器>路由器和内网机器</h3><p>因为我这里是独立部署在 pve lxc里面，ip是 10.1.1.104。<br>在openwrt 或者 ikuai中配置上游dns为 10.1.1.104即可，内网内其他机器的dns可以用路由器ip作为dns或者mosdns的10.1.1.104均可</p><h3 id=clash>clash</h3><p>clash 删除其他dns NameServer FallBack Default-NameServer 全部设置为 10.1.1.104</p><h3 id=外网部署>外网部署</h3><p>因为家宽是没有53端口的，你可以从路由器用端口映射修改一下udp tcp的端口，或者外网直接用server_http 走doh</p><h2 id=存在的问题>存在的问题</h2><p>主要是自定义域名解析：<br><a class=link href=https://irine-sistiana.gitbook.io/mosdns-wiki/mosdns-v5/ru-he-pei-zhi-mosdns/yu-ming-pi-pei-gui-ze target=_blank rel=noopener>https://irine-sistiana.gitbook.io/mosdns-wiki/mosdns-v5/ru-he-pei-zhi-mosdns/yu-ming-pi-pei-gui-ze</a>
+mosdns 的hosts方法，支持domain 和 full keyword 和 正则。 可以解决多数自定义域名解析的问题。<br>但是修改hosts文件后 需要重启才能生效 这就搞的很烦。</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/route/safe-dns/><div class=article-details><h2 class=article-title>关于dns泄露的那些事情 路由器 mosdns分流 clash</h2></div></a></article><article><a href=/c/adguardhome-rules/><div class=article-details><h2 class=article-title>adguard home单实例自动更新分流规则</h2></div></a></article><article><a href=/route/ikuai-bypass-joyanhui/><div class=article-details><h2 class=article-title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</h2></div></a></article><article><a href=/route/ikuai-bypass-joyanhui-old/><div class=article-details><h2 class=article-title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</h2></div></a></article><article><a href=/cloudflare/vless/><div class=article-details><h2 class=article-title>利用cfwokr免费搭建自己的节点</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

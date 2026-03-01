@@ -1,0 +1,515 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="micropython 自己编译固件有几个好处\n只加入自己需要的模块降低硬件资源占用 .py文件可以修改中中间码，并烧录到固件内部， 可以方便量产 可一定程度保护代码 更加省略了编译过程节省内存 我这里 只记录 添加 smartconfig的方法，并以S2 mini为例，其他esp32 同理。\n简中网络上，几乎没有相关资料，有一些资料也是错的或无法使用。所以这里单独记录分享一下。 你可以直接下载 我编译好的\nhttps://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/\n准备 linux系统，我这里是pve lxc运行的ubuntu22.04 科学工具 因为需要拉github 基本的linux基础 环境配置 和 依赖 修改到国内源，这个自己处理\n1 2 3 4 5 6 7 8 9 apt install git wget curl make gcc cmake rsync # ppa安装pythone 3.11 Ubuntu自带的版本太低 apt install software-properties-common add-apt-repository ppa:deadsnakes/ppa apt install python3.11 python-is-python3 # pip3 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py python get-pip.py --force-reinstall pip install mpy-cross-v6 克隆代码 1 mkdir mpy-bin && cd mpy-bin esp-idf 注意 不同的esp32平台 micropython支持的esp-idf版本不同，详情参考 https://github.com/micropython/micropython/tree/master/ports/esp32#readme\nlinux小白 一步一步操作，注意里面的警告信息\n"><title>esp32自行编译micropython固件并支持smartconfig方法 以及代码保护</title><link rel=canonical href=https://dev.leiyanhui.com/mcu/esp32-s2-mpy-smartconfig/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="esp32自行编译micropython固件并支持smartconfig方法 以及代码保护"><meta property='og:description' content="micropython 自己编译固件有几个好处\n只加入自己需要的模块降低硬件资源占用 .py文件可以修改中中间码，并烧录到固件内部， 可以方便量产 可一定程度保护代码 更加省略了编译过程节省内存 我这里 只记录 添加 smartconfig的方法，并以S2 mini为例，其他esp32 同理。\n简中网络上，几乎没有相关资料，有一些资料也是错的或无法使用。所以这里单独记录分享一下。 你可以直接下载 我编译好的\nhttps://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/\n准备 linux系统，我这里是pve lxc运行的ubuntu22.04 科学工具 因为需要拉github 基本的linux基础 环境配置 和 依赖 修改到国内源，这个自己处理\n1 2 3 4 5 6 7 8 9 apt install git wget curl make gcc cmake rsync # ppa安装pythone 3.11 Ubuntu自带的版本太低 apt install software-properties-common add-apt-repository ppa:deadsnakes/ppa apt install python3.11 python-is-python3 # pip3 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py python get-pip.py --force-reinstall pip install mpy-cross-v6 克隆代码 1 mkdir mpy-bin && cd mpy-bin esp-idf 注意 不同的esp32平台 micropython支持的esp-idf版本不同，详情参考 https://github.com/micropython/micropython/tree/master/ports/esp32#readme\nlinux小白 一步一步操作，注意里面的警告信息\n"><meta property='og:url' content='https://dev.leiyanhui.com/mcu/esp32-s2-mpy-smartconfig/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Mcu'><meta property='article:published_time' content='2023-06-12T17:14:20+08:00'><meta property='article:modified_time' content='2023-06-12T17:14:20+08:00'><meta name=twitter:title content="esp32自行编译micropython固件并支持smartconfig方法 以及代码保护"><meta name=twitter:description content="micropython 自己编译固件有几个好处\n只加入自己需要的模块降低硬件资源占用 .py文件可以修改中中间码，并烧录到固件内部， 可以方便量产 可一定程度保护代码 更加省略了编译过程节省内存 我这里 只记录 添加 smartconfig的方法，并以S2 mini为例，其他esp32 同理。\n简中网络上，几乎没有相关资料，有一些资料也是错的或无法使用。所以这里单独记录分享一下。 你可以直接下载 我编译好的\nhttps://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/\n准备 linux系统，我这里是pve lxc运行的ubuntu22.04 科学工具 因为需要拉github 基本的linux基础 环境配置 和 依赖 修改到国内源，这个自己处理\n1 2 3 4 5 6 7 8 9 apt install git wget curl make gcc cmake rsync # ppa安装pythone 3.11 Ubuntu自带的版本太低 apt install software-properties-common add-apt-repository ppa:deadsnakes/ppa apt install python3.11 python-is-python3 # pip3 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py python get-pip.py --force-reinstall pip install mpy-cross-v6 克隆代码 1 mkdir mpy-bin && cd mpy-bin esp-idf 注意 不同的esp32平台 micropython支持的esp-idf版本不同，详情参考 https://github.com/micropython/micropython/tree/master/ports/esp32#readme\nlinux小白 一步一步操作，注意里面的警告信息\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#esp-idf>esp-idf</a></li><li><a href=#micropython>micropython</a></li></ol><ol><li><a href=#推送到-nas>推送到 nas</a></li><li><a href=#烧录>烧录</a></li></ol><ol><li><a href=#cmakeliststxt>CMakeLists.txt</a></li><li><a href=#smarconfigc>smarconfig.c</a></li></ol><ol><li><a href=#smarconfigc-1>smarconfig.c</a></li><li><a href=#mainpy>main.py</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/esp/ style=background-color:#beefcd;color:#0f3d1e>Esp
+</a><a href=/categories/micropython/ style=background-color:#beeeef;color:#0f3c3d>Micropython
+</a><a href=/categories/smartconfig/ style=background-color:#d5efbe;color:#253d0f>Smartconfig</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/mcu/esp32-s2-mpy-smartconfig/>esp32自行编译micropython固件并支持smartconfig方法 以及代码保护</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-06-12T17:14:20+08:00>2023-06-12</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>micropython 自己编译固件有几个好处</p><ul><li>只加入自己需要的模块降低硬件资源占用</li><li>.py文件可以修改中中间码，并烧录到固件内部，</li><li><ul><li>可以方便量产</li></ul></li><li><ul><li>可一定程度保护代码</li></ul></li><li><ul><li>更加省略了编译过程节省内存</li></ul></li></ul><p>我这里 只记录 添加 smartconfig的方法，并以S2 mini为例，其他esp32 同理。<br>简中网络上，几乎没有相关资料，有一些资料也是错的或无法使用。所以这里单独记录分享一下。
+你可以直接下载 我编译好的<br><a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/ target=_blank rel=noopener>https://github.com/joyanhui/file.leiyanhui.com/blob/main/esp32/</a></p><h1 id=准备>准备</h1><ul><li>linux系统，我这里是pve lxc运行的ubuntu22.04</li><li>科学工具 因为需要拉github</li><li>基本的linux基础</li></ul><h1 id=环境配置-和-依赖>环境配置 和 依赖</h1><p>修改到国内源，这个自己处理</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>apt install git wget curl make gcc cmake rsync
+</span></span><span class=line><span class=cl># ppa安装pythone 3.11  Ubuntu自带的版本太低
+</span></span><span class=line><span class=cl>apt install software-properties-common
+</span></span><span class=line><span class=cl>add-apt-repository ppa:deadsnakes/ppa
+</span></span><span class=line><span class=cl>apt install python3.11 python-is-python3
+</span></span><span class=line><span class=cl># pip3
+</span></span><span class=line><span class=cl>curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+</span></span><span class=line><span class=cl>python get-pip.py --force-reinstall
+</span></span><span class=line><span class=cl>pip install mpy-cross-v6
+</span></span></code></pre></td></tr></table></div></div><h1 id=克隆代码>克隆代码</h1><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>mkdir mpy-bin &amp;&amp; cd mpy-bin
+</span></span></code></pre></td></tr></table></div></div><h2 id=esp-idf>esp-idf</h2><p>注意 不同的esp32平台 micropython支持的esp-idf版本不同，详情参考 <a class=link href=https://github.com/micropython/micropython/tree/master/ports/esp32#readme target=_blank rel=noopener>https://github.com/micropython/micropython/tree/master/ports/esp32#readme</a><br>linux小白 一步一步操作，注意里面的警告信息</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>git clone -b v4.4.5 --recursive https://github.com/espressif/esp-idf.git esp-idf-v4.4.5
+</span></span><span class=line><span class=cl>cd esp-idf-v4.4.5/
+</span></span><span class=line><span class=cl>git checkout v4.4.5
+</span></span><span class=line><span class=cl>git submodule update --init --recursive
+</span></span></code></pre></td></tr></table></div></div><p>处理环境变量</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=o>./</span><span class=n>install</span><span class=o>.</span><span class=n>sh</span> 
+</span></span><span class=line><span class=cl><span class=n>source</span> <span class=k>export</span><span class=o>.</span><span class=n>sh</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=micropython>micropython</h2><p>本文基于 1.20 版本，如果新版失效，请 直接去下载 <a class=link href=https://github.com/micropython/micropython/releases/download/v1.20.0/micropython-1.20.0.zip target=_blank rel=noopener>https://github.com/micropython/micropython/releases/download/v1.20.0/micropython-1.20.0.zip</a> 不要 git clone最新的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>cd ..
+</span></span><span class=line><span class=cl>git clone https://github.com/micropython/micropython.git
+</span></span><span class=line><span class=cl>cd micropython
+</span></span><span class=line><span class=cl>make -C mpy-cross
+</span></span><span class=line><span class=cl>cd ports/esp32
+</span></span></code></pre></td></tr></table></div></div><h1 id=测试默认编译micropython固件>测试默认编译micropython固件</h1><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>make submodules
+</span></span><span class=line><span class=cl>make  # make BOARD=LOLIN_S2_MINI
+</span></span></code></pre></td></tr></table></div></div><p>直接make的话 是 esp32 ，我这里是 s2 ，并且是 esp32 s2 mini开发板 所以添加参数 BOARD=LOLIN_S2_MINI
+这样就可以编译 了,编译后 会有提示 ./build-XXXX/
+firmware.bin 这个文件是合并后的，可以直接烧到0x1000</p><h2 id=推送到-nas>推送到 nas</h2><p>我这里推送到nas里面，方便其他机器使用</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>rsync -avzut --progress  ./build-LOLIN_S2_MINI/firmware.bin    root@10.1.1.200:/mnt/nas/temp/firmware-my.bin 
+</span></span></code></pre></td></tr></table></div></div><h2 id=烧录>烧录</h2><p>在连接esp32的机器上从nas复制bin文件过来然后下入</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>esptool</span>  <span class=o>--</span><span class=n>port</span> <span class=n>COM3</span>  <span class=n>erase_flash</span> <span class=c1>#擦除</span>
+</span></span><span class=line><span class=cl><span class=n>esptool</span> <span class=o>--</span><span class=n>port</span> <span class=n>COM3</span>   <span class=o>--</span><span class=n>baud</span> <span class=mi>1000000</span> <span class=n>write_flash</span> <span class=o>-</span><span class=n>z</span> <span class=mh>0x1000</span> <span class=n>firmware</span><span class=o>-</span><span class=n>my</span><span class=o>.</span><span class=n>bin</span> <span class=c1># 写入从nas 拷贝过来的 新固件</span>
+</span></span></code></pre></td></tr></table></div></div><p>烧录完成后，重启板，thonny 链接上，输入 help(&lsquo;modules&rsquo;) 查看模块</p><h1 id=添加-smartconfig模块>添加 smartconfig模块</h1><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>cd ~/mpy-bin/micropython/ports/esp32
+</span></span></code></pre></td></tr></table></div></div><p>需要两个地方，1是 添加一个smarconfig.c文件，2 是修改还 ports/esp32/main/CMakeLists.txt 把 smarconfig.c 加进去</p><h2 id=cmakeliststxt>CMakeLists.txt</h2><p>查看 cat ~/mpy-bin/micropython/ports/esp32/main/CMakeLists.txt 目前版本1.20版本 需要修改的内容在 54-92行 格式如下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>set(MICROPY_SOURCE_PORT
+</span></span><span class=line><span class=cl>    main.c
+</span></span><span class=line><span class=cl>    ....
+</span></span><span class=line><span class=cl>    machine_sdcard.c
+</span></span><span class=line><span class=cl>    ...
+</span></span><span class=line><span class=cl>)
+</span></span></code></pre></td></tr></table></div></div><p>我们需要在 machine_sdcard.c 后面添加一个 smarconfig.c，然后在 machine_sdcard.c的同目录下 创建一个 smarconfig.c (内容查看后文)<br>修改后的 CMakeLists.txt 内容格式如下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>set(MICROPY_SOURCE_PORT
+</span></span><span class=line><span class=cl>    main.c
+</span></span><span class=line><span class=cl>    ....
+</span></span><span class=line><span class=cl>    machine_sdcard.c
+</span></span><span class=line><span class=cl>    smarconfig.c
+</span></span><span class=line><span class=cl>    ...
+</span></span><span class=line><span class=cl>)
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>同理，可以在这里删掉不用的模块</p></blockquote><h2 id=smarconfigc>smarconfig.c</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>nano ~/mpy-bin/micropython/ports/esp32/machine_sdcard.c
+</span></span></code></pre></td></tr></table></div></div><p>内容参考后文。 找</p><h1 id=重新编译>重新编译</h1><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>make submodules
+</span></span><span class=line><span class=cl>make BOARD=LOLIN_S2_MINI
+</span></span></code></pre></td></tr></table></div></div><h1 id=上级测试>上级测试</h1><p>新固件烧录后，烧录完成后，重启板，thonny 链接上，输入 <code>help('modules')</code> 查看模块 已经有 smarconfig
+运行一个 main.py 测试，测试代码参考后文。
+启动后，找一个支持smarconfig的手机app或者微信小程序 配网测试
+我用的微信小程序<code>#小程序://一键配网/047fob5XqOB14hk</code> 复制发送到手机微信，聊天窗口点开即可。配网成功</p><h1 id=添加自定义py文件>添加自定义py文件</h1><p>优点：1 保护代码 2 方便量产
+内容单独另起一一个文章 <a class=link href=../esp32-mpy-code-to-bin>添加自定义py文件到固件</a></p><h1 id=内容>内容</h1><h2 id=smarconfigc-1>smarconfig.c</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=c1>#include &#34;py/obj.h&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;py/runtime.h&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>#include &lt;string.h&gt;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &lt;stdlib.h&gt;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;freertos/FreeRTOS.h&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;freertos/task.h&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;freertos/event_groups.h&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;esp_wifi.h&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;esp_event.h&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;esp_log.h&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#include &#34;esp_smartconfig.h&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>EventGroupHandle_t</span> <span class=n>s_wifi_event_group</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=k>const</span> <span class=ne>int</span> <span class=n>ESPTOUCH_DONE_BIT</span> <span class=o>=</span> <span class=n>BIT1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=k>const</span> <span class=n>char</span> <span class=o>*</span><span class=n>TAG</span> <span class=o>=</span> <span class=s2>&#34;smartconfig&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=ne>int</span> <span class=n>found_ssid_and_password</span> <span class=o>=</span> <span class=bp>false</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>uint8_t</span> <span class=n>ssid</span><span class=p>[</span><span class=mi>33</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=mi>0</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>uint8_t</span> <span class=n>password</span><span class=p>[</span><span class=mi>65</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=mi>0</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>uint8_t</span> <span class=n>type</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>uint8_t</span> <span class=n>token</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>void</span> <span class=n>smartconfig_task</span><span class=p>(</span><span class=n>void</span> <span class=o>*</span> <span class=n>parm</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>void</span> <span class=n>event_handler</span><span class=p>(</span><span class=n>void</span><span class=o>*</span> <span class=n>arg</span><span class=p>,</span> <span class=n>esp_event_base_t</span> <span class=n>event_base</span><span class=p>,</span> <span class=n>int32_t</span> <span class=n>event_id</span><span class=p>,</span> <span class=n>void</span><span class=o>*</span> <span class=n>event_data</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>event_base</span> <span class=o>==</span> <span class=n>SC_EVENT</span> <span class=o>&amp;&amp;</span> <span class=n>event_id</span> <span class=o>==</span> <span class=n>SC_EVENT_SCAN_DONE</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;Scan done&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=p>(</span><span class=n>event_base</span> <span class=o>==</span> <span class=n>SC_EVENT</span> <span class=o>&amp;&amp;</span> <span class=n>event_id</span> <span class=o>==</span> <span class=n>SC_EVENT_FOUND_CHANNEL</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;Found channel&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=p>(</span><span class=n>event_base</span> <span class=o>==</span> <span class=n>SC_EVENT</span> <span class=o>&amp;&amp;</span> <span class=n>event_id</span> <span class=o>==</span> <span class=n>SC_EVENT_GOT_SSID_PSWD</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;Got SSID and password&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>smartconfig_event_got_ssid_pswd_t</span> <span class=o>*</span><span class=n>evt</span> <span class=o>=</span> <span class=p>(</span><span class=n>smartconfig_event_got_ssid_pswd_t</span> <span class=o>*</span><span class=p>)</span><span class=n>event_data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>memcpy</span><span class=p>(</span><span class=n>ssid</span><span class=p>,</span> <span class=n>evt</span><span class=o>-&gt;</span><span class=n>ssid</span><span class=p>,</span> <span class=n>sizeof</span><span class=p>(</span><span class=n>evt</span><span class=o>-&gt;</span><span class=n>ssid</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>        <span class=n>memcpy</span><span class=p>(</span><span class=n>password</span><span class=p>,</span> <span class=n>evt</span><span class=o>-&gt;</span><span class=n>password</span><span class=p>,</span> <span class=n>sizeof</span><span class=p>(</span><span class=n>evt</span><span class=o>-&gt;</span><span class=n>password</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>        <span class=n>type</span> <span class=o>=</span> <span class=n>evt</span><span class=o>-&gt;</span><span class=n>type</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>token</span> <span class=o>=</span> <span class=n>evt</span><span class=o>-&gt;</span><span class=n>token</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;SSID:</span><span class=si>%s</span><span class=s2>&#34;</span><span class=p>,</span> <span class=n>ssid</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;PASSWORD:</span><span class=si>%s</span><span class=s2>&#34;</span><span class=p>,</span> <span class=n>password</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;TYPE:</span><span class=si>%d</span><span class=s2>&#34;</span><span class=p>,</span> <span class=n>type</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;TOKEN:</span><span class=si>%d</span><span class=s2>&#34;</span><span class=p>,</span> <span class=n>token</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>found_ssid_and_password</span> <span class=o>=</span> <span class=bp>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>xEventGroupSetBits</span><span class=p>(</span><span class=n>s_wifi_event_group</span><span class=p>,</span> <span class=n>ESPTOUCH_DONE_BIT</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>void</span> <span class=n>initialise_wifi</span><span class=p>(</span><span class=n>void</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>s_wifi_event_group</span> <span class=o>=</span> <span class=n>xEventGroupCreate</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>ESP_ERROR_CHECK</span><span class=p>(</span><span class=n>esp_event_loop_create_default</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=n>ESP_ERROR_CHECK</span><span class=p>(</span><span class=n>esp_event_handler_register</span><span class=p>(</span><span class=n>SC_EVENT</span><span class=p>,</span> <span class=n>ESP_EVENT_ANY_ID</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>event_handler</span><span class=p>,</span> <span class=n>NULL</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>xTaskCreate</span><span class=p>(</span><span class=n>smartconfig_task</span><span class=p>,</span> <span class=s2>&#34;smartconfig_task&#34;</span><span class=p>,</span> <span class=mi>4096</span><span class=p>,</span> <span class=n>NULL</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=n>NULL</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=n>void</span> <span class=n>smartconfig_task</span><span class=p>(</span><span class=n>void</span> <span class=o>*</span> <span class=n>parm</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>EventBits_t</span> <span class=n>uxBits</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>ESP_ERROR_CHECK</span><span class=p>(</span><span class=n>esp_smartconfig_set_type</span><span class=p>(</span><span class=n>SC_TYPE_ESPTOUCH_AIRKISS</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=n>smartconfig_start_config_t</span> <span class=n>cfg</span> <span class=o>=</span> <span class=n>SMARTCONFIG_START_CONFIG_DEFAULT</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>ESP_ERROR_CHECK</span><span class=p>(</span><span class=n>esp_smartconfig_start</span><span class=p>(</span><span class=o>&amp;</span><span class=n>cfg</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>uxBits</span> <span class=o>=</span> <span class=n>xEventGroupWaitBits</span><span class=p>(</span><span class=n>s_wifi_event_group</span><span class=p>,</span> <span class=n>ESPTOUCH_DONE_BIT</span><span class=p>,</span> <span class=bp>true</span><span class=p>,</span> <span class=bp>false</span><span class=p>,</span> <span class=n>portMAX_DELAY</span><span class=p>);</span> 
+</span></span><span class=line><span class=cl>        <span class=k>if</span><span class=p>(</span><span class=n>uxBits</span> <span class=o>&amp;</span> <span class=n>ESPTOUCH_DONE_BIT</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>ESP_LOGI</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s2>&#34;smartconfig over&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>ESP_ERROR_CHECK</span><span class=p>(</span><span class=n>esp_smartconfig_stop</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>            <span class=n>vTaskDelete</span><span class=p>(</span><span class=n>NULL</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=n>mp_obj_t</span> <span class=n>smartconfig_start</span><span class=p>(</span><span class=n>void</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>initialise_wifi</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>mp_const_none</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=n>MP_DEFINE_CONST_FUN_OBJ_0</span><span class=p>(</span><span class=n>smartconfig_start_obj</span><span class=p>,</span> <span class=n>smartconfig_start</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=n>mp_obj_t</span> <span class=n>smartconfig_success</span><span class=p>(</span><span class=n>void</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>mp_obj_new_bool</span><span class=p>(</span><span class=n>found_ssid_and_password</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=n>MP_DEFINE_CONST_FUN_OBJ_0</span><span class=p>(</span><span class=n>smartconfig_success_obj</span><span class=p>,</span> <span class=n>smartconfig_success</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=n>mp_obj_t</span> <span class=n>smartconfig_info</span><span class=p>(</span><span class=n>void</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>mp_obj_t</span> <span class=n>info</span><span class=p>[]</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>mp_obj_new_str</span><span class=p>((</span><span class=k>const</span> <span class=n>char</span> <span class=o>*</span><span class=p>)</span><span class=n>ssid</span><span class=p>,</span> <span class=n>strlen</span><span class=p>((</span><span class=k>const</span> <span class=n>char</span> <span class=o>*</span><span class=p>)</span><span class=n>ssid</span><span class=p>)),</span>
+</span></span><span class=line><span class=cl>        <span class=n>mp_obj_new_str</span><span class=p>((</span><span class=k>const</span> <span class=n>char</span> <span class=o>*</span><span class=p>)</span><span class=n>password</span><span class=p>,</span> <span class=n>strlen</span><span class=p>((</span><span class=k>const</span> <span class=n>char</span> <span class=o>*</span><span class=p>)</span><span class=n>password</span><span class=p>)),</span>
+</span></span><span class=line><span class=cl>        <span class=n>mp_obj_new_int</span><span class=p>(</span><span class=n>type</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=n>mp_obj_new_int</span><span class=p>(</span><span class=n>token</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>mp_obj_new_tuple</span><span class=p>(</span><span class=mi>4</span><span class=p>,</span> <span class=n>info</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=n>MP_DEFINE_CONST_FUN_OBJ_0</span><span class=p>(</span><span class=n>smartconfig_info_obj</span><span class=p>,</span> <span class=n>smartconfig_info</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=k>const</span> <span class=n>mp_rom_map_elem_t</span> <span class=n>smartconfig_module_globals_table</span><span class=p>[]</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR___name__</span><span class=p>),</span> <span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR_smartconfig</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR_start</span><span class=p>),</span> <span class=n>MP_ROM_PTR</span><span class=p>(</span><span class=o>&amp;</span><span class=n>smartconfig_start_obj</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR_success</span><span class=p>),</span> <span class=n>MP_ROM_PTR</span><span class=p>(</span><span class=o>&amp;</span><span class=n>smartconfig_success_obj</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR_info</span><span class=p>),</span> <span class=n>MP_ROM_PTR</span><span class=p>(</span><span class=o>&amp;</span><span class=n>smartconfig_info_obj</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR_TYPE_UNKNOWN</span><span class=p>),</span> <span class=n>MP_ROM_INT</span><span class=p>(</span><span class=o>-</span><span class=mi>1</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR_TYPE_ESPTOUCH</span><span class=p>),</span> <span class=n>MP_ROM_INT</span><span class=p>(</span><span class=n>SC_TYPE_ESPTOUCH</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>MP_ROM_QSTR</span><span class=p>(</span><span class=n>MP_QSTR_TYPE_AIRKISS</span><span class=p>),</span> <span class=n>MP_ROM_INT</span><span class=p>(</span><span class=n>SC_TYPE_AIRKISS</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>STATIC</span> <span class=n>MP_DEFINE_CONST_DICT</span><span class=p>(</span><span class=n>smartconfig_module_globals</span><span class=p>,</span> <span class=n>smartconfig_module_globals_table</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=n>mp_obj_module_t</span> <span class=n>smartconfig_user_cmodule</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=o>.</span><span class=n>base</span> <span class=o>=</span> <span class=p>{</span><span class=o>&amp;</span><span class=n>mp_type_module</span><span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=o>.</span><span class=n>globals</span> <span class=o>=</span> <span class=p>(</span><span class=n>mp_obj_dict_t</span> <span class=o>*</span><span class=p>)</span><span class=o>&amp;</span><span class=n>smartconfig_module_globals</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>MP_REGISTER_MODULE</span><span class=p>(</span><span class=n>MP_QSTR_smartconfig</span><span class=p>,</span> <span class=n>smartconfig_user_cmodule</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=mainpy>main.py</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span><span class=lnt>71
+</span><span class=lnt>72
+</span><span class=lnt>73
+</span><span class=lnt>74
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>import network
+</span></span><span class=line><span class=cl>import socket
+</span></span><span class=line><span class=cl>import smartconfig
+</span></span><span class=line><span class=cl>import time
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>def inet_pton(ip_str:str):
+</span></span><span class=line><span class=cl>    &#39;&#39;&#39;convert ip address from string to bytes&#39;&#39;&#39;
+</span></span><span class=line><span class=cl>    ip_bytes = b&#39;&#39;
+</span></span><span class=line><span class=cl>    ip_segs = ip_str.split(&#39;.&#39;)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    for seg in ip_segs:
+</span></span><span class=line><span class=cl>        ip_bytes += int(seg).to_bytes(1, &#39;little&#39;)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    return ip_bytes
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>def send_ack(local_ip, local_mac):
+</span></span><span class=line><span class=cl>    &#39;&#39;&#39;sent ack_done event to phone&#39;&#39;&#39;
+</span></span><span class=line><span class=cl>    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+</span></span><span class=line><span class=cl>    udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    data = smartconfig.info()[3].to_bytes(1, &#39;little&#39;) + local_mac
+</span></span><span class=line><span class=cl>    port = 10000 # airkiss port
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    if smartconfig.info()[2] == smartconfig.TYPE_ESPTOUCH:
+</span></span><span class=line><span class=cl>        data += inet_pton(local_ip)
+</span></span><span class=line><span class=cl>        port = 18266 # esptouch port
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    print(
+</span></span><span class=line><span class=cl>f&#34;&#34;&#34;- sending ack:
+</span></span><span class=line><span class=cl>    type: {&#39;esptouch&#39; if smartconfig.info()[2] == smartconfig.TYPE_ESPTOUCH else &#39;airkiss&#39;}
+</span></span><span class=line><span class=cl>    port: {port}
+</span></span><span class=line><span class=cl>    data: {data}
+</span></span><span class=line><span class=cl>    length: {len(data)}
+</span></span><span class=line><span class=cl>&#34;&#34;&#34;
+</span></span><span class=line><span class=cl>    )
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    for _ in range(20):
+</span></span><span class=line><span class=cl>        time.sleep_ms(100)
+</span></span><span class=line><span class=cl>        try:
+</span></span><span class=line><span class=cl>            udp.sendto(data, (&#39;255.255.255.255&#39;, port))
+</span></span><span class=line><span class=cl>        except OSError:
+</span></span><span class=line><span class=cl>            pass
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    print(&#39;- ack was sent&#39;)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>station = network.WLAN(network.STA_IF)
+</span></span><span class=line><span class=cl>station.active(True)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>print(&#39;- start smartconfig...&#39;)
+</span></span><span class=line><span class=cl>smartconfig.start()
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>print(&#39;- waiting for success...&#39;)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>while not smartconfig.success():
+</span></span><span class=line><span class=cl>    time.sleep_ms(500)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>print(&#39;- got smartconfig info&#39;)
+</span></span><span class=line><span class=cl>ssid, password, sc_type, token = smartconfig.info()
+</span></span><span class=line><span class=cl>print(smartconfig.info())
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>print(&#39;- connecting to wifi...&#39;)
+</span></span><span class=line><span class=cl>station.connect(ssid, password)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>while not station.isconnected():
+</span></span><span class=line><span class=cl>    time.sleep_ms(500)
+</span></span><span class=line><span class=cl>print(&#39;- wifi connected&#39;)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>while station.ifconfig()[0] == &#39;0.0.0.0&#39;:
+</span></span><span class=line><span class=cl>    time.sleep_ms(500)
+</span></span><span class=line><span class=cl>print(&#39;- got ip&#39;)
+</span></span><span class=line><span class=cl>print(station.ifconfig())
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>send_ack(station.ifconfig()[0], station.config(&#39;mac&#39;))
+</span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/mcu/esp32-s2-coretemp/><div class=article-details><h2 class=article-title>esp32 s2 C3 在micropython下使用内置温度传感器</h2></div></a></article><article><a href=/mcu/mpy-repl-psw/><div class=article-details><h2 class=article-title>micropython在usb和web的repl都添加密码，一定程度上保护密码</h2></div></a></article><article><a href=/mcu/mpy-cross/><div class=article-details><h2 class=article-title>micropython代码压缩和简单加密 mpy-cross</h2></div></a></article><article><a href=/mcu/esp32-mpy-add-c-module/><div class=article-details><h2 class=article-title>esp32 micropython添加C模块(esp32 s2 c3 s3 内置温度传感器读取)</h2></div></a></article><article><a href=/mcu/esp32-mpy-code-to-bin/><div class=article-details><h2 class=article-title>esp32自行编译micropython固件并添加基于python的模块</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

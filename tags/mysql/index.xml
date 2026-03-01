@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Mysql on 小类随手记</title><link>https://dev.leiyanhui.com/tags/mysql/</link><description>Recent content in Mysql on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 07 Sep 2022 19:56:11 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/mysql/index.xml" rel="self" type="application/rss+xml"/><item><title>mysql 内存表替代redis的完整方案记录</title><link>https://dev.leiyanhui.com/c/mysql-cp-memory-innodb/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/mysql-cp-memory-innodb/</guid><description>&lt;h1 id="mysql-内存表替代redis的完整方案记录"&gt;mysql 内存表替代redis的完整方案记录
+&lt;/h1&gt;&lt;p&gt;内存表替代redis的完整方案记&lt;/p&gt;
+&lt;p&gt;redis很强很轻量，但是对于结构化数据 mysql具有天然优势。&lt;/p&gt;
+&lt;p&gt;这里只记录 使用mysql内存表替代redis的一个方案，只适用于某些特殊情况&lt;/p&gt;
+&lt;p&gt;但是 mysql 内存表有几个天然缺陷 Memory不支持行锁只支持表锁，只有InnoDB支持行锁。这就导致了大并发的时候，尤其是并发写入的时候 mysql的Memory引擎效率并不高&lt;/p&gt;
+&lt;p&gt;另外Memory不支持持久化储存，在宕机重启的情况下，虽然可以导入新数据。但是如果配置了主从同步会出现更多复杂问题。&lt;/p&gt;
+&lt;p&gt;为了规避这些问题，可以在以下场景式 使用。&lt;/p&gt;
+&lt;p&gt;最后采取的理想方式：&lt;/p&gt;
+&lt;p&gt;1、分库处理，库A 所有表使用InnoDB，配置好主从同步并用户储存所有数据。库B 只有部分表从库A复制的表，且全部是内存表，不进行主从同步。&lt;/p&gt;
+&lt;p&gt;2、mysql启动的时，库A部分表数据 完整复制到库B，或者应用端在查询不到数据的时候，自动复制数据过来。&lt;/p&gt;
+&lt;p&gt;3、定时同步库B数据到库A 以持久化保存&lt;/p&gt;
+&lt;p&gt;其他要注意的：&lt;/p&gt;
+&lt;p&gt;1、频繁写入的数据，依旧还是使用redis，这是redis的天然优势&lt;/p&gt;
+&lt;p&gt;2、关闭库B的 查询缓存（没有太大必要使用）&lt;/p&gt;
+&lt;p&gt;3、大量数据非经常查询的数据，放在&lt;/p&gt;
+&lt;p&gt;先看一个创建一个表 和复制一个表的基本语法&lt;/p&gt;
+&lt;p&gt;另外一个简单的解决方法 是使用 ramdisk (tmpfs)，然后使用InnoDB 或者 MyISAM即可&lt;/p&gt;
+&lt;p&gt;然后定时备份 ramdisk（最好关停mysql后备份）&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-mysql" data-lang="mysql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;CREATE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;TABLE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;`&lt;/span&gt;&lt;span class="n"&gt;fish_api&lt;/span&gt;&lt;span class="o"&gt;`&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;`&lt;/span&gt;&lt;span class="n"&gt;mem&lt;/span&gt;&lt;span class="o"&gt;`&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;`&lt;/span&gt;&lt;span class="n"&gt;mem&lt;/span&gt;&lt;span class="o"&gt;`&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;INT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;NOT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="no"&gt;NULL&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kp"&gt;ENGINE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;MEMORY&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;CREATE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;TABLE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;targetTable&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;LIKE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;sourceTable&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;INSERT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;INTO&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;targetTable&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;sourceTable&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#完整代码
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#DROP TABLE user_mem;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;CREATE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;TABLE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_mem&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;LIKE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;user&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;ALTER&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;TABLE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_mem&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kp"&gt;ENGINE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;MEMORY&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;INSERT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;INTO&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_mem&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;user&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;其实需要的是 优化mysql&lt;/p&gt;
+&lt;p&gt;频繁查询 较少写入的表的查询操作 开启查询缓存 这个比较好理解&lt;/p&gt;</description></item><item><title>宝塔中运行多个mysql的方法</title><link>https://dev.leiyanhui.com/c/baota-2mysql/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/baota-2mysql/</guid><description>&lt;h1 id="宝塔中运行多个mysql的方法"&gt;宝塔中运行多个mysql的方法
+&lt;/h1&gt;&lt;p&gt;docker 再跑一个mysql 是最简单的了哈&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker pull mysql:latest
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --name mysql -p 3307:3306 -e MYSQL\_ROOT\_PASSWORD=123456 mysql
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;如果还要自定义配置文件的话 用-v
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir /www/wwwroot/leiyanhui.com/docker-mysql-cnf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --name mysql -v /www/wwwroot/leiyanhui.com/docker-mysql-cnf:/etc/mysql/conf.d -p 3307:3306 -e MYSQL\_ROOT\_PASSWORD=123456 mysql
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;然后在宝塔面板 添加远程服务器
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>少量数据大并发的mysql优化</title><link>https://dev.leiyanhui.com/c/mysql-config/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/mysql-config/</guid><description>&lt;h1 id="少量数据大并发的mysql优化"&gt;少量数据大并发的mysql优化
+&lt;/h1&gt;&lt;p&gt;除去用ramdisk redis 内存表等方法，比较靠谱的方案 还是 仔细优化mysql&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;手动缓存mysql 查询 query_cache_type有3个值 0代表关闭查询缓存OFF，1代表开启ON，2（DEMAND）代表当sql语句中有SQL_CACHE关键词时才缓存 建议用 2&lt;br&gt;
+select SQL_CACHE user_name from users where user_id = &amp;lsquo;100&amp;rsquo;;&lt;br&gt;
+query_cache_size = 64M ，不宜设置过大，否则在数据更新的时候，会有较大的性能开支用于标注失效。&lt;/li&gt;
+&lt;li&gt;每个表 创建一个 InnoDB FILE： innodb_file_per_table=1 ，为了防止 ibdata1 过大失控&lt;/li&gt;
+&lt;li&gt;ibdata1 想要瘦身，最好的办法，还是重建表，即为，复制表&amp;gt;删除原表&amp;gt;新表改名&lt;/li&gt;
+&lt;li&gt;innodb_buffer_pool_size 最好和目标数据库内容差不多大，这样 就可以完全从内存中读取数据&lt;br&gt;
+另外innodb_buffer_pool_size 在mysql启动的时候，里面没有数据的，需要查询一下常用记录以便预热，在整库备份之前，最好也预热一下，以免占用太多时间。如果数据较少，这步骤也可以忽略。&lt;/li&gt;
+&lt;li&gt;修改硬盘写入频率：innodb_flush_log_at_trx_commit，默认1代表实时写入，0 是1秒一次 2也是1秒一次。&lt;br&gt;
+修改0 就好。当然非正常关闭的情况下有概率会丢失1秒的数据&lt;/li&gt;
+&lt;li&gt;打开慢查询日志，记录查询超过1秒的数据【生产服务器，注意硬盘】&lt;br&gt;
+long_query_time=1&lt;br&gt;
+log-slow-queries=/var/log/mysql/log-slow-queries.log&lt;/li&gt;
+&lt;li&gt;关闭服务器端 SWAP&lt;/li&gt;
+&lt;li&gt;所有查询 最后还是要 LIMIT&lt;/li&gt;
+&lt;/ul&gt;</description></item></channel></rss>

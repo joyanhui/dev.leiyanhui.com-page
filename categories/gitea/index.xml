@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Gitea on 小类随手记</title><link>https://dev.leiyanhui.com/categories/gitea/</link><description>Recent content in Gitea on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 17 Jun 2023 14:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/gitea/index.xml" rel="self" type="application/rss+xml"/><item><title>gitea自动备份到nas</title><link>https://dev.leiyanhui.com/nas/gitea-to-nas/</link><pubDate>Sat, 17 Jun 2023 14:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/nas/gitea-to-nas/</guid><description>&lt;p&gt;gitea 是非常轻量简洁，但是功能完整的一个git私有化工具。 爱不释手ing&lt;/p&gt;
+&lt;p&gt;我这里同样是 pve+lxc+alpine 搭建 直接用的 alpine仓库的gitea 安装的。版本不是最新的，但是够用。&lt;/p&gt;
+&lt;p&gt;之前的备份方案 是 把整个运行目录备份过去 然后利用nas配置好的kopia 进行快照管理&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rclone&lt;/span&gt; &lt;span class="n"&gt;sync&lt;/span&gt; &lt;span class="n"&gt;gitea&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;gitea&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nas&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;git_note_other_run_date&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;gitea&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run_bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;P&lt;/span&gt; &lt;span class="c1"&gt;#备份到nas&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;在刚开始的时候 没问题，但是随着仓库的增加 文件越来越多 带来一些别的的问题&lt;/p&gt;
+&lt;p&gt;于是 利用gitea自带的备份方案 另外加dump 备份&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat &amp;gt; ~/nas_core/back/1_3_gitea_to_nas.sh&lt;span class="s"&gt;&amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;sh /root/nas_core/back/0_0_file_to_nas_patch.sh #这里是把nas挂载到 /mnt/nas 目录 方便后续更换nas核心的时候 脚本不需要额外维护
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;# gitea 同步备份
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;sshpass -p 密码 ssh root@10.1.1.30 &amp;#39;su -c &amp;#34;cd /var/lib/gitea/;rm -rf ./gitea-dump*.zip;&amp;#39; # 删除 dump备份 文件
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;rclone sync gitea-local:/var/lib/gitea/ /mnt/nas/git_note_other_run_date/gitea/run_bak/ -P #备份到nas
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;# gitea dump 备份
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;sshpass -p 密码 ssh root@10.1.1.30 &amp;#39;su -c &amp;#34;cd /var/lib/gitea/;gitea dump;mv gitea-dump-*.zip gitea-dump.zip&amp;#34; gitea&amp;#39; # 备份到 gitea-dump.zip
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;# 备份到nas 文件有100M+ 所以 版本管理 给 kopia处理
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;rclone copyto gitea-local:/var/lib/gitea/gitea-dump.zip /mnt/nas/git_note_other_run_date/gitea/gitea-dump.zip -P #备份到nas
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;# 加说明
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;echo -e &amp;#39;# snapshot by kopia\n- gitea-dump.zip gitea dump\n- run_bak /var/lib/gitea/&amp;#39;&amp;gt; /mnt/nas/git_note_other_run_date/gitea/README.md
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最后添加计划任务&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;crontab -l &amp;gt; conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;echo &amp;#34;4 * * * * sh /root/nas_core/back/1_3_gitea_to_nas.sh&amp;#34; &amp;gt;&amp;gt; conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;crontab conf &amp;amp;&amp;amp; rm -f conf &amp;amp;&amp;amp; crontab -l
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>个人/小团队数据中心媒体中心方案实施（pve lxc docker rclone）</title><link>https://dev.leiyanhui.com/nas/my-nas-2023-04014/</link><pubDate>Fri, 14 Apr 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/nas/my-nas-2023-04014/</guid><description>&lt;h2 id="场景和前言"&gt;场景和前言
+&lt;/h2&gt;&lt;p&gt;家庭和小团队数据中心，是一个相对硬性的需求。有很多解决方案，我这里只论述适合我的。实心括号内是我的选择&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;家庭成员 照片同步 影音观看 【filerun webdav MT-Photos rclone infuse 】&lt;/li&gt;
+&lt;li&gt;团队 文档编辑 文件同步 代码上传 【filerun webdav rclone gitea】&lt;/li&gt;
+&lt;li&gt;私有git 以及自动同步github 【gitea】&lt;/li&gt;
+&lt;li&gt;笔记同步 【思源笔记 docker webdav/minio 】&lt;/li&gt;
+&lt;li&gt;虚拟机环境 容器环境 【pve lxc 】&lt;/li&gt;
+&lt;li&gt;android/ios开发环境【pve 黑苹果】&lt;/li&gt;
+&lt;li&gt;远程办公开发环境【pve ipsec winRDP remoutapp codeserver 阿里容器镜像】&lt;/li&gt;
+&lt;li&gt;科学环境【独立x86 openwrt 】&lt;/li&gt;
+&lt;li&gt;异地部分【rclone + kopia 加密备份收费的对象储存oss/cos 和 免费云盘 alist 】&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;每一个方案 都不同的解决方案。 无法一一展开。&lt;br&gt;
+我先付费版网盘，后 折腾 群晖，ovm freenas unraid等，个人网盘程序 也经历 nginxWebdav caddy alist cloudreve seafile nextcloud 等。 最后选择一个整体适合我的方案。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="常用方案的对比"&gt;常用方案的对比
+&lt;/h2&gt;&lt;h3 id="filerun-vs-nextcloud-vs-其他"&gt;filerun vs nextcloud vs 其他
+&lt;/h3&gt;&lt;p&gt;nextcloud 是佼佼者，但是真的卡，无论如何优化，webui都卡的难受。完全没有丝滑的感觉。
+seafile ui和理念 上个世纪的吧，文件储存放不是直接存硬盘的，给其他扩展留下的可操作空间不大。ui丑。比多数简易网盘程序的优势 就是支持wopi了。&lt;br&gt;
+cloudreve 新版支持wopi协议，但是他的webdav 是有问题的，另外 无法直接系统操作文件，新家的文件他是看不到的。没有类似nextcloud的扫描功能，也没有filerun的实时更新功能。至于支持第三方储存，有rclone 那个网盘程序不支持呢 对吧。&lt;br&gt;
+alist 如同他的名字，他就是一个list，优势不在这里，虽然他很强，而且支持本地储存，但是它更适合挂载rclone不支持网盘转webdav而不是完全替代一个私有云储存。我们方案里面有它的座位，但不是它来驻场负责最底层的文件系统。&lt;br&gt;
+minio 储存好样的，但是它专业不在此。有座位不是驻场程序。&lt;br&gt;
+filebrower 这个。。真的太简陋了，只适合在硬路由器等极端硬件资源紧张的场合用。&lt;br&gt;
+filerun 优点，功能还可以。 缺点 非开源软件 免费版 有限制 详情查看 &lt;a class="link" href="../filerun-install" &gt;filerun&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="群晖-unraid-esxi-freenas-pve--原生linux"&gt;群晖 unraid esxi freeNas pve 原生linux
+&lt;/h3&gt;&lt;p&gt;群晖 不单是nas更是一个虚拟化和容器平台，虽然黑群晖可以免费。但是很多地方不喜欢，比如他每个磁盘都要写入系统，固定的分区格式。无法直接接入带数据的旧硬盘等&lt;br&gt;
+unraid 参考群晖，unraid有它优秀的地方，比如可以简单搞定pci直通，点击下就可以黑苹果等。我不觉它适合对linux/kvm有一定了解的人，但是他确实挺不错&lt;br&gt;
+esxi 不评价，非要评价的话，就是 曾经的王者 眼下的垃圾&lt;br&gt;
+freeNAS、ovm 参考 esxi&lt;br&gt;
+原生linux方案，我之前也做过一个 也用过几个月，最后的感觉，灵活但是没有pve方便 所以弃用了。&lt;br&gt;
+windowsServer 这个。。咋说呢，不说了。。。
+macos server 刚好有mac要做server的话 也行吧&lt;br&gt;
+pve 优点 开源免费 ，比 直接 cli操作kvm lxc更加直观方便，自带的lxc方案要带docker更灵活 容易扩展，开箱即可使用。缺点：需要有一点点linux基础。而aio和nas圈子的很多人都是linux小白，新手都算不上。&lt;/p&gt;
+&lt;h3 id="备份方案"&gt;备份方案
+&lt;/h3&gt;&lt;p&gt;群晖的云盘备份真的是很让人羡慕，一键搞定，还没有额外的开支。
+自己弄的话 就需要rclone加密 + kopia + rclone + alist + 不太稳妥的后端免费网盘&lt;/p&gt;
+&lt;h2 id="搭建过程"&gt;搭建过程
+&lt;/h2&gt;&lt;p&gt;上述多数教程本站都有，但是可能比较零散，请用搜索引擎 搜索 &lt;code&gt;关键词 site:dev.leiyanhuil.com&lt;/code&gt; 查看 部分文章 我我会连接到下面&lt;/p&gt;
+&lt;h3 id="filerun-搭建和使用"&gt;filerun 搭建和使用
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="../filerun-install" &gt;filerun 搭建和初步使用&lt;/a&gt;&lt;/p&gt;</description></item></channel></rss>

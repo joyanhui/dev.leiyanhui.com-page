@@ -1,0 +1,785 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="在pve上运行openwrt作为主路由使用。无论单个网卡或者多个网卡其实操作都操作。\nlxc运行的openwrt 对虚拟机方式运行的性能更好，资源占用更低。\n我目前是有两台pve 均为单网卡。 一台 x240主板 15-20w i3-4030U 8G 128G+1T。 上面lxc 运行 openwrt做主路由，同时在lxc里面运行了几个开源软件做核心数据的nas. 另外虚拟机运行了一个win 和一个备用mac（x240内存8G跑太多不够玩）\n一台 qnct组装机 20-60w 6核32G nvme 500G+12T pve装了桌面系统做日用机。并且挂了4块硬盘 也开了nas,虚拟运行win直通显卡打游戏 macos直通核显偶尔签app用。\n场景 pve单网卡 pve 单个网卡 接入交换机 光猫 桥接 接入交换机 其他设备 包括ap等同样接入交换机。 光猫通常插到交换机的第一个口上，不过家用交换机一般都是傻瓜式的，随便插都可以。 这是最常用的方案,top图大概如下 ，就是所有设备都接到交换机就ok\n1 2 3 4 5 交换机 <====> 光猫 这里光猫是桥接 交换机 <====> 其他设备 交换机 <====> 其他设备 交换机 <====> 其他设备 交换机 <====> pve物理网卡===> pve vmbr0 ===> lxc和kvm vmbr0 你可以视作一个虚拟万兆交换机就好理解了。pve默认用你在/etc/network/interfaces配置的ip,lxc和kvm内用你指定或者网内任意一个 使用虚拟机的情况下 pve内 就是 vmbr0 映射一个虚拟网卡到 到虚拟机。然后虚拟内部配置静态ip的和pve以及交换机上的其他设备在同一个网段就可以完成互相访问了。 那么到lxc的话也是一样。但是到openwrt的因为需要一个lan一个wan,所以我们这里直接映射两个虚拟网卡给openwrt就好了。\n"><title>双网卡 pve8.0.3 lxc 运行 openwrt作为主路由 最靠谱简单教程</title><link rel=canonical href=https://dev.leiyanhui.com/openwrt/lxc-mian-op/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="双网卡 pve8.0.3 lxc 运行 openwrt作为主路由 最靠谱简单教程"><meta property='og:description' content="在pve上运行openwrt作为主路由使用。无论单个网卡或者多个网卡其实操作都操作。\nlxc运行的openwrt 对虚拟机方式运行的性能更好，资源占用更低。\n我目前是有两台pve 均为单网卡。 一台 x240主板 15-20w i3-4030U 8G 128G+1T。 上面lxc 运行 openwrt做主路由，同时在lxc里面运行了几个开源软件做核心数据的nas. 另外虚拟机运行了一个win 和一个备用mac（x240内存8G跑太多不够玩）\n一台 qnct组装机 20-60w 6核32G nvme 500G+12T pve装了桌面系统做日用机。并且挂了4块硬盘 也开了nas,虚拟运行win直通显卡打游戏 macos直通核显偶尔签app用。\n场景 pve单网卡 pve 单个网卡 接入交换机 光猫 桥接 接入交换机 其他设备 包括ap等同样接入交换机。 光猫通常插到交换机的第一个口上，不过家用交换机一般都是傻瓜式的，随便插都可以。 这是最常用的方案,top图大概如下 ，就是所有设备都接到交换机就ok\n1 2 3 4 5 交换机 <====> 光猫 这里光猫是桥接 交换机 <====> 其他设备 交换机 <====> 其他设备 交换机 <====> 其他设备 交换机 <====> pve物理网卡===> pve vmbr0 ===> lxc和kvm vmbr0 你可以视作一个虚拟万兆交换机就好理解了。pve默认用你在/etc/network/interfaces配置的ip,lxc和kvm内用你指定或者网内任意一个 使用虚拟机的情况下 pve内 就是 vmbr0 映射一个虚拟网卡到 到虚拟机。然后虚拟内部配置静态ip的和pve以及交换机上的其他设备在同一个网段就可以完成互相访问了。 那么到lxc的话也是一样。但是到openwrt的因为需要一个lan一个wan,所以我们这里直接映射两个虚拟网卡给openwrt就好了。\n"><meta property='og:url' content='https://dev.leiyanhui.com/openwrt/lxc-mian-op/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Openwrt'><meta property='article:published_time' content='2023-09-16T00:01:20+08:00'><meta property='article:modified_time' content='2023-09-16T00:01:20+08:00'><meta name=twitter:title content="双网卡 pve8.0.3 lxc 运行 openwrt作为主路由 最靠谱简单教程"><meta name=twitter:description content="在pve上运行openwrt作为主路由使用。无论单个网卡或者多个网卡其实操作都操作。\nlxc运行的openwrt 对虚拟机方式运行的性能更好，资源占用更低。\n我目前是有两台pve 均为单网卡。 一台 x240主板 15-20w i3-4030U 8G 128G+1T。 上面lxc 运行 openwrt做主路由，同时在lxc里面运行了几个开源软件做核心数据的nas. 另外虚拟机运行了一个win 和一个备用mac（x240内存8G跑太多不够玩）\n一台 qnct组装机 20-60w 6核32G nvme 500G+12T pve装了桌面系统做日用机。并且挂了4块硬盘 也开了nas,虚拟运行win直通显卡打游戏 macos直通核显偶尔签app用。\n场景 pve单网卡 pve 单个网卡 接入交换机 光猫 桥接 接入交换机 其他设备 包括ap等同样接入交换机。 光猫通常插到交换机的第一个口上，不过家用交换机一般都是傻瓜式的，随便插都可以。 这是最常用的方案,top图大概如下 ，就是所有设备都接到交换机就ok\n1 2 3 4 5 交换机 <====> 光猫 这里光猫是桥接 交换机 <====> 其他设备 交换机 <====> 其他设备 交换机 <====> 其他设备 交换机 <====> pve物理网卡===> pve vmbr0 ===> lxc和kvm vmbr0 你可以视作一个虚拟万兆交换机就好理解了。pve默认用你在/etc/network/interfaces配置的ip,lxc和kvm内用你指定或者网内任意一个 使用虚拟机的情况下 pve内 就是 vmbr0 映射一个虚拟网卡到 到虚拟机。然后虚拟内部配置静态ip的和pve以及交换机上的其他设备在同一个网段就可以完成互相访问了。 那么到lxc的话也是一样。但是到openwrt的因为需要一个lan一个wan,所以我们这里直接映射两个虚拟网卡给openwrt就好了。\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#场景>场景</a><ol><li><a href=#pve单网卡>pve单网卡</a></li><li><a href=#pve多网卡>pve多网卡</a></li></ol></li><li><a href=#步骤>步骤</a><ol><li><a href=#获取-openwrt-rootfs包>获取 openwrt rootfs包</a></li><li><a href=#rootfs包上传到-pve>rootfs包上传到 pve</a></li><li><a href=#创建一个ctlxc>创建一个CT/lxc</a><ol><li><a href=#解释>解释</a></li></ol></li><li><a href=#手动修改配置>手动修改配置</a><ol><li><a href=#2-n网卡直通一个进去>2-N网卡直通一个进去</a></li><li><a href=#单网卡>单网卡</a></li></ol></li><li><a href=#启动>启动</a></li><li><a href=#目前发现的问题>目前发现的问题</a><ol><li><a href=#nat-环回-无效>NAT 环回 无效</a></li><li><a href=#openclash-tun无法使用>openclash tun无法使用</a></li><li><a href=#部分情况下-udp无法转发>部分情况下 udp无法转发</a></li><li><a href=#偶尔发生pve外机器无法上网>偶尔发生pve外机器无法上网</a></li><li><a href=#openclash配置参考>openclash配置参考</a></li></ol></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/lxc/ style=background-color:#efbed9;color:#3d0f29>Lxc
+</a><a href=/categories/pppoe/ style=background-color:#c3beef;color:#150f3d>Pppoe
+</a><a href=/categories/openwrt/ style=background-color:#bedbef;color:#0f2b3d>Openwrt
+</a><a href=/categories/pve/ style=background-color:#efbee3;color:#3d0f32>Pve
+</a><a href=/categories/openclash/ style=background-color:#efbee7;color:#3d0f36>Openclash
+</a><a href=/categories/dhcp/ style=background-color:#c3efbe;color:#143d0f>Dhcp
+</a><a href=/categories/router/ style=background-color:#efbed5;color:#3d0f25>Router</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/openwrt/lxc-mian-op/>双网卡 pve8.0.3 lxc 运行 openwrt作为主路由 最靠谱简单教程</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-09-16T00:01:20+08:00>2023-09-16</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 8 分钟</time></div></footer></div></header><section class=article-content><p>在pve上运行openwrt作为主路由使用。无论单个网卡或者多个网卡其实操作都操作。<br>lxc运行的openwrt 对虚拟机方式运行的性能更好，资源占用更低。</p><p>我目前是有两台pve 均为单网卡。
+一台 x240主板 15-20w i3-4030U 8G 128G+1T。
+上面lxc 运行 openwrt做主路由，同时在lxc里面运行了几个开源软件做核心数据的nas. 另外虚拟机运行了一个win 和一个备用mac（x240内存8G跑太多不够玩）<br>一台 qnct组装机 20-60w 6核32G nvme 500G+12T
+pve装了桌面系统做日用机。并且挂了4块硬盘 也开了nas,虚拟运行win直通显卡打游戏 macos直通核显偶尔签app用。</p><h2 id=场景>场景</h2><h3 id=pve单网卡>pve单网卡</h3><p>pve 单个网卡 接入交换机
+光猫 桥接 接入交换机
+其他设备 包括ap等同样接入交换机。
+光猫通常插到交换机的第一个口上，不过家用交换机一般都是傻瓜式的，随便插都可以。
+这是最常用的方案,top图大概如下 ，就是所有设备都接到交换机就ok</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>交换机 &lt;====&gt; 光猫 这里光猫是桥接
+</span></span><span class=line><span class=cl>交换机 &lt;====&gt; 其他设备
+</span></span><span class=line><span class=cl>交换机 &lt;====&gt; 其他设备
+</span></span><span class=line><span class=cl>交换机 &lt;====&gt; 其他设备
+</span></span><span class=line><span class=cl>交换机 &lt;====&gt; pve物理网卡===&gt; pve vmbr0 ===&gt; lxc和kvm
+</span></span></code></pre></td></tr></table></div></div><p>vmbr0 你可以视作一个虚拟万兆交换机就好理解了。pve默认用你在/etc/network/interfaces配置的ip,lxc和kvm内用你指定或者网内任意一个
+使用虚拟机的情况下 pve内 就是 vmbr0 映射一个虚拟网卡到 到虚拟机。然后虚拟内部配置静态ip的和pve以及交换机上的其他设备在同一个网段就可以完成互相访问了。
+那么到lxc的话也是一样。但是到openwrt的因为需要一个lan一个wan,所以我们这里直接映射两个虚拟网卡给openwrt就好了。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>vmbr0 ===&gt; net0 === lxc openwrt eth0做lan
+</span></span><span class=line><span class=cl>vmbr0 ===&gt; net1 === lxc openwrt eth1做wan
+</span></span></code></pre></td></tr></table></div></div><p>反应到lxc的配置文件里面就是</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>net0: name=eth0,bridge=vmbr0,hwaddr=随便填写个MAC地址,type=veth
+</span></span><span class=line><span class=cl>net1: name=eth1,bridge=vmbr0,hwaddr=随便再来个MAC地址,type=veth
+</span></span></code></pre></td></tr></table></div></div><p>当然你也可以去openewrt内部做网桥来弄，但是完全没有必要。</p><h3 id=pve多网卡>pve多网卡</h3><p>pve 多个网卡，直接直通网卡给openwrt即可。
+下面的例子是pve双网卡 板载接入交换机 usb网卡接入光猫。
+pve 为单板载网卡enp0s25，但是有一个usb3千兆网卡enx0023545ca007。为例，多网卡一样操作。<br>在pve中 左侧 点数据中心下的pve ，然后点 中间的 系统下面的网络 ，查看这两个网口的名称。<br>板载网卡做为pve管理口 插入交换机 局域网其他设备也插入普通交换机。
+usb网卡作为链接外网的网卡 插入光猫。 记住这usb3网口的名字即可。下文统一以 enx0023545ca007 代替。</p><h2 id=步骤>步骤</h2><h3 id=获取-openwrt-rootfs包>获取 openwrt rootfs包</h3><p>可以从IMG.GZ/SQUASHFS.IMG.GZ 提取，或者直接下载 ROOTFS.TAR.GZ 包。
+从IMG.GZ/SQUASHFS.IMG.GZ 提取 提取的思路：解压gz 挂载img/SQUASHFS ，打包挂载后的文件到 ROOTFS.TAR.GZ
+建议直接用 ROOTFS.TAR.GZ 即可。
+我这里用 <a class=link href=https://openwrt.ai/ target=_blank rel=noopener>https://openwrt.ai/</a> supe提供的 ROOTFS.TAR.GZ</p><h3 id=rootfs包上传到-pve>rootfs包上传到 pve</h3><p>pve 后台找到 CT模板 点上传。我这里是手动下载到pve的 <code>/var/lib/vz/template/cache/</code> 都是一样的</p><h3 id=创建一个ctlxc>创建一个CT/lxc</h3><p>pve目前依旧无法直接创建op的lxc，这里还是用命令行。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>pct create <span class=m>100</span> local:vztmpl/openwrt-09.26.2023-x86-64-generic-rootfs.tar.gz --rootfs local:1 --ostype unmanaged --hostname OP --arch amd64 --cores <span class=m>2</span> --memory <span class=m>1024</span> --swap <span class=m>0</span> -net0 <span class=nv>bridge</span><span class=o>=</span>vmbr0,name<span class=o>=</span>eth0
+</span></span></code></pre></td></tr></table></div></div><h4 id=解释>解释</h4><ul><li>pct create 100 是pve里面CT或者VM的id值，你可以修改成你的</li><li>local:vztmpl/openwrt-09.26.2023-x86-64-generic-rootfs.tar.gz 是上面你上传到rootfs的包名</li><li>rootfs local:1 是本lxc储存位置和硬盘占用大小限制1G 如果用其他地方储存 rootfs local-lvm:1 rootfs local-brtfs:0.5</li><li>ostype unmanaged 操作系统类型</li><li>hostname OP 节点名称</li><li>arch amd64 cpu平台</li><li>cores 2 可占用的cpu核心数</li><li>memory 1024 swap 0 内存和交换内存，建议关闭交换内存 也就是0</li><li>net0 bridge=vmbr0,name=eth0 把pve的管理网桥给op用，也就是op把他作为 lan</li></ul><h3 id=手动修改配置>手动修改配置</h3><h4 id=2-n网卡直通一个进去>2-N网卡直通一个进去</h4><p>cat /etc/pve/nodes/pve/lxc/100.conf 添加下面几行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>lxc.include: /usr/share/lxc/config/openwrt.common.conf
+</span></span><span class=line><span class=cl>lxc.net.1.type: phys
+</span></span><span class=line><span class=cl>lxc.net.1.link: enx0023545ca007
+</span></span><span class=line><span class=cl>lxc.net.1.flags: up
+</span></span><span class=line><span class=cl>lxc.net.1.name: eth1
+</span></span><span class=line><span class=cl>lxc.cgroup2.devices.allow: c 108:0 rwm
+</span></span><span class=line><span class=cl>lxc.mount.entry: /dev/ppp dev/ppp none bind,create=file
+</span></span><span class=line><span class=cl>lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+</span></span><span class=line><span class=cl>lxc.cap.drop:
+</span></span></code></pre></td></tr></table></div></div><h5 id=完整配置>完整配置</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>arch: amd64
+</span></span><span class=line><span class=cl>cores: 2
+</span></span><span class=line><span class=cl>hostname: OP
+</span></span><span class=line><span class=cl>memory: 1024
+</span></span><span class=line><span class=cl>net0: name=eth0,bridge=vmbr0,hwaddr=8A:8C:94:9B:ED:A4,type=veth
+</span></span><span class=line><span class=cl>onboot: 0
+</span></span><span class=line><span class=cl>ostype: unmanaged
+</span></span><span class=line><span class=cl>rootfs: local:100/vm-100-disk-1.raw,size=1G
+</span></span><span class=line><span class=cl>startup: up=2
+</span></span><span class=line><span class=cl>swap: 0
+</span></span><span class=line><span class=cl>lxc.include: /usr/share/lxc/config/openwrt.common.conf
+</span></span><span class=line><span class=cl>lxc.net.1.type: phys
+</span></span><span class=line><span class=cl>lxc.net.1.link: enx0023545ca007
+</span></span><span class=line><span class=cl>lxc.net.1.flags: up
+</span></span><span class=line><span class=cl>lxc.net.1.name: eth1
+</span></span><span class=line><span class=cl>lxc.cgroup2.devices.allow: c 108:0 rwm
+</span></span><span class=line><span class=cl>lxc.mount.entry: /dev/ppp dev/ppp none bind,create=file
+</span></span><span class=line><span class=cl>lxc.mount.entry: /dev/net dev/net none bind,create=dir
+</span></span><span class=line><span class=cl>lxc.cap.drop:
+</span></span></code></pre></td></tr></table></div></div><h5 id=解释-1>解释</h5><ul><li>lxc.include 包含pve自带的op配置模板</li><li>lxc.net.1 直通网卡enx0023545ca007进去作为 eth1</li><li>lxc.cgroup2 的配置，这是lxc运行一些服务类的系统必须的</li><li>lxc.mount.entry 挂载ppoe和tun到lxc内</li><li>lxc.cap.drop: 取消 openwrt.common.conf 里面 对 cap的限制，不然openclash无法使用</li></ul><h4 id=单网卡>单网卡</h4><h5 id=完整配置-1>完整配置</h5><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>arch: amd64
+</span></span><span class=line><span class=cl>cores: 2
+</span></span><span class=line><span class=cl>hostname: OP
+</span></span><span class=line><span class=cl>memory: 1024
+</span></span><span class=line><span class=cl>net0: name=eth0,bridge=vmbr0,hwaddr=8A:8C:94:9B:ED:A4,type=veth
+</span></span><span class=line><span class=cl>net1: name=eth1,bridge=vmbr0,hwaddr=8A:8C:94:9B:ED:A3,type=veth
+</span></span><span class=line><span class=cl>onboot: 1
+</span></span><span class=line><span class=cl>ostype: unmanaged
+</span></span><span class=line><span class=cl>rootfs: local:100/vm-100-disk-1.raw,size=1G
+</span></span><span class=line><span class=cl>startup: up=2
+</span></span><span class=line><span class=cl>swap: 0
+</span></span><span class=line><span class=cl>lxc.include: /usr/share/lxc/config/openwrt.common.conf
+</span></span><span class=line><span class=cl>lxc.cgroup2.devices.allow: c 108:0 rwm
+</span></span><span class=line><span class=cl>lxc.mount.entry: /dev/ppp dev/ppp none bind,create=file
+</span></span><span class=line><span class=cl>lxc.mount.entry: /dev/net dev/net none bind,create=dir
+</span></span><span class=line><span class=cl>lxc.cap.drop:
+</span></span></code></pre></td></tr></table></div></div><h5 id=解释-2>解释</h5><p>两个虚拟网卡直接映射进去就可以了e .</p><h3 id=启动>启动</h3><p>pct start 100</p><h3 id=目前发现的问题>目前发现的问题</h3><h4 id=nat-环回-无效>NAT 环回 无效</h4><p>简单的说，就是内网使用ddns的域名访问内网的服务器，无法访问。<br>目前尚不知道如何解决。貌似和openwrt的版本有关系，在使用git-24.286.72457-5518424编译 并且未在openwrt内部使用docker的情况下此问题正常。 但是在更新的版本中又再次出现。
+临时解决方法有两种</p><h5 id=别名主机>别名主机</h5><p>别名主机可以在 openwrt 网络 -> dncp -> 主机名映射的地方 添加域名到对应的内网机器ip上。然后清理本地dns缓存后即可访问。也可以在openwrt里面运行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>uci add dhcp domain
+</span></span><span class=line><span class=cl>uci set dhcp.@domain[-1].name=&#39;nas.leiyanhui.com&#39;
+</span></span><span class=line><span class=cl>uci add_list dhcp.@domain[-1].ip=&#39;10.1.1.50&#39;
+</span></span><span class=line><span class=cl>uci commit dhcp
+</span></span><span class=line><span class=cl>/etc/init.d/dnsmasq restart
+</span></span></code></pre></td></tr></table></div></div><h5 id=自定域名解析>自定域名解析</h5><p>如果你有使用adguardHome 之类的自建dns,可以在dns内添加对应的域名解析记录到内网ip。或者修改需要访问的的电脑的hosts文件。</p><h4 id=openclash-tun无法使用>openclash tun无法使用</h4><p>暂时不知道如何解决。</p><h4 id=部分情况下-udp无法转发>部分情况下 udp无法转发</h4><p>需要PVE系统加载 xt_TPROXY 模块。在PVE系统下执行改命令后重启。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>echo</span> <span class=s1>&#39;xt_TPROXY&#39;</span> <span class=o>&gt;</span> <span class=o>/</span><span class=n>etc</span><span class=o>/</span><span class=n>modules</span><span class=o>-</span><span class=nb>load</span><span class=o>.</span><span class=n>d</span><span class=o>/</span><span class=n>tproxy</span><span class=o>.</span><span class=n>conf</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=偶尔发生pve外机器无法上网>偶尔发生pve外机器无法上网</h4><p>后续发现是ap的原因，重启ap后解决。 如果你的ap刷过系统，可以在ap内检测主路由状态，如果ping不到lxc的主路由，那么重启即可。</p><h4 id=openclash配置参考>openclash配置参考</h4><p>/etc/config/openclash
+注意下文中的 testingcf.jsdelivr.net 地址在部分地区可能已经干扰，请</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span><span class=lnt>174
+</span><span class=lnt>175
+</span><span class=lnt>176
+</span><span class=lnt>177
+</span><span class=lnt>178
+</span><span class=lnt>179
+</span><span class=lnt>180
+</span><span class=lnt>181
+</span><span class=lnt>182
+</span><span class=lnt>183
+</span><span class=lnt>184
+</span><span class=lnt>185
+</span><span class=lnt>186
+</span><span class=lnt>187
+</span><span class=lnt>188
+</span><span class=lnt>189
+</span><span class=lnt>190
+</span><span class=lnt>191
+</span><span class=lnt>192
+</span><span class=lnt>193
+</span><span class=lnt>194
+</span><span class=lnt>195
+</span><span class=lnt>196
+</span><span class=lnt>197
+</span><span class=lnt>198
+</span><span class=lnt>199
+</span><span class=lnt>200
+</span><span class=lnt>201
+</span><span class=lnt>202
+</span><span class=lnt>203
+</span><span class=lnt>204
+</span><span class=lnt>205
+</span><span class=lnt>206
+</span><span class=lnt>207
+</span><span class=lnt>208
+</span><span class=lnt>209
+</span><span class=lnt>210
+</span><span class=lnt>211
+</span><span class=lnt>212
+</span><span class=lnt>213
+</span><span class=lnt>214
+</span><span class=lnt>215
+</span><span class=lnt>216
+</span><span class=lnt>217
+</span><span class=lnt>218
+</span><span class=lnt>219
+</span><span class=lnt>220
+</span><span class=lnt>221
+</span><span class=lnt>222
+</span><span class=lnt>223
+</span><span class=lnt>224
+</span><span class=lnt>225
+</span><span class=lnt>226
+</span><span class=lnt>227
+</span><span class=lnt>228
+</span><span class=lnt>229
+</span><span class=lnt>230
+</span><span class=lnt>231
+</span><span class=lnt>232
+</span><span class=lnt>233
+</span><span class=lnt>234
+</span><span class=lnt>235
+</span><span class=lnt>236
+</span><span class=lnt>237
+</span><span class=lnt>238
+</span><span class=lnt>239
+</span><span class=lnt>240
+</span><span class=lnt>241
+</span><span class=lnt>242
+</span><span class=lnt>243
+</span><span class=lnt>244
+</span><span class=lnt>245
+</span><span class=lnt>246
+</span><span class=lnt>247
+</span><span class=lnt>248
+</span><span class=lnt>249
+</span><span class=lnt>250
+</span><span class=lnt>251
+</span><span class=lnt>252
+</span><span class=lnt>253
+</span><span class=lnt>254
+</span><span class=lnt>255
+</span><span class=lnt>256
+</span><span class=lnt>257
+</span><span class=lnt>258
+</span><span class=lnt>259
+</span><span class=lnt>260
+</span><span class=lnt>261
+</span><span class=lnt>262
+</span><span class=lnt>263
+</span><span class=lnt>264
+</span><span class=lnt>265
+</span><span class=lnt>266
+</span><span class=lnt>267
+</span><span class=lnt>268
+</span><span class=lnt>269
+</span><span class=lnt>270
+</span><span class=lnt>271
+</span><span class=lnt>272
+</span><span class=lnt>273
+</span><span class=lnt>274
+</span><span class=lnt>275
+</span><span class=lnt>276
+</span><span class=lnt>277
+</span><span class=lnt>278
+</span><span class=lnt>279
+</span><span class=lnt>280
+</span><span class=lnt>281
+</span><span class=lnt>282
+</span><span class=lnt>283
+</span><span class=lnt>284
+</span><span class=lnt>285
+</span><span class=lnt>286
+</span><span class=lnt>287
+</span><span class=lnt>288
+</span><span class=lnt>289
+</span><span class=lnt>290
+</span><span class=lnt>291
+</span><span class=lnt>292
+</span><span class=lnt>293
+</span><span class=lnt>294
+</span><span class=lnt>295
+</span><span class=lnt>296
+</span><span class=lnt>297
+</span><span class=lnt>298
+</span><span class=lnt>299
+</span><span class=lnt>300
+</span><span class=lnt>301
+</span><span class=lnt>302
+</span><span class=lnt>303
+</span><span class=lnt>304
+</span><span class=lnt>305
+</span><span class=lnt>306
+</span><span class=lnt>307
+</span><span class=lnt>308
+</span><span class=lnt>309
+</span><span class=lnt>310
+</span><span class=lnt>311
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=l>config openclash &#39;config&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option proxy_port &#39;7892&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option tproxy_port &#39;7895&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option mixed_port &#39;7893&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option socks_port &#39;7891&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option http_port &#39;7890&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dns_port &#39;7874&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option update &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option en_mode &#39;redir-host&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option auto_update &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option cn_port &#39;9090&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dashboard_password &#39;123456&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dashboard_forward_ssl &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option rule_source &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_custom_dns &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ipv6_enable &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ipv6_dns &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_custom_clash_rules &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option other_rule_auto_update &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option core_version &#39;linux-amd64&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_redirect_dns &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option servers_if_update &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option disable_masq_cache &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option servers_update &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option log_level &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option proxy_mode &#39;rule&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option intranet_allowed &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option disable_udp_quic &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option lan_ac_mode &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option operation_mode &#39;redir-host&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_rule_proxy &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option redirect_dns &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option cachesize_dns &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option filter_aaaa_dns &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option small_flash_memory &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option interface_name &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option common_ports &#39;21 22 23 53 80 123 143 194 443 465 587 853 993 995 998 2052 2053 2082 2083 2086 2095 2096 5222 5228 5229 5230 8080 8443 8880 8888 8889&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option log_size &#39;1024&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option tolerance &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option store_fakeip &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option custom_fallback_filter &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option custom_fakeip_filter &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option custom_host &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option custom_name_policy &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option append_wan_dns &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option stream_domains_prefetch &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option stream_auto_select &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option bypass_gateway_compatible &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option github_address_mod &#39;自定义的github代理地址&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option urltest_address_mod &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option urltest_interval_mod &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option delay_start &#39;15&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option router_self_proxy &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option release_branch &#39;master&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_meta_core &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dashboard_type &#39;Official&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option yacd_type &#39;Official&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option append_default_dns &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geo_custom_url &#39;https://testingcf.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/lite/Country.mmdb&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option chnr_custom_url &#39;https://ispip.clang.cn/all_cn.txt&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option chnr6_custom_url &#39;https://ispip.clang.cn/all_cn_ipv6.txt&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option cndomain_custom_url &#39;https://testingcf.jsdelivr.net/gh/felixonmars/dnsmasq-china-list@master/accelerated-domains.china.conf&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option default_resolvfile &#39;/tmp/resolv.conf.d/resolv.conf.auto&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option find_process_mode &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option global_client_fingerprint &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geodata_loader &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_geoip_dat &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_meta_sniffer &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_meta_sniffer_pure_ip &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_meta_sniffer_custom &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option config_reload &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option config_auto_update_mode &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option config_update_interval &#39;45&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option config_path &#39;/etc/openclash/config/skyvpn.yaml&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option restricted_mode &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dnsmasq_resolvfile &#39;/tmp/resolv.conf.d/resolv.conf.auto&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_custom_domain_dns_server &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option china_ip_route &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geo_auto_update &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geo_update_week_time &#39;*&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geo_update_day_time &#39;6&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geoip_auto_update &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geosite_auto_update &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option chnr_auto_update &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option chnr_update_week_time &#39;*&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option chnr_update_day_time &#39;3&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option auto_restart &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option auto_restart_week_time &#39;*&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option auto_restart_day_time &#39;13&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option core_type &#39;Meta&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_udp_proxy &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geoip_update_week_time &#39;*&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geoip_update_day_time &#39;7&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geoip_custom_url &#39;https://testingcf.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geosite_update_week_time &#39;*&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geosite_update_day_time &#39;8&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option geosite_custom_url &#39;https://testingcf.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dnsmasq_noresolv &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ipv6_mode &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enable_v6_udp_proxy &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option china_ip6_route &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dnsmasq_cachesize &#39;10000&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option dnsmasq_filter_aaaa &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;nameserver&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;114.114.114.114&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;nameserver&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;119.29.29.29&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;nameserver&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;119.28.28.28&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;nameserver&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;223.5.5.5&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;doh.pub/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;nameserver&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;dns.alidns.com/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;nameserver&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;dns.cloudflare.com/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;dns.google&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option port &#39;853&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;tls&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;1.1.1.1/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;1.1.1.1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option port &#39;853&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;tls&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;8.8.8.8&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option port &#39;853&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;tls&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;2001:4860:4860::8888&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option port &#39;53&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;2001:4860:4860::8844&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option port &#39;53&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;2001:da8::666&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option port &#39;53&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;public.dns.iij.jp/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;jp.tiar.app/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;jp.tiarap.org/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;jp.tiar.app&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;tls&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;dot.tiar.app&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;tls&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;doh.dnslify.com/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;dns.twnic.tw/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;dns.oszx.co/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;doh.applied-privacy.net/query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;dnsforge.de/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;doh.ffmuc.net/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;https&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;doh.mullvad.net/dns-query&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config authentication</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option username &#39;Clash&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option password &#39;socket合同http（s）代理密码&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;nameserver&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;10.1.1.104&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option interface &#39;Disable&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option node_resolve &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option specific_group &#39;Disable&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;fallback&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;10.1.1.104&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option interface &#39;Disable&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option node_resolve &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option specific_group &#39;Disable&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config dns_servers</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option group &#39;default&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option type &#39;udp&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option ip &#39;10.1.1.104&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option interface &#39;Disable&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option node_resolve &#39;0&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=l>config config_subscribe</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option enabled &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option name &#39;skyvpn&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option address &#39;你的订阅地址&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option sub_convert &#39;1&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option convert_address &#39;https://api.dler.io/sub&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option template &#39;ACL4SSR 规则 Online Full&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option emoji &#39;false&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option udp &#39;false&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option skip_cert_verify &#39;false&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option sort &#39;false&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option node_type &#39;false&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>	</span><span class=l>option rule_provider &#39;false&#39;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/pve/docker-mini/><div class=article-details><h2 class=article-title>pve 用lxc容器运行docker最小化部署，以及lxc所有问题汇总！</h2></div></a></article><article><a href=/pve/ipsec/><div class=article-details><h2 class=article-title>pve下以lxc模式运行 ipsec （套docker）</h2></div></a></article><article><a href=/pve/kvm-to-lxc/><div class=article-details><h2 class=article-title>pve下虚拟机kvm转lxc docker转lxc 正在运行的虚拟机也可以， 以及lxc和docker kvm之间的对比</h2></div></a></article><article><a href=/openwrt/pve-lxc-install-op/><div class=article-details><h2 class=article-title>pve下以lxc模式运行openwrt</h2></div></a></article><article><a href=/route/mosdns-all-in-one/><div class=article-details><h2 class=article-title>mosdns all in one 分流加自定义解析，不依赖 AdGuardHome</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

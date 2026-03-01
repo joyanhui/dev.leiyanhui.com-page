@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Padaven on 小类随手记</title><link>https://dev.leiyanhui.com/categories/padaven/</link><description>Recent content in Padaven on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 31 Jan 2023 11:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/padaven/index.xml" rel="self" type="application/rss+xml"/><item><title>padaven 固件端口转发配置无效的问题</title><link>https://dev.leiyanhui.com/openwrt/padaven-port-rule/</link><pubDate>Tue, 31 Jan 2023 11:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/padaven-port-rule/</guid><description>&lt;p&gt;具体表现，padaven路由器打开允许外网访问，外网可以访问到路由器web管理界面。然后端口转发的内网的服务器 均无法访问。&lt;br&gt;
+有人说是网关问题，测试后发现 应该就是 固件的bug，修改端口转发协议也无效。。。&lt;/p&gt;
+&lt;p&gt;因为我内网还有一个旁路由，所以 干脆就不辛苦这个10年老古董的k2p（padaven）了，开dmz 到旁路由，端口转发转移到旁路由来处理。。。&lt;/p&gt;
+&lt;p&gt;因为我这个旁路由 性能过得去，所以这里也就干脆 用 Socat 在旁路由上处理了。&lt;/p&gt;
+&lt;p&gt;Socat 的优点，设置简单，支持ipv6 ipv4 缺点：比防火墙转发更加消耗cpu性能，不适合太低配置的路由器使用。&lt;/p&gt;
+&lt;p&gt;也可以用op自带的防火墙&lt;/p&gt;</description></item><item><title>我的all in one 以及路由器 nas 的纠结和最终的方案</title><link>https://dev.leiyanhui.com/all-in-one/my-jiujie/</link><pubDate>Tue, 31 Jan 2023 11:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/my-jiujie/</guid><description>&lt;h2 id="设备情况如下"&gt;设备情况如下：
+&lt;/h2&gt;&lt;p&gt;1、AP： 小米路由器 AP 2个 1个是访客网络 一个是北厂区的AP，还有一个K2P 在用
+2、x86 ： 两台 一个i7 8850h 装的pve 另外一个是信步的N2600 装的openwrt
+3、终端：几十个2.4G的物联网设备 14个ppoe监控 监控硬盘机 手机 笔记本若干&lt;/p&gt;
+&lt;p&gt;一直没扔的k2p 是因为他的2.4G信号很稳，适合物联网设备覆盖。之前也是拿他当作主路由使用了10多年。&lt;/p&gt;
+&lt;p&gt;一直以来的纠结 就是 软路由和 pve 的功能重叠，以及信步这个板子的一些问题。&lt;/p&gt;
+&lt;h2 id="纠结的地方"&gt;纠结的地方
+&lt;/h2&gt;&lt;h3 id="关于-信步这个板子"&gt;关于 信步这个板子
+&lt;/h3&gt;&lt;p&gt;断电后偶尔会出现不能自动启动，另外N2600 不支持虚拟化，自带显卡也无法在linux下驱动 这就导致很多限制。&lt;/p&gt;
+&lt;p&gt;还是想去掉他，卖掉的钱还能换一个 1-2T矿场硬盘。&lt;/p&gt;
+&lt;h3 id="路由的思考"&gt;路由的思考
+&lt;/h3&gt;&lt;p&gt;在不添加新硬件（穷）的情况下，想用靠谱的网络。 最终的解决方案 可能还是 旁路由（旁网关）方案。
+我的k2p 在不跑科学软件的情况下，实际是可以跑满带宽，内网有交换机不需要他。驼子里面拔将军，还是尝试用他做主路由。然后再尝试指定ip的网关到pve上的旁路由。
+这就需要，k2p刷的固件的dhcp支持这个功能.&lt;br&gt;
+因为 运行pve的aio本身是不需要科学的。 为了全局科学（物联网设备可以在openwrt排除） 考虑方案如下&lt;/p&gt;
+&lt;h3 id="新方案"&gt;新方案
+&lt;/h3&gt;&lt;p&gt;尽量不影响现有设备的情况下快速平滑过度。&lt;/p&gt;
+&lt;h4 id="k2p-固件"&gt;k2p 固件
+&lt;/h4&gt;&lt;p&gt;k2p 是肯定不能刷爱快的，硬改后可以但是不少人说内网都会掉到500M。剩下的就是高ge 官改 openwrt 和 Padavan。&lt;br&gt;
+openwrt 熟悉很多，但是padaven 有人说 是可以跑满1000M 的，而openwrt 不太清楚，本着能用就行的态度。我决定 还是 用 padaven ，只是dhcp静态绑定的迁移有一点麻烦。两者的配置文件不通用。&lt;/p&gt;
+&lt;h4 id="旁路由网关"&gt;旁路由网关
+&lt;/h4&gt;&lt;p&gt;系统肯定是op了。 用pve的虚拟机跑吧 省心。然后除了跑openclash ipsec 其他基本都不需要。dhcp也暂定关掉。&lt;/p&gt;
+&lt;h4 id="最重要的-自动网关文末"&gt;最重要的： 自动网关（文末）
+&lt;/h4&gt;&lt;p&gt;因为我主路由受固件限制无法指定部分设备走旁路由网关，手动处理确实也比较麻烦，并且我需要 新设备加入后可以自动科学 ipsec拨进来的设备也可以。 所以打算在主路由上定时（1分钟）ping一下旁路由，如果不通，那么就把dhcp的网关切换回主路由，并重启 dhcp服务器。
+另外 dhcp的生命周期也尽可能短一些 这样才能尽快生效。 （虽然对padaven不熟悉，但是好在他也提供ssh的，总可以搞定。 ）&lt;br&gt;
+这样就完美实现了，全局都走科学，部分不需要科学的设备，单独从openclash里面用规则处理掉即可。&lt;/p&gt;
+&lt;p&gt;这样带来的好处就是 ，无论怎么折腾 主路由都可以提供基本的上网服务。旁路由上线 后 就提供科学和ipsec等。&lt;/p&gt;
+&lt;h4 id="小问题的处理"&gt;小问题的处理
+&lt;/h4&gt;&lt;h5 id="padaven-的内置ddns"&gt;padaven 的内置ddns
+&lt;/h5&gt;&lt;p&gt;不支持我常用的3322（自定义可以） 和 dnspod 以及 cloudfare， 暂时注册一个它支持的，然后用cname解决。&lt;/p&gt;
+&lt;h5 id="padaven-的静态dhcp的备份"&gt;padaven 的静态dhcp的备份
+&lt;/h5&gt;&lt;p&gt;喜欢备份是一个好习惯。。 系统管理 - 配置管理 直接备份&lt;/p&gt;
+&lt;h5 id="padaven--的ipv6"&gt;padaven 的ipv6
+&lt;/h5&gt;&lt;p&gt;可以开启 ，以及 padaven 详情：https://www.jianshu.com/p/cb51fb0fb2ac&lt;/p&gt;
+&lt;h5 id="padaven-p段的迁移"&gt;padaven p段的迁移
+&lt;/h5&gt;&lt;p&gt;之前的ip段是10.1.1.1 自定义的op固件，但padaven 默认的ip&lt;/p&gt;
+&lt;h5 id="vlmcsd"&gt;vlmcsd
+&lt;/h5&gt;&lt;p&gt;padaven 有自带&lt;/p&gt;
+&lt;h5 id="alist"&gt;alist
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="nginxwebui"&gt;nginxWebUI
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="rustdesk服务"&gt;rustdesk服务
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="内网穿透"&gt;内网穿透
+&lt;/h5&gt;&lt;p&gt;因为我有公网ip所以不需要其他穿透，仅需要80个443的穿透映射。
+pve 和 路由器的 web界面 用 ddnsto 直接弄 简单省心。
+3389 之类的端口可以直接用不费心。
+80和443端口穿透 有两个解决，是备案过的域名 用 腾讯cdn穿透，未备案的域名用cloudfare穿透&lt;br&gt;
+一些应用级的，直接用非标端口解决&lt;/p&gt;
+&lt;h5 id="端口转发"&gt;端口转发
+&lt;/h5&gt;&lt;p&gt;怎么都没想到，会在端口转发的上遇到问题 padaven 的固件的端口转发竟然有问题。&lt;br&gt;
+临时解决方案：dmz 到旁路由，在旁路由上 直接上 socat&lt;/p&gt;
+&lt;h5 id="pve的自动备份"&gt;pve的自动备份
+&lt;/h5&gt;&lt;p&gt;qm stop 后，直接cp磁盘出来。&lt;/p&gt;
+&lt;h5 id="nas的处理"&gt;nas的处理
+&lt;/h5&gt;&lt;p&gt;暂时用黑群晖简单很多，核心数据定时导出备份，影片等数据外挂直通的矿渣机械盘&lt;/p&gt;
+&lt;h4 id="自动检测旁路由脚本"&gt;自动检测旁路由脚本
+&lt;/h4&gt;&lt;p&gt;实现：全局科学，去广告等，外网可以用ipsec协议链回家并科学。指定ip段 禁止科学。
+旁路由离线后1-2分钟内，全局改为普通模式上网。 旁路由上限后 自动恢复。
+&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/auto-change-gatway" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/auto-change-gatway&lt;/a&gt;&lt;/p&gt;</description></item></channel></rss>
