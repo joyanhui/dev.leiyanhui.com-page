@@ -1,0 +1,1302 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ventoy on 小类随手记</title><link>https://dev.leiyanhui.com/categories/ventoy/</link><description>Recent content in Ventoy on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 31 Jan 2023 11:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/ventoy/index.xml" rel="self" type="application/rss+xml"/><item><title>padaven 固件端口转发配置无效的问题</title><link>https://dev.leiyanhui.com/openwrt/padaven-port-rule/</link><pubDate>Tue, 31 Jan 2023 11:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/padaven-port-rule/</guid><description>&lt;p&gt;具体表现，padaven路由器打开允许外网访问，外网可以访问到路由器web管理界面。然后端口转发的内网的服务器 均无法访问。&lt;br&gt;
+有人说是网关问题，测试后发现 应该就是 固件的bug，修改端口转发协议也无效。。。&lt;/p&gt;
+&lt;p&gt;因为我内网还有一个旁路由，所以 干脆就不辛苦这个10年老古董的k2p（padaven）了，开dmz 到旁路由，端口转发转移到旁路由来处理。。。&lt;/p&gt;
+&lt;p&gt;因为我这个旁路由 性能过得去，所以这里也就干脆 用 Socat 在旁路由上处理了。&lt;/p&gt;
+&lt;p&gt;Socat 的优点，设置简单，支持ipv6 ipv4 缺点：比防火墙转发更加消耗cpu性能，不适合太低配置的路由器使用。&lt;/p&gt;
+&lt;p&gt;也可以用op自带的防火墙&lt;/p&gt;</description></item><item><title>我的all in one 以及路由器 nas 的纠结和最终的方案</title><link>https://dev.leiyanhui.com/all-in-one/my-jiujie/</link><pubDate>Tue, 31 Jan 2023 11:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/my-jiujie/</guid><description>&lt;h2 id="设备情况如下"&gt;设备情况如下：
+&lt;/h2&gt;&lt;p&gt;1、AP： 小米路由器 AP 2个 1个是访客网络 一个是北厂区的AP，还有一个K2P 在用
+2、x86 ： 两台 一个i7 8850h 装的pve 另外一个是信步的N2600 装的openwrt
+3、终端：几十个2.4G的物联网设备 14个ppoe监控 监控硬盘机 手机 笔记本若干&lt;/p&gt;
+&lt;p&gt;一直没扔的k2p 是因为他的2.4G信号很稳，适合物联网设备覆盖。之前也是拿他当作主路由使用了10多年。&lt;/p&gt;
+&lt;p&gt;一直以来的纠结 就是 软路由和 pve 的功能重叠，以及信步这个板子的一些问题。&lt;/p&gt;
+&lt;h2 id="纠结的地方"&gt;纠结的地方
+&lt;/h2&gt;&lt;h3 id="关于-信步这个板子"&gt;关于 信步这个板子
+&lt;/h3&gt;&lt;p&gt;断电后偶尔会出现不能自动启动，另外N2600 不支持虚拟化，自带显卡也无法在linux下驱动 这就导致很多限制。&lt;/p&gt;
+&lt;p&gt;还是想去掉他，卖掉的钱还能换一个 1-2T矿场硬盘。&lt;/p&gt;
+&lt;h3 id="路由的思考"&gt;路由的思考
+&lt;/h3&gt;&lt;p&gt;在不添加新硬件（穷）的情况下，想用靠谱的网络。 最终的解决方案 可能还是 旁路由（旁网关）方案。
+我的k2p 在不跑科学软件的情况下，实际是可以跑满带宽，内网有交换机不需要他。驼子里面拔将军，还是尝试用他做主路由。然后再尝试指定ip的网关到pve上的旁路由。
+这就需要，k2p刷的固件的dhcp支持这个功能.&lt;br&gt;
+因为 运行pve的aio本身是不需要科学的。 为了全局科学（物联网设备可以在openwrt排除） 考虑方案如下&lt;/p&gt;
+&lt;h3 id="新方案"&gt;新方案
+&lt;/h3&gt;&lt;p&gt;尽量不影响现有设备的情况下快速平滑过度。&lt;/p&gt;
+&lt;h4 id="k2p-固件"&gt;k2p 固件
+&lt;/h4&gt;&lt;p&gt;k2p 是肯定不能刷爱快的，硬改后可以但是不少人说内网都会掉到500M。剩下的就是高ge 官改 openwrt 和 Padavan。&lt;br&gt;
+openwrt 熟悉很多，但是padaven 有人说 是可以跑满1000M 的，而openwrt 不太清楚，本着能用就行的态度。我决定 还是 用 padaven ，只是dhcp静态绑定的迁移有一点麻烦。两者的配置文件不通用。&lt;/p&gt;
+&lt;h4 id="旁路由网关"&gt;旁路由网关
+&lt;/h4&gt;&lt;p&gt;系统肯定是op了。 用pve的虚拟机跑吧 省心。然后除了跑openclash ipsec 其他基本都不需要。dhcp也暂定关掉。&lt;/p&gt;
+&lt;h4 id="最重要的-自动网关文末"&gt;最重要的： 自动网关（文末）
+&lt;/h4&gt;&lt;p&gt;因为我主路由受固件限制无法指定部分设备走旁路由网关，手动处理确实也比较麻烦，并且我需要 新设备加入后可以自动科学 ipsec拨进来的设备也可以。 所以打算在主路由上定时（1分钟）ping一下旁路由，如果不通，那么就把dhcp的网关切换回主路由，并重启 dhcp服务器。
+另外 dhcp的生命周期也尽可能短一些 这样才能尽快生效。 （虽然对padaven不熟悉，但是好在他也提供ssh的，总可以搞定。 ）&lt;br&gt;
+这样就完美实现了，全局都走科学，部分不需要科学的设备，单独从openclash里面用规则处理掉即可。&lt;/p&gt;
+&lt;p&gt;这样带来的好处就是 ，无论怎么折腾 主路由都可以提供基本的上网服务。旁路由上线 后 就提供科学和ipsec等。&lt;/p&gt;
+&lt;h4 id="小问题的处理"&gt;小问题的处理
+&lt;/h4&gt;&lt;h5 id="padaven-的内置ddns"&gt;padaven 的内置ddns
+&lt;/h5&gt;&lt;p&gt;不支持我常用的3322（自定义可以） 和 dnspod 以及 cloudfare， 暂时注册一个它支持的，然后用cname解决。&lt;/p&gt;
+&lt;h5 id="padaven-的静态dhcp的备份"&gt;padaven 的静态dhcp的备份
+&lt;/h5&gt;&lt;p&gt;喜欢备份是一个好习惯。。 系统管理 - 配置管理 直接备份&lt;/p&gt;
+&lt;h5 id="padaven--的ipv6"&gt;padaven 的ipv6
+&lt;/h5&gt;&lt;p&gt;可以开启 ，以及 padaven 详情：https://www.jianshu.com/p/cb51fb0fb2ac&lt;/p&gt;
+&lt;h5 id="padaven-p段的迁移"&gt;padaven p段的迁移
+&lt;/h5&gt;&lt;p&gt;之前的ip段是10.1.1.1 自定义的op固件，但padaven 默认的ip&lt;/p&gt;
+&lt;h5 id="vlmcsd"&gt;vlmcsd
+&lt;/h5&gt;&lt;p&gt;padaven 有自带&lt;/p&gt;
+&lt;h5 id="alist"&gt;alist
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="nginxwebui"&gt;nginxWebUI
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="rustdesk服务"&gt;rustdesk服务
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="内网穿透"&gt;内网穿透
+&lt;/h5&gt;&lt;p&gt;因为我有公网ip所以不需要其他穿透，仅需要80个443的穿透映射。
+pve 和 路由器的 web界面 用 ddnsto 直接弄 简单省心。
+3389 之类的端口可以直接用不费心。
+80和443端口穿透 有两个解决，是备案过的域名 用 腾讯cdn穿透，未备案的域名用cloudfare穿透&lt;br&gt;
+一些应用级的，直接用非标端口解决&lt;/p&gt;
+&lt;h5 id="端口转发"&gt;端口转发
+&lt;/h5&gt;&lt;p&gt;怎么都没想到，会在端口转发的上遇到问题 padaven 的固件的端口转发竟然有问题。&lt;br&gt;
+临时解决方案：dmz 到旁路由，在旁路由上 直接上 socat&lt;/p&gt;
+&lt;h5 id="pve的自动备份"&gt;pve的自动备份
+&lt;/h5&gt;&lt;p&gt;qm stop 后，直接cp磁盘出来。&lt;/p&gt;
+&lt;h5 id="nas的处理"&gt;nas的处理
+&lt;/h5&gt;&lt;p&gt;暂时用黑群晖简单很多，核心数据定时导出备份，影片等数据外挂直通的矿渣机械盘&lt;/p&gt;
+&lt;h4 id="自动检测旁路由脚本"&gt;自动检测旁路由脚本
+&lt;/h4&gt;&lt;p&gt;实现：全局科学，去广告等，外网可以用ipsec协议链回家并科学。指定ip段 禁止科学。
+旁路由离线后1-2分钟内，全局改为普通模式上网。 旁路由上限后 自动恢复。
+&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/auto-change-gatway" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/auto-change-gatway&lt;/a&gt;&lt;/p&gt;</description></item><item><title>pve 虚拟磁盘安装 目录移动以及硬件直通等 全部常用内容</title><link>https://dev.leiyanhui.com/pve/pve-ventoy-7g-all-use/</link><pubDate>Fri, 27 Jan 2023 02:12:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/pve-ventoy-7g-all-use/</guid><description>&lt;p&gt;最终目的，实现 在虚拟磁盘启动的物理机运行的pve，并最终开始使用。 期间结合我这几年来折腾的经验给出建议。&lt;/p&gt;
+&lt;h2 id="vhd安装pve"&gt;vhd安装pve
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;why? 因为不影响磁盘分区，可以随意移动。&lt;br&gt;
+我是硬盘gpt按爪给你的ventoy，ventoy分区为fat32格式，里面放了几个pe和linux live盘，以及 ventoy配置文件，黑苹果的opencore引导，以及 一些vhd的vtoy链接文件。如果不懂这些，建议先去了解一下ventoy。&lt;br&gt;
+win下用virtualbox7 创建虚拟机名称pve 磁盘格式vhd 7G就够用了。分配全部空间，开启efi 开启 vm嵌套 网卡配置为桥接。挂上pve的安装镜像开始，安装pve7.3 用ext4格式安装。
+安装完成后自动重启，挂载ventoy的vtoyboot-1.0.25.iso镜像,&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/cdrom /mnt
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /mnt/vtoyboot*.tar.gz .
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;tar -zxvf vtoyboot*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd vtoyboot*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh vtoyboot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;执行完成后，输入&lt;code&gt;poweroff&lt;/code&gt; 关机，然后打开虚拟机的目录找到 pve.vhd 移动到自己需要的位置（注意分区格式，最好不要ntfs分区，最次exfat）重命名为 pve-7g-ext4.vhd.vtoy&lt;br&gt;
+打开 ventoy的工具 VentoyVlnk.exe，创建lnk文件到 ventoy的第一分区，文件名为：1.pve-7g-ext4.vhd.vlnk.vtoy&lt;br&gt;
+ventoy分区的&lt;code&gt;/ventoy/ventoy.json&lt;/code&gt;内容如下，大概就是跳过win11检测，运行linux挂载镜像所在目录，自动启动超时时间3秒（即默认启动第一个可启动文件，也就是为什么上面要重命名vlnk文件为&lt;code&gt;1.***&lt;/code&gt;）&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;#34;control&amp;#34;:[
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; { &amp;#34;VTOY_WIN11_BYPASS_CHECK&amp;#34;: &amp;#34;1&amp;#34; },
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; { &amp;#34;VTOY_LINUX_REMOUNT&amp;#34;: &amp;#34;1&amp;#34; },
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; { &amp;#34;VTOY_MENU_TIMEOUT&amp;#34;: &amp;#34;3&amp;#34; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ]
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;万事后重启，会自动重启到vhd版的pve。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果首选启动是 &lt;code&gt;.vtoy&lt;/code&gt;这个不存在的文件，那就是ventoy搜到了回收站的文件，自己去pe或者win下或者pve下删除ventoy分区 回收站文件 就好了。pve下处理&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p1 /mnt # nvme0n1p1是我的ventoy的分区
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd mnt &amp;amp;&amp;amp; rm -rf &amp;#39;$RECYCLE.BIN&amp;#39; &amp;amp;&amp;amp; rm -rf System\ Volume\ Information/ &amp;amp;&amp;amp; umount /mnt
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="网络配置"&gt;网络配置
+&lt;/h2&gt;&lt;p&gt;因为刚刚是虚拟机环境，启动到物理机后是无法联网的。还需要修改一下ip和绑定的网卡。 &lt;a class="link" href="https://dev.leiyanhui.com/pve/changip-and-netcard/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/changip-and-netcard/&lt;/a&gt;
+如果前面是桥接网络安装的pve，已经配置好了ip，这里就只需要修改网卡名称就可以了。&lt;/p&gt;
+&lt;h2 id="pve-web界面套ssl"&gt;pve web界面套ssl
+&lt;/h2&gt;&lt;p&gt;建议直接在openwrt路由器上用nginxWebUI套ssl，当然。。也可以手动配置证书文件。&lt;/p&gt;
+&lt;h2 id="修改国内源"&gt;修改国内源
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/guonei/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/guonei/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="开启x11-转发"&gt;开启x11 转发
+&lt;/h2&gt;&lt;p&gt;方便 在pve上远程跑个浏览器啥的 &lt;a class="link" href="https://dev.leiyanhui.com/pve/x11/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/x11/&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt install -y xauth
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl restart sshd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="开启sftp"&gt;开启sftp
+&lt;/h2&gt;&lt;p&gt;方便openwrt上的alist挂载 &lt;a class="link" href="https://dev.leiyanhui.com/pve/open-sftp/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/open-sftp/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="安装fish"&gt;安装fish
+&lt;/h2&gt;&lt;p&gt;apt install -y fish # 非必须看个人喜好&lt;/p&gt;
+&lt;h2 id="自动挂载其他分区"&gt;自动挂载其他分区
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;fdisk -l&lt;/code&gt;查看 分区情况，挂载必要的分区&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir /nvme /exfat /ventoy-fat32
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# mkdir /root/other-etc-bak &amp;amp;&amp;amp; cp /etc/fstab /root/other-etc-bak
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/fstab # 添加三行
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# -----------------------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/dev/nvme0n1p1 /ventoy-fat32 vfat defaults 0 2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/dev/nvme0n1p5 /nvme btrfs defaults 0 2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/dev/nvme0n1p6 /exfat exfat defaults 0 2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;检查好再重启，可能会导致无法自动启动，需要物理键盘操作。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="移动虚拟机和lxc-iso目录"&gt;移动虚拟机和lxc iso目录
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/pve-mv-dir/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/pve-mv-dir/&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="n"&gt;images&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt; &lt;span class="n"&gt;images&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;template&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="n"&gt;iso&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;iso&lt;/span&gt; &lt;span class="n"&gt;iso&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="n"&gt;cache&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lxc_cache&lt;/span&gt; &lt;span class="n"&gt;cache&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="pic和显卡直通"&gt;pic和显卡直通
+&lt;/h2&gt;&lt;p&gt;以核显为例
+&lt;a class="link" href="https://dev.leiyanhui.com/pve/igpu-pass/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/igpu-pass/&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;因为显卡可以在虚拟机挂机的情况下直通给其他虚拟机，所以我考虑到偶尔的游戏需求这没有用gvt（性能差一些，而且一些非win系统里面驱动处理起来更加复杂）&lt;/p&gt;
+&lt;/blockquote&gt;</description></item><item><title>选择arch-aio，彻底抛弃pve esxi unraid</title><link>https://dev.leiyanhui.com/all-in-one/arch-aio/</link><pubDate>Fri, 30 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/arch-aio/</guid><description>&lt;p&gt;旧版查看 ：&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/diy/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="安装和下载"&gt;安装和下载
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://www.123pan.com/s/EqorVv-K2nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-K2nPA&lt;/a&gt; 提取码:arch
+下载后解压，然后用ventoy，用支持x11转发的ssh客户端（例如 MobaXterm） 登录 用户名yanhui 密码 1 root 密码也是 1 但是root默认禁止登录。&lt;/p&gt;
+&lt;h2 id="简明使用方法"&gt;简明使用方法
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="部分需要你继续处理的"&gt;部分需要你继续处理的
+&lt;/h2&gt;&lt;p&gt;仅限2022-12-29 版本 ： &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/server-after/" target="_blank" rel="noopener"
+&gt;修改服务引导顺序&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="使用桥接网络"&gt;使用桥接网络
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="自动挂载其他磁盘的案例"&gt;自动挂载其他磁盘的案例
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto--dock-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto&amp;ndash;dock-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="其他常见问题"&gt;其他常见问题
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/faq" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/faq&lt;/a&gt;&lt;/p&gt;</description></item><item><title>旁路由方案，自动切换网关方案 参考</title><link>https://dev.leiyanhui.com/openwrt/auto-change-gatway/</link><pubDate>Fri, 30 Dec 2022 09:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/auto-change-gatway/</guid><description>&lt;h2 id="旁路由方案的痛点"&gt;旁路由方案的痛点
+&lt;/h2&gt;&lt;p&gt;旁路由在出问题的时候，会影响网关配置为旁路由的设备使用。所以需要自动检测旁路由。&lt;br&gt;
+首先 主路由要有完整权限的系统，就是有ssh权限的！ 爱快请使用分流方案 到二级路由以及环回等方式实现。&lt;br&gt;
+旁路由的自动切换方案是很多的人的刚性需求。&lt;br&gt;
+用软路由做主路由，主要问题两点，折腾过程中的失误一些不确定东西，容易断网。还有x86软路由 不少人遇到突然断电导致的无法启动后全家断网 &lt;br&gt;
+自动切换旁路由方案，更加稳定一些。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;本文撰写于2019年，后期虽有修改补充，但是部分内容已经落后 &lt;br&gt;
+有能力有时间的朋友，建议还是上x86 方案，不需要旁路由。 或者使用爱快分流方案。 &lt;a class="link" href="https://dev.leiyanhui.com/route/ikuai-bypass-gfw/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/route/ikuai-bypass-gfw/&lt;/a&gt;&lt;br&gt;
+个人经验 爱快分流方案更为稳健，但是需要另外开一个op 以及docker来处理分流规则。 对设备内存要求较高（x32爱快不支持kvm docker可用镜像有限，爱快x64 需要4G内存安装 2G内存运行）。 如果内存紧张最好还是选择openwrt one only&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="实现目标"&gt;实现目标
+&lt;/h3&gt;&lt;p&gt;主路由为硬路由负责上网和dhcp 顺带wifi，硬交换负责nas和机顶盒 台式机之间通讯。
+去掉 x86 软路由 &lt;br&gt;
+nas或者aio主机 或者 N1 或者闲置手机作为旁路由/旁网关(后面统称旁路由)&lt;/p&gt;
+&lt;h4 id="重点目标"&gt;重点目标：
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;旁路由离线后，所有设备自动切换到主路由网关&lt;/li&gt;
+&lt;li&gt;双旁路由A和B A正常运行的时候B删除不存在在需要调整的时候，复制一个独立的旁路由出来，自己手动修改主机电脑的网关到旁路由B测试没问题后替换A&lt;/li&gt;
+&lt;li&gt;可控制部分设备科学，部分设备不科学&lt;/li&gt;
+&lt;li&gt;ksm ipsec 科学 广告过滤 alist ddns nas 等，全部由旁路由或者aio/nas处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="实现原理"&gt;实现原理
+&lt;/h3&gt;&lt;p&gt;旁路由用pve 或者 unraid 或者docker运行，关闭dhcp服务，静态ip（10.0.0.50），网关指定为主路由。也就是旁路由只是主路由下面的一个普通设备而已。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;双DHCP 存在抢dhcp的情况，所以dhcp本身占不了太多资源，还是主路由统一管理。
+主路由10.1.1.1 开启dhcp dhcp的网关改为程序脚本控制 dhcp的租期尽可能短一些（120秒）
+主路由 dhcp的ip段为 10.1.1.200-245 重点设备 静态绑定到 10.1.1.200以内的ip段。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="逻辑如下"&gt;逻辑如下
+&lt;/h4&gt;&lt;p&gt;主路由每隔一定时间 30秒或者1分钟，检查一次旁路由是否在线，
+如果在线那么 dhcp服务的网关改为旁路由（10.0.0.50）&lt;br&gt;
+如果旁路由不在线 那么dhcp服务的网关改为主路由（10.0.0.1）&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果旁路由状态发生了变化，那么重启一次dnsmasq（或者再重启wifi 或者重启整个系统）&lt;br&gt;
+科学部分，由openclash 实现分流，就是部分设备不走科学还有部分设备强制全局科学等等。 这个可以看我以前的文章 &lt;a class="link" href="https://dev.leiyanhui.com/openwrt/openclash/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/openclash/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="具体实现"&gt;具体实现
+&lt;/h3&gt;&lt;p&gt;我主路由依旧用10多年前的 古董级k2p刷Padavan 固件，因为他的2.4G信号一直很好，Padavan 可以跑满1000M，5G的话也能跑到500M，另外一个5G路由器因为2.4G信号一般所以只能做ap用。 万兆由下级一个交换机处理，千兆以内众生平等 适合自己的才是最好的。&lt;br&gt;
+Padavan 也是开源linux 和openwrt使用起来在系统层面差距不是很大 ，只要有ssh权限，所有固件都大同小异。&lt;br&gt;
+旁路由 用 pve 跑的自己编译的openwrt，直接挂的vm跑的，因为我这边，8核心，64G内存 所以没用lxc和docker。&lt;/p&gt;
+&lt;h4 id="脚本测试"&gt;脚本测试
+&lt;/h4&gt;&lt;p&gt;padvan默认是关闭ssh的，系统管理 - 服务 找到ssh 打开，客户端登录ssh&lt;/p&gt;
+&lt;h5 id="检查旁路由是否在线"&gt;检查旁路由是否在线
+&lt;/h5&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;curl http://10.1.1.50
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这是openwrt的登录页面 他会自动301跳转，查看返回http代码 &lt;code&gt;-m 3&lt;/code&gt; 是3秒&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;curl -I -s -m 3 http://10.1.1.50 -w %{http_code} | tail -n1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;应该会自动返回一个301代码, http://10.1.1.50/cgi-bin/luci/ 的话应该是返回403，这个先不管
+如果是不存在的地址，那么应该是返回 000&lt;/p&gt;
+&lt;h5 id="找dnsmasql的配置文件地址"&gt;找dnsmasql的配置文件地址
+&lt;/h5&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;find / -name &amp;#34;*dnsmasq*&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;返回 结果 逐个检查后发现Padavan和openwrt一样 都是&lt;code&gt;/etc/dnsmasq.conf&lt;/code&gt; 这个文件，同时已经分配的列表也是&lt;code&gt;/tmp/dnsmasq.leases&lt;/code&gt;这个文件。&lt;br&gt;
+在主路由中 设置dhcp的网关为 旁路由地址10.1.1.50 ，然后执行 &lt;code&gt;cat /etc/dnsmasq.conf&lt;/code&gt;应该有一行&lt;code&gt;dhcp-option=tag:lan,3,10.1.1.50&lt;/code&gt;&lt;/p&gt;
+&lt;h5 id="测试配置文件的查找和替换"&gt;测试配置文件的查找和替换
+&lt;/h5&gt;&lt;p&gt;记住上面的那段 &lt;code&gt;dhcp-option=tag:lan,3,10.1.1.50&lt;/code&gt; 用grep搜索试试&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;grep dhcp-option=tag:lan,3,10.1.1.50 /etc/dnsmasq.conf |wc -l # 查找 如果有的话应该返回1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;替换&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &amp;#34;s/dhcp-option=tag:lan,3,10.1.1.50/dhcp-option=tag:lan,3,10.1.1.1/g&amp;#34; /etc/dnsmasq.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;## 检查
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat /etc/dnsmasq.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果padavan的话不用这么麻烦 用&lt;code&gt;nvram set dhcp_gateway_x=10.1.1.1 &lt;/code&gt;&lt;/p&gt;
+&lt;h5 id="重启-dnsmasq"&gt;重启 dnsmasq
+&lt;/h5&gt;&lt;p&gt;openwrt 下面这两个命令 都一样的效果&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;service dnsmasq restart
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/init.d/dnsmasq restart
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Padavan 下可执行文件是 &lt;code&gt;/usr/sbin/dnsmasq&lt;/code&gt; 通过查询网上资料得知 Padavan把服务脚本放在/sbin 直接执行&lt;code&gt;/sbin/restart_dhcpd&lt;/code&gt; 即可&lt;/p&gt;
+&lt;h4 id="编写脚本"&gt;编写脚本
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;span class="lnt"&gt;26
+&lt;/span&gt;&lt;span class="lnt"&gt;27
+&lt;/span&gt;&lt;span class="lnt"&gt;28
+&lt;/span&gt;&lt;span class="lnt"&gt;29
+&lt;/span&gt;&lt;span class="lnt"&gt;30
+&lt;/span&gt;&lt;span class="lnt"&gt;31
+&lt;/span&gt;&lt;span class="lnt"&gt;32
+&lt;/span&gt;&lt;span class="lnt"&gt;33
+&lt;/span&gt;&lt;span class="lnt"&gt;34
+&lt;/span&gt;&lt;span class="lnt"&gt;35
+&lt;/span&gt;&lt;span class="lnt"&gt;36
+&lt;/span&gt;&lt;span class="lnt"&gt;37
+&lt;/span&gt;&lt;span class="lnt"&gt;38
+&lt;/span&gt;&lt;span class="lnt"&gt;39
+&lt;/span&gt;&lt;span class="lnt"&gt;40
+&lt;/span&gt;&lt;span class="lnt"&gt;41
+&lt;/span&gt;&lt;span class="lnt"&gt;42
+&lt;/span&gt;&lt;span class="lnt"&gt;43
+&lt;/span&gt;&lt;span class="lnt"&gt;44
+&lt;/span&gt;&lt;span class="lnt"&gt;45
+&lt;/span&gt;&lt;span class="lnt"&gt;46
+&lt;/span&gt;&lt;span class="lnt"&gt;47
+&lt;/span&gt;&lt;span class="lnt"&gt;48
+&lt;/span&gt;&lt;span class="lnt"&gt;49
+&lt;/span&gt;&lt;span class="lnt"&gt;50
+&lt;/span&gt;&lt;span class="lnt"&gt;51
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;default_gateway&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;10.1.1.1&amp;#39;&lt;/span&gt; &lt;span class="c1"&gt;#主路由 IP&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;up_gateway&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;10.1.1.50&amp;#39;&lt;/span&gt; &lt;span class="c1"&gt;#旁路由 IP （需设置的主路由 DNS 地址）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;check_ip_available&lt;span class="o"&gt;(){&lt;/span&gt; &lt;span class="c1"&gt;#使用 ping 命令检测旁路由是否在线&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ping -c &lt;span class="m"&gt;3&lt;/span&gt; &lt;span class="nv"&gt;$1&lt;/span&gt; &lt;span class="p"&gt;|&lt;/span&gt; grep packets &lt;span class="p"&gt;|&lt;/span&gt; awk &lt;span class="s1"&gt;&amp;#39;{print $4}&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;change_gateway_dns&lt;span class="o"&gt;(){&lt;/span&gt; &lt;span class="c1"&gt;#网关 DNS 切换&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram &lt;span class="nb"&gt;set&lt;/span&gt; &lt;span class="nv"&gt;dhcp_gateway_x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt; &lt;span class="c1"&gt;#设置网关&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram &lt;span class="nb"&gt;set&lt;/span&gt; &lt;span class="nv"&gt;dhcp_dns1_x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram &lt;span class="nb"&gt;set&lt;/span&gt; &lt;span class="nv"&gt;dhcp_dns2_x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&amp;#34;&lt;/span&gt; &lt;span class="c1"&gt;#设置 DNS&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram commit &lt;span class="c1"&gt;#提交修改&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; sleep &lt;span class="m"&gt;2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; rc rc_service restart_net_and_phy &lt;span class="c1"&gt;#重启主路由 网络服务&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; restart_dns &lt;span class="c1"&gt;#重启主路由 DNS&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; restart_dhcpd &lt;span class="c1"&gt;#重启主路由 DHCP&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# sleep 5&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# reboot #自动修改后存在网络故障，可能需要直接重启路由器， 等待时间较长&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# If the gateway of the up close, the network is completely unusable&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;res&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt;check_ip_available &lt;span class="nv"&gt;$up_gateway&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#检测旁路由是否存在&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;current_gateway&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt;nvram get dhcp_gateway_x&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#获取主路由当前网关&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="k"&gt;$((&lt;/span&gt;&lt;span class="nv"&gt;$res&lt;/span&gt;&lt;span class="k"&gt;))&lt;/span&gt; -eq &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;#检测结果等于 0，即旁路由不存在，应设置网关和 DNS 为主路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$current_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; !&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$default_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt; &lt;span class="c1"&gt;#如果当前网关地址不是主路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;up_gateway to default&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="sb"&gt;`&lt;/span&gt;change_gateway_dns &lt;span class="nv"&gt;$default_gateway&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#将网关和DNS切换为主路由地址 并重启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;use default gateway , nothing changed&amp;#34;&lt;/span&gt; &lt;span class="c1"&gt;# 什么都不用做&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;exit&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="k"&gt;$((&lt;/span&gt;&lt;span class="nv"&gt;$res&lt;/span&gt;&lt;span class="k"&gt;))&lt;/span&gt; -ne &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;#检测结果不等于 0，即旁路由存在，应设置网关和 DNS 为旁路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$current_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; !&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$up_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt; &lt;span class="c1"&gt;#如果当前网关地址不是主路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;up_gateway to auxiliary_gateway&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="sb"&gt;`&lt;/span&gt;change_gateway_dns &lt;span class="nv"&gt;$up_gateway&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#将网关和DNS切换为旁路由地址 并重启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;use auxiliary_gateway , nothing changed&amp;#34;&lt;/span&gt; &lt;span class="c1"&gt;# 什么都不用做&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;exit&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#将脚本置于 /etc/storage/change_gatway.sh &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#设置脚本运行权限：`chmod +x /etc/storage/change_gatway.sh ` &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#保存脚本，防止重启丢失：`/sbin/mtd_storage.sh save`&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#自动定时运行脚本（每一分钟检测一次）：&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#`系统管理 - 服务 ` 调度任务 (Crontab) 加入 `*/1 * * * * /etc/storage/change_gatway.sh` &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最后&lt;/p&gt;
+&lt;p&gt;将脚本置于 /etc/storage/change_gatway.sh
+设置脚本运行权限：&lt;code&gt;chmod +x /etc/storage/change_gatway.sh &lt;/code&gt;&lt;br&gt;
+保存脚本，防止重启丢失：&lt;code&gt;/sbin/mtd_storage.sh save&lt;/code&gt;
+自动定时运行脚本（每一分钟检测一次）：
+&lt;code&gt;系统管理 - 服务 &lt;/code&gt; 调度任务 (Crontab) 加入 &lt;code&gt;*/1 * * * * /etc/storage/change_gatway.sh&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;以上内容抄 自：恩山，xuezou&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="最后存在的问题"&gt;最后存在的问题
+&lt;/h2&gt;&lt;p&gt;经过测试 无论是wifi接入还是网线加入的设备 都可以在短暂掉线后 自动切换成功&lt;/p&gt;</description></item><item><title>arch-aio 常见问题</title><link>https://dev.leiyanhui.com/all-in-one/faq/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/faq/</guid><description>&lt;h2 id="libvirtdvirt-manager-找不到磁盘"&gt;libvirtd/virt-manager 找不到磁盘
+&lt;/h2&gt;&lt;p&gt;libvirtd 应该在rc.local 之后启动&lt;/p&gt;
+&lt;h2 id="virt-manager-弹不出界面"&gt;virt-manager 弹不出界面
+&lt;/h2&gt;&lt;p&gt;1、 使用支持x11转发的客户端，win下使用 MobaXterm Macos和linux andriod下也又对应的客户端。如果是ios设备也有弯道解决方案
+2、后台有virt-manager进程，那么先关掉 &lt;code&gt;killall virt-manager&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="virt-manager-无法连接"&gt;virt-manager 无法连接
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;Unable to connect to libvirt qemu:///system.
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="连不到virtqemud-sock"&gt;连不到virtqemud-sock
+&lt;/h3&gt;&lt;p&gt;因为 libvirtd 没启动，可以用下面两种方式启动&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="修改dockerkvm目录后无法自动启动"&gt;修改docker/kvm目录后，无法自动启动
+&lt;/h3&gt;&lt;p&gt;自动挂载建议放到rc-local 服务用，docker和libvirtd 在rc-local之后启动 &lt;a class="link" href="https://dev.leiyanhui.com/arch/auto-mount-dock-kvm/" target="_blank" rel="noopener"
+&gt;具体方法&lt;/a&gt;&lt;/p&gt;</description></item><item><title>arch-aio 的 virt-manager上配置桥接网络</title><link>https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/</guid><description>&lt;p&gt;本文基于&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt; arch-aio&lt;/a&gt;，如果你是其他系统，请先处理好相关依赖。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;未完成&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="查看"&gt;查看
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat /etc/qemu/bridge.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--------------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;allow virbr0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;virbr0 是自动创建的，并不能完成虚拟机 映射到外网&lt;br&gt;
+继续查看其他情况&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ip a
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo brctl show
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;判断出来物理口是 &lt;code&gt;enp1s0&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="安装-networkmanager"&gt;安装 networkmanager
+&lt;/h3&gt;&lt;p&gt;我这里还是选用传统的networkmanager来处理，感觉更简单无脑一些。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S networkmanager
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable NetworkManager
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start NetworkManager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="配置桥接br0"&gt;配置桥接br0
+&lt;/h3&gt;&lt;p&gt;根据你的实际情况修改ip网关dns等&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection add type bridge ifname br0 con-name br0 ipv4.addresses 10.1.1.1/24 ipv4.gateway 10.1.1.254 ipv4.dns 114.114.114.114 ipv4.method manual
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我这里还是打算用dhcp所以执行下面的&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection add type bridge ifname br0 con-name br0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="桥接网卡子网卡-关联物理卡"&gt;桥接网卡子网卡 关联物理卡
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection add type bridge-slave con-name br0-slave1 ifname enp1s0 master br0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="开启"&gt;开启
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection up br0-slave1
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection up br0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection show
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# systemctl restart NetworkManager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;此时网络会断开，原来ip无法连接，可以使用br0上的ip 重新连接。 如果是dhcp 可以从路由器看到多分配到br0上的ip。&lt;br&gt;
+重启 NetworkManager 后，或者重启物理机器后，两个ip都可以连接。&lt;/p&gt;
+&lt;h3 id="后续可选处理"&gt;后续可选处理
+&lt;/h3&gt;&lt;p&gt;关闭br0的stp&lt;br&gt;
+禁止物理卡开机启动 可以避免要占用两个ip的问题&lt;/p&gt;
+&lt;h3 id="开启ip4转发"&gt;开启ip4转发
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sysctl net.ipv4.ip_forward=1
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/sysctl.d/99-sysctl.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;net.ipv4.ip_forward = 1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="加载tun"&gt;加载tun
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;modprobe&lt;/span&gt; &lt;span class="n"&gt;tun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;nano&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nb"&gt;load&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;tun&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-------------&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;tun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="恢复之前的操作未经测试"&gt;恢复之前的操作(未经测试)
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set br0 down
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo brctl delif br0 enp1s0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set enp1s0 down
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set up enp1s0 #重启物理网卡
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set dev br0 down #关闭 删除br0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo brctl delbr br0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;参考文章：&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://wiki.archlinux.org/title/Network_bridge" target="_blank" rel="noopener"
+&gt;https://wiki.archlinux.org/title/Network_bridge&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://blog.csdn.net/qq_42197548/article/details/120655449" target="_blank" rel="noopener"
+&gt;https://blog.csdn.net/qq_42197548/article/details/120655449&lt;/a&gt;&lt;/p&gt;</description></item><item><title>arch-aio 免费高扩展性灵活且开放的all in one 系统的基本使用</title><link>https://dev.leiyanhui.com/all-in-one/arch-aio-use/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/arch-aio-use/</guid><description>&lt;h3 id="下载"&gt;下载
+&lt;/h3&gt;&lt;p&gt;1、 arch-aio：https://dev.leiyanhui.com/all-in-one/diy/ 下载后解压到硬盘或U盘，要求分区格式是（exFAT/NTFS/UDF/XFS/Ext2(3)(4) ）&lt;br&gt;
+2、 &lt;a class="link" href="https://www.ventoy.net" target="_blank" rel="noopener"
+&gt;www.ventoy.net&lt;/a&gt; 下载 ，并安装到U盘 或者硬盘（新版支持无损安装了）&lt;br&gt;
+3、 配置ventoy的自动启动以及VTOY_LINUX_REMOUNT ，可以使用arch-aio 下载链接里面的ventoy文件的json文件，具体参考 ventoy官网说明&lt;br&gt;
+4、 配置 lnk.vtoy 等等，具体参考 ventoy官网说明，也可以在ventoy引导界面按下F2 浏览找到对应的 vhd.vtoy 文件&lt;/p&gt;
+&lt;h3 id="启动"&gt;启动
+&lt;/h3&gt;&lt;p&gt;使用ventoy启动即可，具体参考 ventoy官网说明&lt;/p&gt;
+&lt;h3 id="登录arch-aio"&gt;登录arch-aio
+&lt;/h3&gt;&lt;p&gt;使用默认用户 yanhui 或 root 登录。&lt;br&gt;
+win客户端登录建议使用&lt;a class="link" href="https://mobaxterm.mobatek.net/download-home-edition.html" target="_blank" rel="noopener"
+&gt;MobaXterm免费版&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="修改密码"&gt;修改密码
+&lt;/h3&gt;&lt;p&gt;root和yanhui的密码 都要修改,yanhui&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd root
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="可选shell和neofetch"&gt;可选shell和neofetch
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S fish neofetch
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#编辑
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano .bashrc
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;添加两行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;neofetch
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;fish
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;neofetch 是登录后自动打印系统信息，fish是一个还不错的shell终端，命令补充和提示好用一些，另外一个不错的shell 叫做&lt;code&gt;nushell&lt;/code&gt; 安装后启动命令是&lt;code&gt;nu&lt;/code&gt;&lt;br&gt;
+&lt;code&gt;.bashrc&lt;/code&gt; 文件是你命令行登录后自动执行的一个文件。可以让它自动启动一些脚本方便使用。&lt;/p&gt;
+&lt;h3 id="检查和自动配置挂载"&gt;检查和自动配置挂载
+&lt;/h3&gt;&lt;h4 id="检查"&gt;检查
+&lt;/h4&gt;&lt;p&gt;使用 &lt;code&gt;fdisk -l &lt;/code&gt; 和 &lt;code&gt;lsblk&lt;/code&gt; 查看分区情况，使用 &lt;code&gt;df -h&lt;/code&gt; 查看挂载情况。 值得注意的是，/dev/mapper/ventoy 的两个分区 是arch-aio 虚拟磁盘镜像的两个分区分别对应efi和&lt;code&gt;/&lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="配置自动挂载"&gt;配置自动挂载
+&lt;/h4&gt;&lt;p&gt;建议使用&lt;code&gt;rc-local&lt;/code&gt; 这个系统服务来处理，不建议使用fstab&lt;br&gt;
+以下实例直接从yanhui这个用户下处理&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd ~
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir -p mnt/nvme mnt/efi mnt/exfat
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 测试
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/nvme0n1p6 /home/yanhui/mnt/exfat
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/nvme0n1p5 /home/yanhui/mnt/nvme
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/nvme0n1p1 /home/yanhui/mnt/efi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;没问题后修改 &lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt; 内容&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p6 /home/yanhui/mnt/exfat
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p5 /home/yanhui/mnt/nvme
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p1 /home/yanhui/mnt/efi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启测试&lt;/p&gt;
+&lt;h3 id="迁移和配置docker和kvm"&gt;迁移和配置docker和kvm
+&lt;/h3&gt;&lt;h4 id="docker"&gt;docker
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="n"&gt;docker&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;rsync&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;avzP&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;mv&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 完成后 rm -rf /var/lib/docker.bak&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="kvmlibvirtd"&gt;kvm/libvirtd
+&lt;/h4&gt;&lt;p&gt;此步骤 可以不处理&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="n"&gt;libvirtd&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rsync&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;avzP&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;mv&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 完成后 rm -rf /var/lib/libvirt.bak&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="配置docker和libvirtd开机自动启动"&gt;配置docker和libvirtd开机自动启动
+&lt;/h4&gt;&lt;p&gt;先禁止他们的开机自动启动，改为从rc.local这个服务里面启动，已方便在挂载完成后再启动对应的服务&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl disable docker
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl disable libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;修改 &lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt; 内容 添加两行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start docker
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;2022-12-29版本这个默认文件的libvirtd少了一个字母d，注意修改以下
+重启&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="安装一个系统win10为例"&gt;安装一个系统（win10为例）
+&lt;/h3&gt;&lt;h4 id="安装镜像"&gt;安装镜像
+&lt;/h4&gt;&lt;p&gt;先去弄一个win安装镜像,我这里有了&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mnt/exfat/iso/SW_DVD9_Win_Pro_10_22H2_64BIT_ChnSimp_Pro_Ent_EDU_N_MLF_X23-20012.ISO
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;对应的目录是 &lt;code&gt;/var/lib/libvirt/images &lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="windows-virio驱动镜像"&gt;windows virio驱动镜像
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;pacman&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt; &lt;span class="n"&gt;wget&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;iso&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;c&lt;/span&gt; &lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;fedorapeople&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;org&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;groups&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;win&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;direct&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;downloads&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;archive&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;win&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;225&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;win&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mf"&gt;225.&lt;/span&gt;&lt;span class="n"&gt;iso&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个网站访问速度很慢，最好挂个代理，或者下载后用MobaXterm上传到对应目录&lt;/p&gt;
+&lt;h4 id="准备安装"&gt;准备安装
+&lt;/h4&gt;&lt;p&gt;MobaXterm或者其他支持x11的ssh客户端里面 用yanhui登录，执行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virt-manager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;会弹出virt-manager 图形界面窗口，先connect上默认的&lt;code&gt;QEMU/KVM&lt;/code&gt;&lt;br&gt;
+点 file -&amp;gt; New virual Machine 选默认的 local install，点下一步 Forward&lt;br&gt;
+点后面的浏览&lt;code&gt;Browse&lt;/code&gt; 弹出来一个 locate Iso 管理窗口，点左下角的 &lt;code&gt;+&lt;/code&gt; 号 Name 输入 ISO ，&lt;code&gt;type&lt;/code&gt; 保持默认 &lt;code&gt;dir:&lt;/code&gt; ,目标路径 Target 输入ISO储存路径&lt;code&gt;/home/yanhui/mnt/exfat/iso&lt;/code&gt; 然后点&lt;code&gt;Finish&lt;/code&gt; 结束&lt;/p&gt;
+&lt;p&gt;然后选中新建的iso里面的win10安装镜像， 返回虚拟主机的配置界面 去掉&lt;code&gt;automatically ...&lt;/code&gt; 这个自动识别系统版本的勾号，在上面输入win10 搜索 选中对应的系统。然后 点下一步 Forward&lt;/p&gt;
+&lt;p&gt;可能弹出一个权限的提醒，下一步忽略就好，分配cpu和内存。下一步 Forward 创建磁盘。参考前面iso的配置同样的方法创建一个专门放置vdisk的目录&lt;code&gt;/home/yanhui/mnt/nvme/vdisk&lt;/code&gt;，并创建一个磁盘 win10-base.qcow2 在这里个目录，大小要14G以上哦，不然不够win10安装用的，下一步 Forward ，勾选上 &lt;code&gt;Customize configuration before install&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;继续配置，添加一个ide磁盘cdrom 到 驱动virtio-win-0.1.225.iso。&lt;/p&gt;
+&lt;p&gt;默认磁盘改为 virtIO,缓存 unfase，&lt;/p&gt;
+&lt;p&gt;如果需要和宿主机文件的交互，添加 File System，选择 virtio-9p&lt;/p&gt;
+&lt;p&gt;网络接口等等 其他简单也配置以下，点&lt;code&gt;begin installxxx&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;开始安装 就好了。
+找不到磁盘 记得加载驱动，完成后 记得装完整驱动。别的都简单 不用多说。&lt;/p&gt;
+&lt;p&gt;网络如果不会配置桥接的话，暂时先用NAT&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;win11 的话记得添加tpm
+桥接网络的配置 &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/" target="_blank" rel="noopener"
+&gt;点这里查看&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;</description></item><item><title>常见all in one 系统的一些问题</title><link>https://dev.leiyanhui.com/all-in-one/other-os/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/other-os/</guid><description>&lt;p&gt;我选择 arch-aio的理由&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;arch-aio的简介 &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/diy/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h5 id="pve"&gt;pve
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;磁盘分区 需要12-20G左右，备份起来不方便 ，虚拟磁盘名称不方便自定义&lt;/li&gt;
+&lt;li&gt;多了不太常用的lxc，没有原生docker 需要自己处理&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="hyper-v"&gt;hyper-v
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;宿主机占用资源偏多&lt;/li&gt;
+&lt;li&gt;部分硬件的直通存在一些问题&lt;/li&gt;
+&lt;li&gt;hyper-v 虽然免费，但win是收费的 破解版不适合商用&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="esxi"&gt;esxi
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;个人免费，商用收费&lt;/li&gt;
+&lt;li&gt;非原生linux，功能限制太多。&lt;/li&gt;
+&lt;li&gt;硬件要求尤其是网卡要求多&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="unraid"&gt;unraid
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;占用一个usb口&lt;/li&gt;
+&lt;li&gt;需要一个非常靠谱的u盘&lt;/li&gt;
+&lt;li&gt;墙内使用麻烦，需要梯子&lt;/li&gt;
+&lt;li&gt;会破坏一块硬盘的数据&lt;/li&gt;
+&lt;li&gt;收费，破解版多数有挖矿后台&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="爱快"&gt;爱快
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;这个怎么说呢&amp;hellip;也就比较适合不折腾的用户吧&lt;/li&gt;
+&lt;li&gt;虽然支持docker，但是没有shell 扩展性太差，简直可以说是垃圾中的战斗机&lt;/li&gt;
+&lt;li&gt;但是他的dhcp 以及流控 都很简单易用&lt;/li&gt;
+&lt;li&gt;有黑历史 慎重&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="群晖"&gt;群晖
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;要么硬件买，钱多可以&lt;/li&gt;
+&lt;li&gt;黑群晖 有一些莫名其妙的问题，有时候可能是致命性的，不少人出现一段时间后无法启动需要接上显示器处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="openwrt"&gt;openwrt
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;路由器系统，不太适合宿主机折腾&lt;/li&gt;
+&lt;/ul&gt;</description></item><item><title>旧版本 arch-aio all in one系统的，docker和kvm 与挂载磁盘顺序的一个小地方需要自己处理以下</title><link>https://dev.leiyanhui.com/all-in-one/server-after/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/server-after/</guid><description>&lt;p&gt;为了灵活管理，arch-aio 单独创建一个了rc-local服务，用来添加开机自动启动的脚本。 同时也是这个原因，建议在rc-local 里面处理自动挂载脚本。&lt;/p&gt;
+&lt;p&gt;仅限2022-12-29 版本&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /usr/lib/systemd/system/
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;分别编辑 &lt;code&gt;sudo nano libvirtd.service&lt;/code&gt; 和 &lt;code&gt;sudo nano docker.service&lt;/code&gt; 在&lt;code&gt;[Unit]&lt;/code&gt; 段 增加一行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;After=rc-local.service
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这行是为了让docker和libvirtd 在rc-local这个服务之后启动，方便我们在 rc-local 内先挂载好磁盘
+最后这两个服务设置为自动启动&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl enable libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl enable docker
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;关于和自动挂载其他分区配合的方法，可以参考这里：&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto--dock-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto&amp;ndash;dock-kvm/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>选择arch-aio，彻底抛弃pve esxi unraid</title><link>https://dev.leiyanhui.com/all-in-one/diy/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/diy/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;本文停止更新，新版查看 &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="前言"&gt;前言
+&lt;/h2&gt;&lt;h3 id="经历"&gt;经历
+&lt;/h3&gt;&lt;p&gt;前前后后用过很多 all in one 系统，hyper-v pve6-7.3 unraid，esxi 还有 群晖 爱快，感觉到很多不方便的地方。所以自己做了一个基于arch 和 ventoy的all in one 母系统。&lt;/p&gt;
+&lt;p&gt;缺点：门槛略微高一点点。你需要会用linux的基本命令。包括不限&lt;code&gt;ln mount &lt;/code&gt;&lt;br&gt;
+优点：灵活，免费,不占用额外分区，强大扩展，较新并非常稳定的内核&lt;/p&gt;
+&lt;h3 id="使用方法"&gt;使用方法
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://www.123pan.com/s/EqorVv-K2nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-K2nPA&lt;/a&gt; 提取码:arch&lt;br&gt;
+下载后解压，然后用ventoy，用支持x11转发的ssh客户端（例如 &lt;code&gt;MobaXterm&lt;/code&gt;） 登录 用户名&lt;code&gt;yanhui&lt;/code&gt; 密码 &lt;code&gt;1&lt;/code&gt;
+root 密码也是 &lt;code&gt;1&lt;/code&gt; 但是root默认禁止登录。&lt;/p&gt;
+&lt;p&gt;简明使用方法：&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="虚拟机"&gt;虚拟机
+&lt;/h4&gt;&lt;p&gt;先挂载分区，并 &lt;code&gt; ln -s /var/lib/libvirt/images /目录&lt;/code&gt; 或者直接把这个目录挂载到分区
+MobaXterm 中运行 &lt;code&gt;virt-manager&lt;/code&gt; 会弹出&lt;code&gt;virt-manager&lt;/code&gt;界面&lt;br&gt;
+如果你只想用命令行，也可以卸载掉它。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;在不支持x11 转发的设备上管理虚拟机，请继续看后面&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="docker"&gt;docker
+&lt;/h4&gt;&lt;p&gt;先挂载分区，并ln /var/lib/docker 目录 或者直接把这个目录挂载到分区
+如果要图形界面，可以安装portainer&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;8000&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;8000&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;9443&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;9443&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="n"&gt;portainer&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;restart&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;always&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;portainer&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;portainer&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ce&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="n"&gt;latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;然后浏览器访问：https://ip:9443&lt;/p&gt;
+&lt;h4 id="新建用户"&gt;新建用户
+&lt;/h4&gt;&lt;p&gt;新建用户请 添加到wheel组 和 libvirt 组，例如用户名 xiaolei&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo useradd -m -G wheel -s /bin/bash xiaolei
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo usermod -a -G libvirt xiaolei
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;然后设置密码&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo passwd xiaolei
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="清理日志和缓存文件"&gt;清理日志和缓存文件
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh /root/del-log.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="扩容"&gt;扩容
+&lt;/h4&gt;&lt;p&gt;如果默认容量不够，需要扩容。请参考
+&lt;a class="link" href="https://dev.leiyanhui.com/arch/ventoy-vdisk-resize" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/ventoy-vdisk-resize&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="exfat4-和ntfs支持"&gt;exfat4 和ntfs支持
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S exfat-utils
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S ntfs-3g
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;exfat 和 ntfs 在linux下性能一般，ntfs稳定性更是一般，不建议高强度使用&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="关于sudo-和-vi-vim"&gt;关于sudo 和 vi vim
+&lt;/h4&gt;&lt;p&gt;用doas 和nano替代的 软连接对应的sudo 和 vi vim&lt;/p&gt;
+&lt;h4 id="运行浏览器和其他软件"&gt;运行浏览器和其他软件
+&lt;/h4&gt;&lt;p&gt;请尽量挂载到其他分区后用appimages
+例如火狐&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;pacman&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt; &lt;span class="n"&gt;fuse&lt;/span&gt; &lt;span class="c1"&gt;#AppImage 依赖&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;pacman&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt; &lt;span class="n"&gt;dbus&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;glib&lt;/span&gt; &lt;span class="c1"&gt;# 火狐依赖&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="err"&gt;挂载目录&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;apprepo&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;de&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;appimage&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;download&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;firefox&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;output&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;document&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;Firefox&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;AppImage&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;chmod&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;x&lt;/span&gt; &lt;span class="o"&gt;./*.&lt;/span&gt;&lt;span class="n"&gt;AppImage&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;./&lt;/span&gt;&lt;span class="n"&gt;Firefox&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;AppImage&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;火狐在x11转发下首次启动很卡，等一会关掉再次打开就流畅很多
+中文字体支持&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S wqy-zenhei
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;中文输入法：&lt;a class="link" href="https://wiki.archlinuxcn.org/wiki/Fcitx5" target="_blank" rel="noopener"
+&gt;https://wiki.archlinuxcn.org/wiki/Fcitx5&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="开机自动启动脚本"&gt;开机自动启动脚本
+&lt;/h4&gt;&lt;p&gt;rc-local服务：&lt;code&gt;/usr/lib/systemd/system/rc-local.service&lt;/code&gt; 和 &lt;code&gt;/etc/rc.local&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;sh脚本放到 /etc/rc.local.d 目录&lt;/p&gt;
+&lt;h4 id="开机自动挂载"&gt;开机自动挂载
+&lt;/h4&gt;&lt;p&gt;建议放到 /etc/rc.local.d目录。
+参考编辑文件&lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt;&lt;br&gt;
+详细说明参考这里：&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto-mount-dock-kvm" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto-mount-dock-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="开机自动启动其他分区的vm-或者docker"&gt;开机自动启动其他分区的vm 或者docker
+&lt;/h4&gt;&lt;p&gt;参考编辑文件&lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt;&lt;br&gt;
+详细说明参考这里：&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto-mount-dock-kvm" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto-mount-dock-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="桥接虚拟机网络"&gt;桥接虚拟机网络
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="关于远程访问虚拟机"&gt;关于远程访问虚拟机
+&lt;/h4&gt;&lt;p&gt;如果客户端非ios设备，网络尚可 直接用支持x11转发的ssh客户端管理&lt;br&gt;
+如果是ios设备，因为没有可用的客户端，建议kvm 或者docker中运行一个 有桌面的win 或者linux，再远程过去.再套娃访问宿主机&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;docker 运行linux桌面参考 &lt;a class="link" href="https://dev.leiyanhui.com/docker/run-deskto-gpu-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/docker/run-deskto-gpu-usb/&lt;/a&gt;&lt;br&gt;
+上文中的docker 支持网页vnc和xrdp微软远程链接，你甚至可以v挂载虚拟磁盘目录进去，里面有一些基本的软件，包括浏览器完成网盘备份等操作。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;当然，你也可以直接在宿主系统上安装一个gnome kde等桌面系统，然后开xrdp或者vnc 或者 向日葵 rustdesk 等等 尽情想想&amp;hellip;&lt;/p&gt;
+&lt;h4 id="关于winwinpe下访问"&gt;关于win/winpe下访问
+&lt;/h4&gt;&lt;p&gt;因为镜像是vhd格式的，在win系统和多数winpe下可以直接挂载。 brtfs分区的访问请安装驱动，&lt;a class="link" href="https://dev.leiyanhui.com/win/winbtrfs/" target="_blank" rel="noopener"
+&gt;详情&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="系统内软件包"&gt;系统内软件包
+&lt;/h3&gt;&lt;h4 id="母盘"&gt;母盘
+&lt;/h4&gt;&lt;p&gt;archlinux-2022.12.01-x86_64.iso arch滚动更新，我用的母盘的版本不影响你 你可随意随时升级到最新版&lt;br&gt;
+用archinstall 直接安装的 minimal 模式&lt;br&gt;
+源 改为清华源，未开启archlinuxcn源，如果你需要aur软件包自行开启 &lt;a class="link" href="https://mirrors.tuna.tsinghua.edu.cn/help/archlinuxcn/" target="_blank" rel="noopener"
+&gt;https://mirrors.tuna.tsinghua.edu.cn/help/archlinuxcn/&lt;/a&gt; &lt;br&gt;
+内核考虑到安卓x86 选择 linux-zen&lt;/p&gt;
+&lt;h4 id="额外的软件包和配置"&gt;额外的软件包和配置
+&lt;/h4&gt;&lt;h5 id="基本"&gt;基本
+&lt;/h5&gt;&lt;p&gt;开启了非root用户的x11转发，依赖&lt;code&gt;xorg-xauth&lt;/code&gt;
+基本包： &lt;code&gt;openssh dhcpcd nano doas&lt;/code&gt;&lt;br&gt;
+ventoy依赖：&lt;code&gt;which lvm2&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;sudo用doas替换了，但是同时ln到/bin/sudo&lt;br&gt;
+vi 未安装 如果不喜欢用nano自行处理&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h5 id="kvm和docker相关"&gt;kvm和docker相关
+&lt;/h5&gt;&lt;p&gt;&lt;code&gt;exfat-utils rsync &lt;/code&gt; &lt;code&gt;qemu-base samba dnsmasq dmidecode iptables-nft bridge-utils openbsd-netcat libvirt virt-manager docker&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="开机自定启动的额外服务"&gt;开机自定启动的额外服务
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;sshd dhcpcd&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注意 docker 和 kvm的libvirt 默认是通过 &lt;code&gt;/etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt; 启动的&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="我对all-in-one的一点要求"&gt;我对all in one的一点要求
+&lt;/h3&gt;&lt;p&gt;自定义、灵活、内核新，不破坏原来硬盘。&lt;/p&gt;
+&lt;h3 id="简单说一下各个系统的缺陷"&gt;简单说一下各个系统的缺陷
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/other-os/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/other-os/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="为什么选择arch"&gt;为什么选择arch
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;只使用qemu 等几个软件的情况下，也不存在滚挂的可能性。除非你真的大半年不更新。&lt;/li&gt;
+&lt;li&gt;相对 debian centos系，内核新，很多新特性都可以支持&lt;/li&gt;
+&lt;li&gt;wiki资料丰富，扩展容易&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="为什么选择ventoy引导"&gt;为什么选择ventoy引导
+&lt;/h3&gt;&lt;p&gt;ventoy新版已经有限的支持无损安装到硬盘，同时也兼容grub4dos&lt;/p&gt;
+&lt;h3 id="磁盘容量的纠结"&gt;磁盘容量的纠结
+&lt;/h3&gt;&lt;p&gt;控制到3.7G 以内是最好的选择，但是可用空间实在是太少了。安装qemu的常用依赖后，剩余空间只有几百M。无法满足正常使用的需求。
+考虑许久后，决定抛弃兼容fat32和4G U盘的不实际的想法，改为7.3G。 即便是要安装一个桌面系统 应该也勉强够用。
+另外 home opt等目录都可以挂载出来。&lt;/p&gt;
+&lt;h3 id="磁盘格式的选择"&gt;磁盘格式的选择
+&lt;/h3&gt;&lt;p&gt;ventoy只支持 固定大小的vhd vdi raw/img 三种格式 虚拟磁盘启动linux。kvm只支持其中raw，vbox支持前两者，win可以直接挂载vhd&lt;br&gt;
+linux可以用qemu-img随意转换其他格式，vhd文件也可以转换成raw/img后挂载。
+综合考虑，还是选择了vhd格式&lt;/p&gt;
+&lt;h3 id="vdisk内efi分区的大小"&gt;vdisk内efi分区的大小
+&lt;/h3&gt;&lt;p&gt;考虑到换内核的可能性和内核更新的情况，还是用多数情况适用的512M（正常只占用60m左右）&lt;/p&gt;
+&lt;h3 id="vdisk内根分区文件系统的选择"&gt;vdisk内根分区文件系统的选择
+&lt;/h3&gt;&lt;p&gt;我这里选择brtfs，支持压缩和快照。并且几乎所有winpe下都可以 右键加载驱动后访问，虽然不够稳定但是要比其他文件系统简单一些。&lt;/p&gt;
+&lt;h3 id="swap的选择"&gt;swap的选择
+&lt;/h3&gt;&lt;p&gt;默认不开启，如果需要自行创建swap文件即可&lt;/p&gt;</description></item><item><title>基于ventoy启动的linux虚拟磁盘的扩容</title><link>https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/</link><pubDate>Thu, 29 Dec 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/</guid><description>&lt;p&gt;这里以 archlinux 和 vhd格式 为例，raw格式 可以用qemu-img 扩容。&lt;/p&gt;
+&lt;p&gt;一个可以正常启动的linux镜像&lt;code&gt;archinstall-ext4.vhd.vtoy&lt;/code&gt; 如果不会弄，参考：https://dev.leiyanhui.com/arch/boot-vhd-ventoy/&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;ventoy启动的linux 扩容比较麻烦&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="虚拟磁盘扩容"&gt;虚拟磁盘扩容
+&lt;/h2&gt;&lt;p&gt;先关掉系统，然后重启到另外一个带虚拟机的系统，linux 或者win 都可以
+linux下 建议用qemu-img 转换到ram后扩容 过程掠过&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mv archinstall-ext4.vhd.vtoy archinstall-ext4.vhd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S qemu-img
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# vpc 是vhd格式
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img convert -p -f vpc -O raw archinstall-ext4.vhd archinstall-ext4.raw
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img resize archinstall-ext4.raw +5G
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mv archinstall-ext4.raw archinstall-ext4.raw.vtoy
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;win下 可以直接使用diskpart 或者 第三方工具扩容。比如&lt;code&gt;Bootice.exe&lt;/code&gt; 一般pe都有，在磁盘信息的地方输入新容量即可&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;缩小镜像，会导致不可以预料的文件丢失 ，轻易不要尝试&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="新虚拟磁盘文件挂载到虚拟机"&gt;新虚拟磁盘文件挂载到虚拟机
+&lt;/h2&gt;&lt;p&gt;可以用virtualbox或者kvm,root用户登录&lt;/p&gt;
+&lt;h2 id="在系统内部处理"&gt;在系统内部处理
+&lt;/h2&gt;&lt;p&gt;用ventoy启动扩容好的虚拟磁盘系统，ssh登录&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cfdisk /dev/sdXXX
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;resize需要处理的分区，我这里是/dev/sda2，然后write写入 yes确认 退出&lt;/p&gt;
+&lt;h3 id="ext4-格式"&gt;ext4 格式
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;resize2fs /dev/sdXXX
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="btrfs格式-操作根目录"&gt;btrfs格式 操作根目录
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;btrfs filesystem resize max /
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="然后重新执行vtoyboot"&gt;然后重新执行vtoyboot
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /root/vtoyboot*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh vtoyboot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="准备重启"&gt;准备重启
+&lt;/h2&gt;&lt;p&gt;虚拟磁盘文件重命名为 XX.vtoy ，重新用ventoy引导 完毕。&lt;/p&gt;</description></item><item><title>ventoy 配置开机自动启动</title><link>https://dev.leiyanhui.com/os/ventoy-auto-boot/</link><pubDate>Wed, 21 Dec 2022 06:19:20 +0800</pubDate><guid>https://dev.leiyanhui.com/os/ventoy-auto-boot/</guid><description>&lt;p&gt;ventoy 无论配置 自动启动 linux 还是 windows.vhd 甚至 黑苹果的opencore 都是一样的&lt;/p&gt;
+&lt;h2 id="前置条件"&gt;前置条件
+&lt;/h2&gt;&lt;p&gt;ventoy 内置了常见efi以及linux的虚拟磁盘启动。如果windows的话需要Ventoy分区 也就是 第一个分区里面，新建一个目录ventoy 并放入win7或者win8-11的ventoy_vhdboot.img文件
+启动虚拟磁盘的linux的话，需要把对应的vhd img vdi文件修改后缀为 .vtoy&lt;/p&gt;
+&lt;h2 id="配置ventoy"&gt;配置ventoy
+&lt;/h2&gt;&lt;p&gt;建议用 VentoyPlugson 直接在网页配置 或者复制下面代码到Ventoy分区 的&lt;code&gt;ventoy\ventoy.json&lt;/code&gt;中
+VTOY_MENU_TIMEOUT 设置时间为3秒
+VTOY_DEFAULT_IMAGE 建议留空，这样可以按照文件名顺序启动
+VTOY_LINUX_REMOUNT 建议打开
+完整的配置文件 &lt;code&gt;ventoy\ventoy.json&lt;/code&gt;如下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;#34;control&amp;#34;:[
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; { &amp;#34;VTOY_LINUX_REMOUNT&amp;#34;: &amp;#34;1&amp;#34; },
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; { &amp;#34;VTOY_MENU_TIMEOUT&amp;#34;: &amp;#34;3&amp;#34; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ]
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="配置虚拟磁盘链接"&gt;配置虚拟磁盘链接
+&lt;/h3&gt;&lt;p&gt;在winpe或者win下或者linux下用VentoyVlnk 创建一个想自动开机的虚拟磁盘的链接文件，放到Ventoy分区，并改名为 0.xxxx.vlnk.xxx 让他默认排在第一个&lt;/p&gt;
+&lt;h2 id="bios中设置引导顺序"&gt;bios中设置引导顺序
+&lt;/h2&gt;&lt;p&gt;安装ventoy的硬盘或者U盘为第一引导设备&lt;/p&gt;
+&lt;p&gt;重启测试，3秒后会自动选择 文件名排序第一的可引导文件&lt;/p&gt;</description></item><item><title>把最新版本 archlinux安装到vhd/raw/img文件并物理机器启动</title><link>https://dev.leiyanhui.com/arch/boot-vhd-ventoy/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/boot-vhd-ventoy/</guid><description>&lt;h2 id="前言"&gt;前言
+&lt;/h2&gt;&lt;p&gt;本文基于 archlinux 2022-12-1 镜像 ventoy-1.0.86 vtoyboot-1.0.25&lt;/p&gt;
+&lt;p&gt;我做好的 &lt;a class="link" href="https://www.123pan.com/s/EqorVv-r2nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-r2nPA&lt;/a&gt; 提取码:arch&lt;/p&gt;
+&lt;p&gt;建议选择 arch-base-btrfs-7.3gfree5g.vhd.vtoy.7z 解压后7.3G 空闲5G 可以满足基本需求，可以自行扩容。&lt;a class="link" href="https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/" target="_blank" rel="noopener"
+&gt;扩容教程&lt;/a&gt;
+这个也是&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt;我的arch-aio的母盘&lt;/a&gt;
+默认用户名 yanhui 密码 1 开启了ssh 和 dhcp&lt;br&gt;
+root用户禁止ssh 密码 1
+直接用archinstall安装的基础包，然后补充软件：&lt;br&gt;
+&lt;code&gt; dhcpcd openssh nano doas which lvm2&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果你网卡不能免驱 或者wifi要处理，请先virtualbox 启动后配置网卡驱动&lt;br&gt;
+如果内核升级 或者grub升级，记得 &lt;code&gt;cd /root/vtoyboot* &amp;amp;&amp;amp;sh vtoyboot.sh &lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="安装archlinux"&gt;安装archlinux
+&lt;/h2&gt;&lt;p&gt;需要有一个运行了虚拟机的系统，我这里用的 linux版 virtualbox ，win下一样操作&lt;/p&gt;
+&lt;p&gt;virtualbox 创建一个虚拟机，专家模式 启用efi，磁盘格式选择 vhd，也可以其他格式 稍后自行转换到 vhd vdi raw 必须是预分配磁盘，不可以使用动态磁盘&lt;/p&gt;
+&lt;p&gt;我这里选择 vhd格式，&lt;/p&gt;
+&lt;h2 id="其他安装步骤-和正常安装一样"&gt;其他安装步骤 和正常安装一样
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/arch/base-install/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/base-install/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;并且&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ln -s /bin/doas /bin/sudo
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="处理ventoy"&gt;处理Ventoy
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S which lvm2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;虚拟机挂载 &lt;a class="link" href="https://github.com/ventoy/vtoyboot/releases/download/v1.0.25/vtoyboot-1.0.25.iso" target="_blank" rel="noopener"
+&gt;https://github.com/ventoy/vtoyboot/releases/download/v1.0.25/vtoyboot-1.0.25.iso&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/cdrom /mnt
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /root
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /mnt/vtoy* .
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;tar -xf vtoy*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf *.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd vtoyboot*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh vtoyboot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;提示只能用于efi启动&lt;/p&gt;
+&lt;h2 id="ventoy硬盘或者u盘安装配置"&gt;ventoy硬盘或者U盘安装配置
+&lt;/h2&gt;&lt;p&gt;很简单不用多说了。注意一点 &lt;code&gt;VTOY_LINUX_REMOUNT&lt;/code&gt; 方便linux下挂载管理vhd所在分区
+具体参考 ：https://www.ventoy.net/cn/faq.html 搜索 VTOY_LINUX_REMOUNT 关键词&lt;/p&gt;
+&lt;h2 id="其他处理"&gt;其他处理
+&lt;/h2&gt;&lt;h3 id="autodetect-处理-据说兼容性更好"&gt;autodetect 处理 据说兼容性更好
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/mkinitcpio.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;把hooks一行的autodetect删掉&lt;/p&gt;
+&lt;h3 id="grub-shell抢救"&gt;grub shell抢救
+&lt;/h3&gt;&lt;p&gt;如果非常不幸地进入了grub shell，也就是只有个grub&amp;gt;的界面，可以按照下面的步骤来抢救：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;ls来查看硬盘，（hd0）这样的是硬盘，（hd0，msdos1）这样的是分区
+ls (hd0,msdos1)/（注意有斜杠）来查看分区里的内容，找到那个里面有vmlinuz-linux文件的，它是启动分区
+set root=(hd0,msdos1)（hd0，msdos1）改成你的启动分区
+linux /vmlinuz-linux root=/dev/sda1sda1改成你的根目录分区
+initrd /initramfs-linux.img
+boot
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;就可以进系统了，再想想引导怎么配吧。&lt;/p&gt;
+&lt;p&gt;本文参考 ：https://www.bilibili.com/read/cv19777065 感谢 &lt;code&gt;monki&lt;/code&gt;&lt;/p&gt;</description></item></channel></rss>

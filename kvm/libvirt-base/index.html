@@ -1,0 +1,190 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="kvm qemu 使用命令行的方式 较为简单明了，但是有几个问题 有一些麻烦。所以最好还是搞一下virt 不然还是不好处理\n开机启动虚拟主机（非管理员权限） 虚拟机内引导顺序 usb sata 等设备的热拔插 以及一些sudo权限的处理上 安装 1 sudo pacman -S libvirt #服务端 自带命令行客户端 virsh 服务 1 2 sudo systemctl enable libvirtd sudo systemctl start libvirtd 用已经存在的虚拟磁盘文件创建一个虚拟机 1 sudo pacman -S virt-install virt-install 不是必须的工具，可在 /home/yanhui/.config/libvirt/qemu/ 或者 /etc/libvirt/qemu 手动创建xml 来新建虚拟机\n1 2 3 4 5 6 7 virt-install \\ --name alpine-dockers \\ --vcpus=12 \\ --osinfo alpinelinux3.16 \\ --memory 1024 \\ --disk /mnt/ssd/alpinx-kvm/alpine-sys.qcow2 \\ --import 运行后 直接 ctrl+c 关闭,然后查看 virsh list --all\n"><title>使用libvirt 管理 qemu虚拟主机</title><link rel=canonical href=https://dev.leiyanhui.com/kvm/libvirt-base/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="使用libvirt 管理 qemu虚拟主机 "><meta property='og:description' content="kvm qemu 使用命令行的方式 较为简单明了，但是有几个问题 有一些麻烦。所以最好还是搞一下virt 不然还是不好处理\n开机启动虚拟主机（非管理员权限） 虚拟机内引导顺序 usb sata 等设备的热拔插 以及一些sudo权限的处理上 安装 1 sudo pacman -S libvirt #服务端 自带命令行客户端 virsh 服务 1 2 sudo systemctl enable libvirtd sudo systemctl start libvirtd 用已经存在的虚拟磁盘文件创建一个虚拟机 1 sudo pacman -S virt-install virt-install 不是必须的工具，可在 /home/yanhui/.config/libvirt/qemu/ 或者 /etc/libvirt/qemu 手动创建xml 来新建虚拟机\n1 2 3 4 5 6 7 virt-install \\ --name alpine-dockers \\ --vcpus=12 \\ --osinfo alpinelinux3.16 \\ --memory 1024 \\ --disk /mnt/ssd/alpinx-kvm/alpine-sys.qcow2 \\ --import 运行后 直接 ctrl+c 关闭,然后查看 virsh list --all\n"><meta property='og:url' content='https://dev.leiyanhui.com/kvm/libvirt-base/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Kvm'><meta property='article:published_time' content='2022-11-20T19:14:20+08:00'><meta property='article:modified_time' content='2022-11-20T19:14:20+08:00'><meta name=twitter:title content="使用libvirt 管理 qemu虚拟主机 "><meta name=twitter:description content="kvm qemu 使用命令行的方式 较为简单明了，但是有几个问题 有一些麻烦。所以最好还是搞一下virt 不然还是不好处理\n开机启动虚拟主机（非管理员权限） 虚拟机内引导顺序 usb sata 等设备的热拔插 以及一些sudo权限的处理上 安装 1 sudo pacman -S libvirt #服务端 自带命令行客户端 virsh 服务 1 2 sudo systemctl enable libvirtd sudo systemctl start libvirtd 用已经存在的虚拟磁盘文件创建一个虚拟机 1 sudo pacman -S virt-install virt-install 不是必须的工具，可在 /home/yanhui/.config/libvirt/qemu/ 或者 /etc/libvirt/qemu 手动创建xml 来新建虚拟机\n1 2 3 4 5 6 7 virt-install \\ --name alpine-dockers \\ --vcpus=12 \\ --osinfo alpinelinux3.16 \\ --memory 1024 \\ --disk /mnt/ssd/alpinx-kvm/alpine-sys.qcow2 \\ --import 运行后 直接 ctrl+c 关闭,然后查看 virsh list --all\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#安装>安装</a><ol><li><a href=#服务>服务</a></li><li><a href=#用已经存在的虚拟磁盘文件创建一个虚拟机>用已经存在的虚拟磁盘文件创建一个虚拟机</a></li></ol></li><li><a href=#关闭虚拟机>关闭虚拟机</a></li><li><a href=#编辑虚拟机>编辑虚拟机</a><ol><li><a href=#vnc配置>vnc配置</a></li></ol></li><li><a href=#图形工具-安装>图形工具 安装</a><ol><li><a href=#打开x11-转发>打开x11 转发</a></li><li><a href=#配置普通用户权限>配置普通用户权限</a></li><li><a href=#当前用户添加到libvirt-组>当前用户添加到libvirt 组</a></li><li><a href=#重启libvirtd>重启libvirtd</a></li><li><a href=#使用-virt-manager-来管虚拟机>使用 virt-manager 来管虚拟机</a></li></ol></li><li><a href=#端口转发>端口转发</a><ol><li><a href=#静态ip>静态ip</a></li><li><a href=#重新创建同名网络>重新创建同名网络</a></li><li><a href=#配置转发规则>配置转发规则</a><ol><li><a href=#查看本地网卡>查看本地网卡</a></li><li><a href=#procsysnetipv4ip_forward>/proc/sys/net/ipv4/ip_forward</a></li><li><a href=#开启转发>开启转发</a></li><li><a href=#保存-重启后有效>保存 重启后有效</a></li><li><a href=#查看和删除>查看和删除</a></li><li><a href=#更多需要的规则>更多需要的规则</a></li></ol></li></ol></li><li><a href=#其他>其他</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/libvirt/ style=background-color:#c2efbe;color:#133d0f>Libvirt
+</a><a href=/categories/kvm/ style=background-color:#beefe1;color:#0f3d30>Kvm</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/kvm/libvirt-base/>使用libvirt 管理 qemu虚拟主机</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2022-11-20T19:14:20+08:00>2022-11-20</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 3 分钟</time></div></footer></div></header><section class=article-content><p>kvm qemu 使用命令行的方式 较为简单明了，但是有几个问题 有一些麻烦。所以最好还是搞一下virt 不然还是不好处理</p><ul><li>开机启动虚拟主机（非管理员权限）</li><li>虚拟机内引导顺序</li><li>usb sata 等设备的热拔插</li><li>以及一些sudo权限的处理上</li></ul><h2 id=安装>安装</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo pacman -S libvirt  #服务端 自带命令行客户端 virsh
+</span></span></code></pre></td></tr></table></div></div><h3 id=服务>服务</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo systemctl enable libvirtd
+</span></span><span class=line><span class=cl>sudo systemctl start libvirtd
+</span></span></code></pre></td></tr></table></div></div><h3 id=用已经存在的虚拟磁盘文件创建一个虚拟机>用已经存在的虚拟磁盘文件创建一个虚拟机</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo pacman -S virt-install
+</span></span></code></pre></td></tr></table></div></div><p>virt-install 不是必须的工具，可在 /home/yanhui/.config/libvirt/qemu/ 或者 /etc/libvirt/qemu 手动创建xml 来新建虚拟机</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>virt-install  \
+</span></span><span class=line><span class=cl>  --name alpine-dockers  \
+</span></span><span class=line><span class=cl>  --vcpus=12 \
+</span></span><span class=line><span class=cl>  --osinfo alpinelinux3.16  \
+</span></span><span class=line><span class=cl>  --memory 1024 \
+</span></span><span class=line><span class=cl>  --disk /mnt/ssd/alpinx-kvm/alpine-sys.qcow2 \
+</span></span><span class=line><span class=cl>  --import
+</span></span></code></pre></td></tr></table></div></div><p>运行后 直接 ctrl+c 关闭,然后查看
+<code>virsh list --all</code></p><blockquote><p>查看支持的操作系统 virt-install &ndash;osinfo list</p></blockquote><h2 id=关闭虚拟机>关闭虚拟机</h2><pre><code>virsh shutdown alpine-dockers 
+</code></pre><h2 id=编辑虚拟机>编辑虚拟机</h2><pre><code>nano /home/yanhui/.config/libvirt/qemu/alpine-dockers.xml
+</code></pre><p>大部分内容很容易理解，和unraid下 以及shell下的写法 都接近
+修改之前 <a class=link href=https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/%E4%B8%80%E4%B8%AA%E5%9F%BA%E7%A1%80%E7%9A%84libvirt-alpine.xml target=_blank rel=noopener>传送门</a>
+我这里主要修改端口映射 以及 vnc 还有smb的处理</p><h3 id=vnc配置>vnc配置</h3><pre><code>&lt;graphics type='spice' autoport='yes'&gt;
+      &lt;listen type='address'/&gt;
+      &lt;image compression='off'/&gt;
+&lt;/graphics&gt;
+</code></pre><p>这段修改为vnc的配置</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>&lt;graphics type=&#39;vnc&#39; port=&#39;5908&#39; autoport=&#39;yes&#39; listen=&#39;0.0.0.0&#39; keymap=&#39;en-us&#39;/&gt;
+</span></span><span class=line><span class=cl>   &lt;listen type=&#39;address&#39; address=&#39;0.0.0.0&#39;/&gt;
+</span></span><span class=line><span class=cl>&lt;/graphics&gt;
+</span></span></code></pre></td></tr></table></div></div><h2 id=图形工具-安装>图形工具 安装</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo pacman -S virt-manager
+</span></span><span class=line><span class=cl>sudo pacman -S dnsmasq
+</span></span></code></pre></td></tr></table></div></div><h3 id=打开x11-转发>打开x11 转发</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>yay</span> <span class=o>-</span><span class=n>S</span> <span class=n>xorg</span><span class=o>-</span><span class=n>xauth</span>
+</span></span><span class=line><span class=cl><span class=n>cd</span> <span class=o>~</span>
+</span></span><span class=line><span class=cl><span class=n>touch</span> <span class=o>~/.</span><span class=n>Xauthority</span> <span class=o>&amp;&amp;</span> <span class=n>chmod</span> <span class=mi>600</span> <span class=o>~/.</span><span class=n>Xauthority</span>
+</span></span><span class=line><span class=cl><span class=n>sudo</span> <span class=n>nano</span> <span class=o>/</span><span class=n>etc</span><span class=o>/</span><span class=n>ssh</span><span class=o>/</span><span class=n>sshd_config</span>
+</span></span><span class=line><span class=cl><span class=o>----</span>
+</span></span><span class=line><span class=cl><span class=n>AddressFamily</span> <span class=n>inet</span>
+</span></span><span class=line><span class=cl><span class=n>X11Forwarding</span> <span class=n>yes</span>
+</span></span><span class=line><span class=cl><span class=n>X11DisplayOffset</span> <span class=mi>10</span>
+</span></span><span class=line><span class=cl><span class=n>X11UseLocalhost</span> <span class=n>yes</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>sudo</span> <span class=n>systemctl</span> <span class=n>reload</span> <span class=n>sshd</span>
+</span></span><span class=line><span class=cl><span class=n>sudo</span> <span class=n>systemctl</span> <span class=n>restart</span> <span class=n>sshd</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=配置普通用户权限>配置普通用户权限</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>/etc/libvirt/libvirtd.conf
+</span></span></code></pre></td></tr></table></div></div><p>找到这里两行 取消注释</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>unix_sock_group = &#34;libvirt&#34;
+</span></span><span class=line><span class=cl>unix_sock_ro_perms = &#34;0777&#34;  # set to 0770 to deny non-group libvirt users
+</span></span></code></pre></td></tr></table></div></div><h3 id=当前用户添加到libvirt-组>当前用户添加到libvirt 组</h3><pre><code>sudo usermod -a -G libvirt $(whoami)
+</code></pre><h3 id=重启libvirtd>重启libvirtd</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo systemctl restart libvirtd
+</span></span></code></pre></td></tr></table></div></div><h3 id=使用-virt-manager-来管虚拟机>使用 virt-manager 来管虚拟机</h3><p>直接在支持x11 server的ssh客户端上登录，然后运行 <code>virt-manager</code> 即可</p><h2 id=端口转发>端口转发</h2><p>端口转发 可以直接在宿主机上用iptables 来处理</p><p>也可以用 /etc/libvirt/hooks/ 来处理</p><h3 id=静态ip>静态ip</h3><p>先查看网络情况</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo virsh  net-list
+</span></span></code></pre></td></tr></table></div></div><p>有一个 名称为<code>network</code> 是配置的nat 的网络
+处理一下 vi，我用nano替代</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo ln -s /bin/nano /bin/vi
+</span></span></code></pre></td></tr></table></div></div><p>编辑 dhcp 这段</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo virsh  net-edit network
+</span></span></code></pre></td></tr></table></div></div><p>添加几行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>    &lt;host mac=&#39;52:54:00:6d:77:46&#39; name=&#39;alpine&#39; ip=&#39;192.168.100.2&#39;/&gt;
+</span></span><span class=line><span class=cl>    &lt;host mac=&#39;52:54:00:6d:77:10&#39; name=&#39;win10&#39; ip=&#39;192.168.100.10&#39;/&gt;
+</span></span><span class=line><span class=cl>    &lt;host mac=&#39;52:54:00:6d:77:13&#39; name=&#39;macos13&#39; ip=&#39;192.168.100.13&#39;/&gt;
+</span></span><span class=line><span class=cl>    &lt;host mac=&#39;52:54:00:6d:77:08&#39; name=&#39;archlinux&#39; ip=&#39;192.168.100.8&#39;/&gt;
+</span></span></code></pre></td></tr></table></div></div><p>52:54:00:6d:77:46 是虚拟机的虚拟mac地址</p><h3 id=重新创建同名网络>重新创建同名网络</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo virsh  net-destroy network
+</span></span><span class=line><span class=cl>sudo virsh  net-start network
+</span></span></code></pre></td></tr></table></div></div><p>关闭虚拟机，然后再打开一次虚拟机，不是重启虚拟机，是关闭后重新打开</p><h3 id=配置转发规则>配置转发规则</h3><h4 id=查看本地网卡>查看本地网卡</h4><pre><code>ifconfig
+</code></pre><p>我这里是本地网卡是enp1s0 虚拟机用的网卡是virbr1</p><h4 id=procsysnetipv4ip_forward>/proc/sys/net/ipv4/ip_forward</h4><pre><code>cat /proc/sys/net/ipv4/ip_forward
+</code></pre><p>应该是1 ，如果不是修改成1，或者 编辑/etc/stsctl.conf文件，把其中的net.ipv4.ip_forward = 0修为net.ipv4.ip_forward = 1</p><h4 id=开启转发>开启转发</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>#  添加filter 表的forward链
+</span></span><span class=line><span class=cl>sudo iptables -I FORWARD -m state -d 192.168.100.0/24 --state NEW,RELATED,ESTABLISHED -j ACCEPT
+</span></span><span class=line><span class=cl># 规则
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2222 -j DNAT --to-destination  192.168.100.2:22
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING  -p tcp -m tcp --dport 13389 -j DNAT --to-destination  192.168.100.10:3389
+</span></span></code></pre></td></tr></table></div></div><h4 id=保存-重启后有效>保存 重启后有效</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>su</span>
+</span></span><span class=line><span class=cl><span class=n>iptables</span><span class=o>-</span><span class=n>save</span> <span class=o>&gt;</span> <span class=o>/</span><span class=n>etc</span><span class=o>/</span><span class=n>iptables</span><span class=o>/</span><span class=n>iptables</span><span class=o>.</span><span class=n>rules</span>
+</span></span><span class=line><span class=cl><span class=n>systemctl</span> <span class=n>reload</span> <span class=n>iptables</span>
+</span></span><span class=line><span class=cl><span class=n>iptables</span><span class=o>-</span><span class=n>restore</span> <span class=o>&lt;</span> <span class=o>/</span><span class=n>etc</span><span class=o>/</span><span class=n>iptables</span><span class=o>/</span><span class=n>iptables</span><span class=o>.</span><span class=n>rules</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=查看和删除>查看和删除</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo iptables -t nat -nL --line # 查看
+</span></span><span class=line><span class=cl>sudo iptables -t nat -D PREROUTING 序号  # 删除
+</span></span></code></pre></td></tr></table></div></div><h4 id=更多需要的规则>更多需要的规则</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl># v2ray
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2017 -j DNAT --to-destination  192.168.100.2:2017
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20170 -j DNAT --to-destination  192.168.100.2:20170
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20171 -j DNAT --to-destination  192.168.100.2:20171
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20172 -j DNAT --to-destination  192.168.100.2:20172
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20173 -j DNAT --to-destination  192.168.100.2:20173
+</span></span><span class=line><span class=cl># 阿里云盘wedav
+</span></span><span class=line><span class=cl>sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 8080 -j DNAT --to-destination  192.168.100.2:8080
+</span></span></code></pre></td></tr></table></div></div><h2 id=其他>其他</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>sudo mkdir /etc/libvirt/hooks
+</span></span><span class=line><span class=cl>sudo nano /etc/libvirt/hooks/qemu
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=cp>#!/bin/bash
+</span></span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=si>${</span><span class=nv>1</span><span class=si>}</span><span class=s2>&#34;</span> <span class=o>=</span> <span class=s2>&#34;alpinelinux&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>   <span class=nv>GUEST_IP</span><span class=o>=</span>192.168.100.2
+</span></span><span class=line><span class=cl>   <span class=nv>GUEST_PORT</span><span class=o>=</span><span class=m>22</span>
+</span></span><span class=line><span class=cl>   <span class=nv>HOST_PORT</span><span class=o>=</span><span class=m>2222</span>
+</span></span><span class=line><span class=cl>   <span class=k>if</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=si>${</span><span class=nv>2</span><span class=si>}</span><span class=s2>&#34;</span> <span class=o>=</span> <span class=s2>&#34;stopped&#34;</span> <span class=o>]</span> <span class=o>||</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=si>${</span><span class=nv>2</span><span class=si>}</span><span class=s2>&#34;</span> <span class=o>=</span> <span class=s2>&#34;reconnect&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>	/sbin/iptables -D FORWARD -o virbr0 -p tcp -d <span class=nv>$GUEST_IP</span> --dport <span class=nv>$GUEST_PORT</span> -j ACCEPT
+</span></span><span class=line><span class=cl>	/sbin/iptables -t nat -D PREROUTING -p tcp --dport <span class=nv>$HOST_PORT</span> -j DNAT --to <span class=nv>$GUEST_IP</span>:<span class=nv>$GUEST_PORT</span>
+</span></span><span class=line><span class=cl>   <span class=k>fi</span>
+</span></span><span class=line><span class=cl>   <span class=k>if</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=si>${</span><span class=nv>2</span><span class=si>}</span><span class=s2>&#34;</span> <span class=o>=</span> <span class=s2>&#34;start&#34;</span> <span class=o>]</span> <span class=o>||</span> <span class=o>[</span> <span class=s2>&#34;</span><span class=si>${</span><span class=nv>2</span><span class=si>}</span><span class=s2>&#34;</span> <span class=o>=</span> <span class=s2>&#34;reconnect&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>	/sbin/iptables -I FORWARD -o virbr0 -p tcp -d <span class=nv>$GUEST_IP</span> --dport <span class=nv>$GUEST_PORT</span> -j ACCEPT
+</span></span><span class=line><span class=cl>	/sbin/iptables -t nat -I PREROUTING -p tcp --dport <span class=nv>$HOST_PORT</span> -j DNAT --to <span class=nv>$GUEST_IP</span>:<span class=nv>$GUEST_PORT</span>
+</span></span><span class=line><span class=cl>   <span class=k>fi</span>
+</span></span><span class=line><span class=cl><span class=k>fi</span>
+</span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/kvm/auto_start_vm/><div class=article-details><h2 class=article-title>kvm 自动启动vm，不使用libvirt</h2></div></a></article><article><a href=/nixos/kvm-qemu/><div class=article-details><h2 class=article-title>nixos下使用kvm和显卡直通等 简要配置</h2></div></a></article><article><a href=/pve/move/><div class=article-details><h2 class=article-title>pve 在线迁移lxc和kvm</h2></div></a></article><article><a href=/openwrt/padaven-port-rule/><div class=article-details><h2 class=article-title>padaven 固件端口转发配置无效的问题</h2></div></a></article><article><a href=/all-in-one/my-jiujie/><div class=article-details><h2 class=article-title>我的all in one 以及路由器 nas 的纠结和最终的方案</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ikuai-Bypass on 小类随手记</title><link>https://dev.leiyanhui.com/categories/ikuai-bypass/</link><description>Recent content in Ikuai-Bypass on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 03 Oct 2024 12:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/ikuai-bypass/index.xml" rel="self" type="application/rss+xml"/><item><title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</title><link>https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui/</link><pubDate>Thu, 03 Oct 2024 12:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui/</guid><description>&lt;h2 id="更新说明"&gt;更新说明
+&lt;/h2&gt;&lt;p&gt;旧版文档地址:&lt;a class="link" href="https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui-old/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui-old/&lt;/a&gt; 本文内容未覆盖到信息请参考旧版文档。&lt;/p&gt;
+&lt;h2 id="项目说明"&gt;项目说明
+&lt;/h2&gt;&lt;p&gt;ikuai-bypass 是一个自动维护爱快分流规则的小工具，基于golang开发。
+项目地址 &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/ikuai-bypass/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="爱快分流原理"&gt;爱快分流原理
+&lt;/h2&gt;&lt;p&gt;爱快分流方式不同与传统的旁路由方案，更加直观，速度也更加好。&lt;br&gt;
+下述文档中 以爱快+openwrt为例，（实际上 openwrt可以用其他linux甚至win/macos替代，只要能运行你想要的对应的工具即可。可以在docker/lxc/kvm/vmware/virtuabox/物理设备）中运行openwrt.&lt;br&gt;
+分流方式主要有两种：
+1、isp分流和域名分流配合： 基于爱快的自定义isp的ip功能，实现针对wan口的分流，把非国内ip和部分域名分流到wan2口由openwrt处理后 回流到wan1，国内ip和国内大站直接分流到wan1。&lt;br&gt;
+2、ip分组+端口分流和下一跳网关： 基于爱快的ip分组功能和端口分流功能，把国内ip直接走wan1,其他ip或者指定的ip用下一跳网关的方式到达openwrt再回流到wan1。&lt;/p&gt;
+&lt;h2 id="爱快分流的优点"&gt;爱快分流的优点
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;比单openwrt方案更加直观容易维护&lt;/li&gt;
+&lt;li&gt;比旁路由方案更加稳定 速度也好很多。&lt;/li&gt;
+&lt;li&gt;和自建dns配合更简单。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="openwrt的安装方式"&gt;openwrt的安装方式
+&lt;/h2&gt;&lt;p&gt;以下均为有效的方式 ，这里的openwrt泛指可以运行你喜欢的那些工具的系统。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;爱快内的docker 其他设备的docker 或者lxc运行的openwrt或者其他配置好的系统。&lt;/li&gt;
+&lt;li&gt;爱快内的kvm 或者其他的 kvm vmware virtualbox 和hyper-v 等虚拟机系统。&lt;/li&gt;
+&lt;li&gt;双网口设备 / 单网口设备。&lt;/li&gt;
+&lt;li&gt;测试过的系统 openwrt 老毛子 alpine macos11-15 win8-11 debian pve opensuse nixos &amp;hellip;..&lt;/li&gt;
+&lt;li&gt;支持的深度学习工具软件：暂时未发现无法支持的工具。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="常规使用方式--isp分流和域名分流配合"&gt;常规使用方式 isp分流和域名分流配合
+&lt;/h2&gt;&lt;p&gt;较为复杂，但是高可用性网络自愈性比较好。&lt;/p&gt;
+&lt;h3 id="简单说明"&gt;简单说明
+&lt;/h3&gt;&lt;p&gt;建议在pve/esxi/unraid/群晖/docker/lxc/podman中运行爱快+openwrt，当然也可以物理设备。 &lt;br&gt;
+单网卡 pve测试没问题，其他环境同样不会有问题。
+爱快3个或者3个以上网卡/虚拟网卡 作为主路由&lt;br&gt;
+openwrt/其他linux 双网卡/虚拟网卡，作为下级路由（非旁路由）&lt;/p&gt;
+&lt;h3 id="pve下推荐配置"&gt;pve下推荐配置
+&lt;/h3&gt;&lt;p&gt;推荐 2G内存安装ikuai 32位版，硬盘1G即可，然后修改为 512M内存&lt;br&gt;
+openwrt 官方版，或者自编译版本 内存 256-512M（开clash要300M，v2系256M就可以） 硬盘512M即可，或者看你img的分区。或lxc运行&lt;br&gt;
+iKuai Bypass 运行在 openwrt &lt;br&gt;
+mosdns 也可以运行在 openwrt &lt;a class="link" href="https://dev.leiyanhui.com/route/mosdns-all-in-one/" target="_blank" rel="noopener"
+&gt;mosdns all in one方案&lt;/a&gt; &lt;a class="link" href="https://dev.leiyanhui.com/route/safe-dns/" target="_blank" rel="noopener"
+&gt;modns配adg方案&lt;/a&gt;
+64位 爱快，kvm/docker 运行 openwrt 和 iKuai Bypass 以及 mosdns 也可以，但是不推荐。&lt;/p&gt;
+&lt;h3 id="物理网络虚拟网卡配置-举例"&gt;物理网络/虚拟网卡配置 举例
+&lt;/h3&gt;&lt;p&gt;爱快 lan1 绑定到 eth0 开DHCP dhcp范围 10.1.1.5-10.1.1.254&lt;br&gt;
+爱快 wan1 绑定到 eth1 pppoe拨号 wan1先设置为默认线路
+爱快 wan2 绑定到 eth2 静态ip指定 10.0.0.2 网关10.0.0.1&lt;/p&gt;
+&lt;p&gt;openwrt wan 绑定到eth0 DHCP客户端，连接到爱快lan1 从爱快静态ip绑定为10.1.1.3 &lt;br&gt;
+openwrt lan 绑定套eth1 关闭DHCP服务，ip地址配置 10.0.0.1 即为爱快wan2的上游网关&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;openwrt的两个网口绑定到那个eth不影响使用,用默认的就好。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;可以参考top图&lt;a class="link" href="https://raw.githubusercontent.com/joyanhui/ikuai-bypass/refs/heads/main/assets/img.png" target="_blank" rel="noopener"
+&gt;github&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;下文说配置都以上述为例&lt;/p&gt;
+&lt;h3 id="避免死循环"&gt;避免死循环
+&lt;/h3&gt;&lt;p&gt;在爱快内手动添加一个分流规则 流控分流 &amp;gt; 分流设置 &amp;gt; 端口分流&lt;br&gt;
+分流方式：外网线路 线路：wan1 源地址 ip/mac分组 添加一个 10.1.1.3 点加入 保存&lt;br&gt;
+此时 openwrt出来的流量 走wan1 不会再到wan2回到openwrt 导致死循环。&lt;br&gt;
+此时openwrt 可以正常访问外部网络。&lt;br&gt;
+注意：备注不建议包含字符：&lt;code&gt;IKUAI_BYPASS&lt;/code&gt; ，否则有概率会被ikuai_bypass工具清理掉。&lt;/p&gt;
+&lt;h3 id="配置--wan2-为默认线路"&gt;配置 wan2 为默认线路
+&lt;/h3&gt;&lt;p&gt;此时所有对外网访问 都会 经过wan2 到openwrt,然后根据你的深度学习软件的分流情况决定是否加密，再回到爱快的lan1 再流向外网。&lt;br&gt;
+此时你的上网速度和传统的旁路由模式完全一样，略慢。&lt;/p&gt;
+&lt;h3 id="配置国内域名强制走wan1直连"&gt;配置国内域名强制走wan1直连
+&lt;/h3&gt;&lt;p&gt;流控分流 &amp;gt; 分流设置 &amp;gt; 域名分流，选择wan1 ，输入几个域名，输入客户端ip,建议 10.1.1.5-10.1.1.254 ，此时10.1.1.5-10.1.1.254 的设备访问这个域名会直接走wan1 , 不经过openwrt，速度飞快。&lt;br&gt;
+当然你自己输入太麻烦了。ikuai-bypass 可以自动帮你维护这个域名列表，通过ikuai-bypass可以自己托管一个域名列表并保证规则的id是最大。&lt;/p&gt;
+&lt;h3 id="配置某些域名强制走wan2-交给openwrt处理"&gt;配置某些域名强制走wan2 交给openwrt处理
+&lt;/h3&gt;&lt;p&gt;目的是啥，你肯定知道。配置和上面一样，同样 ikuai-bypass 可以自动帮你维护这个域名列表。&lt;/p&gt;
+&lt;h3 id="配置国内ip强制走wan1"&gt;配置国内ip强制走wan1
+&lt;/h3&gt;&lt;p&gt;因为域名清单里面的域名不能覆盖所有网站，还有一些是没有域名直接ip连接情况。所以需要维护一个根据ip分流的规则。&lt;br&gt;
+流控分流 &amp;gt; 分流设置 &amp;gt; 多线负载 自定义运营商 添加运营商 名称：&lt;code&gt;国内ip地址&lt;/code&gt; 目的地址：输入几个国内的ip,备注：&lt;code&gt;自定义&lt;/code&gt;&lt;br&gt;
+返回 流控分流 &amp;gt; 分流设置 &amp;gt; 多线负载 点右侧添加 运营商：选择你刚刚添加的名称，点wan1 后面的启用，保存。&lt;br&gt;
+此时 你访问这个ip上的网站或者其他东西，会强制走wan1 不经过openwrt，速度飞快。 &lt;br&gt;
+同样 ikuai-bypass 可以自动帮你维护这个IP地址列表。&lt;/p&gt;
+&lt;h3 id="配置默认线路-确保网络100可用性"&gt;配置默认线路 确保网络100%可用性
+&lt;/h3&gt;&lt;p&gt;把wan2 配置为默认线路，网络设置 &amp;gt; 内外网设置 wan2 同时打开&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;默认网关：设此条线路为默认网关&lt;/li&gt;
+&lt;li&gt;自动切换：掉线自动切换&lt;/li&gt;
+&lt;li&gt;线路检测：HTTP &lt;a class="link" href="https://www.google.com" target="_blank" rel="noopener"
+&gt;www.google.com&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;此时，访问不在国内域名清单的域名，并且ip不再自定义运营商的&lt;code&gt;国内ip地址&lt;/code&gt;的服务器，会默认走wan2。如果openwrt死机或者google连不上，会自动临时禁用wan2 默认走wan1。&lt;/p&gt;
+&lt;h3 id="使用ikuai-bypass-自动维护ip和域名规则"&gt;使用ikuai-bypass 自动维护ip和域名规则。
+&lt;/h3&gt;&lt;p&gt;较为简单&lt;/p&gt;
+&lt;h4 id="部署ikuai-bypass"&gt;部署ikuai-bypass
+&lt;/h4&gt;&lt;p&gt;ikuai-bypass 只要部署在可以访问到 爱快路由器的地方即可。一般建议以服务模式直接部署到openwrt内。&lt;/p&gt;
+&lt;h4 id="服务模式-openwrtalpinercsystemd"&gt;服务模式 openwrt/alpine/rc/systemd
+&lt;/h4&gt;&lt;p&gt;以openwrt为例 请参考 &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/blob/main/script-example/AddOpenwrtService.sh" target="_blank" rel="noopener"
+&gt;github&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="下载最新版"&gt;下载最新版
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/releases" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/ikuai-bypass/releases&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="配置文件"&gt;配置文件
+&lt;/h4&gt;&lt;p&gt;需要自定义一个配置文件 config.yml 格式如下。&lt;br&gt;
+然后运行 &lt;code&gt;./ikuai-bypass -c /路径/config.yml&lt;/code&gt; 即可在启动时候 自动更新一次规则文件，并在 cron指定的时间内定时运行。&lt;br&gt;
+下面的配置文件 会执行一下操作&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;自动登陆到 网址是 http://10.1.1.1 的爱快 使用用户名admin 密码 admin888登陆，如果登陆成功。&lt;/li&gt;
+&lt;li&gt;运营商/IP分流规则 他会帮你添加 一个 &lt;code&gt;国内IP列表&lt;/code&gt; 的运营商，你需要去爱快 流控分流 &amp;gt; 分流设置 &amp;gt; 多线负载 添加规则，选择 国内IP列表 启用wan1&lt;br&gt;
+也会添加几个 telegram google 等ip地址，你可以删掉那几行，也可以添加规则 启用wan2&lt;/li&gt;
+&lt;li&gt;另外会添加4个域名分流规则 分别强制走wan1 和wan2 你可以在下面配置文件清晰看到。需要注意的是 china-list 和 gfw两个清单 都很长，添加/更新的时候会很慢。你可以根据你的需求决定是否要保留，添加后会增加你访问网址的速度，但是会增加ikuai的性能消耗（大概增加30-120M内存消耗，cpu负载也会增加一点），如果你的ikuai配置很烂，可以去掉其他规则 只使用 国内IP列表 的IP分流即可 。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;文件内容参考 &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/blob/main/config.yml" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/ikuai-bypass/blob/main/config.yml&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="运行命令参考"&gt;运行命令参考
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;./ikuai-bypass -r cron -m ispdomain -c /opt/ikuai-bypass/config.yml
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="另外一种使用方式-ip分组端口分流和下一跳网关"&gt;另外一种使用方式 ip分组+端口分流和下一跳网关
+&lt;/h2&gt;&lt;p&gt;这种方式较为简单，并且不需要openwrt设备有2个网口。爱快也只需要2个网口。&lt;/p&gt;
+&lt;h3 id="网络结构"&gt;网络结构
+&lt;/h3&gt;&lt;p&gt;爱快配置好wan1 和lan1 以及pppoe等 正常上网。&lt;/p&gt;
+&lt;h3 id="配置好一个openwrt"&gt;配置好一个openwrt
+&lt;/h3&gt;&lt;p&gt;这里的openwrt依旧是泛指可以运行你想要的工具软件的系统，作为爱快的下级普通设备。 可以使用单臂路由，手动指定ip为 10.1.1.3 或者有ikuai的dhcp分配均可&lt;/p&gt;
+&lt;h3 id="避免死循环-1"&gt;避免死循环
+&lt;/h3&gt;&lt;p&gt;参考上文&lt;/p&gt;
+&lt;h3 id="下一跳网关和ip分组"&gt;下一跳网关和ip分组
+&lt;/h3&gt;&lt;p&gt;由ikuai-bypass来维护，从ikuai-bypass的配置文件中修改即可。&lt;/p&gt;
+&lt;h3 id="使用ikuai-bypass-自动维护ip分组端口分流和下一跳网关"&gt;使用ikuai-bypass 自动维护ip分组、端口分流和下一跳网关
+&lt;/h3&gt;&lt;h4 id="部署ikuai-bypass-1"&gt;部署ikuai-bypass
+&lt;/h4&gt;&lt;p&gt;参考上文&lt;/p&gt;
+&lt;h4 id="配置文件-1"&gt;配置文件
+&lt;/h4&gt;&lt;p&gt;参考上文&lt;/p&gt;
+&lt;h4 id="运行命令参考-1"&gt;运行命令参考
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;./ikuai-bypass -r cron -m ipgroup -c /opt/ikuai-bypass/config.yml
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="docker"&gt;docker
+&lt;/h3&gt;&lt;p&gt;我没有打包docker镜像，因为完全没必要，你可以自己用下面的命令启动一个docker &lt;br&gt;
+请参考 ： &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/blob/main/Dockerfile_example" target="_blank" rel="noopener"
+&gt;github&lt;/a&gt;&lt;br&gt;
+以及 &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/tree/main?tab=readme-ov-file#docker" target="_blank" rel="noopener"
+&gt;github的readme中的docker部分 &lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="常用参数"&gt;常用参数
+&lt;/h2&gt;&lt;p&gt;最新的参数说明请参考github的文档桌面，这里更新可能存在滞后。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-c&lt;/code&gt; : 配置文件路径 默认为当前目录下&lt;code&gt;config.yml&lt;/code&gt; 可用相对路径或者绝对路径&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-m&lt;/code&gt; : 是否启用ip分组和下一跳网关模式（端口分流）v2.0以后版本有效
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;ispdomain&lt;/code&gt; : 使用isp和域名分流功能(默认，为了兼容v1.x版本)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;ipgroup&lt;/code&gt; : 使用ip分组和下一跳网关模式（端口分流)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;ii&lt;/code&gt; : 同时使用 上面两种模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-r&lt;/code&gt; : 运行模式 默认为&lt;code&gt;cron&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;cron&lt;/code&gt; : 先运行一次 而后等待计划任务触发&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;nocron&lt;/code&gt; 或 &lt;code&gt;once&lt;/code&gt;或 &lt;code&gt;1&lt;/code&gt;: 忽略配置文件的cron定时配置配置 运行一次然后就直接退出结束，适合调试使用或者使用系统自带的计划任务或serverless/函数计算等方式触发。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;cronAft&lt;/code&gt; : 先不运行等计划任务触发&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;clean&lt;/code&gt; : 清理模式 默认可选附加参数为 &lt;code&gt;-tag cleanAll&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;exportDomainSteamToTxt&lt;/code&gt; : 导出域名分流规则到txt文件模式 方便手动从爱快导入 默认可选附加参数为 &lt;code&gt;-exportPath /tmp&lt;/code&gt; 暂时只支持域名分流功能导出，&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-tag&lt;/code&gt; : 备注信息 &lt;code&gt;clean&lt;/code&gt;清理模式下的附加参数
+&lt;ul&gt;
+&lt;li&gt;默认为cleanAll(即清理所有备注中包含&lt;code&gt;IKUAI_BYPASS&lt;/code&gt;字符的规则)&lt;/li&gt;
+&lt;li&gt;单独指定备注的关键词 可以不添写&lt;code&gt;IKUAI_BYPASS_&lt;/code&gt;前缀 例如&lt;code&gt;-r clean -tag ipcn&lt;/code&gt; 或 &lt;code&gt;-r clean -tag IKUAI_BYPASS_ipcn&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-exportPath&lt;/code&gt; : 导出域名分流规则的路径&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-login&lt;/code&gt; : ikuai登陆地址和账户密码，优先级比配置文件的优先级更高。格式: &lt;code&gt;http://10.1.1.1,admin,password&lt;/code&gt; 为空则使用配置文件内登陆信息&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-delOldRule&lt;/code&gt; : 删除旧规则顺序，默认为 &lt;code&gt;after&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;after&lt;/code&gt; : 先更新规则成功后再删除旧规则&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;before&lt;/code&gt; : 先删除旧规则再更新新规则，如果更新失败会丢失规则&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="其他补充"&gt;其他补充
+&lt;/h2&gt;&lt;p&gt;本文有一定滞后性，内容以 &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/ikuai-bypass/&lt;/a&gt; 的最新说明为准。&lt;/p&gt;
+&lt;h3 id="自定义规则和ikuai-bypass的规则"&gt;自定义规则和ikuai-bypass的规则
+&lt;/h3&gt;&lt;p&gt;ikuai-bypass 自动维护的规则 都会添加备注 &lt;code&gt;IKUAI_BYPASS&lt;/code&gt; ，只要你添加的自定义的规则备注不包含这个字符即可。&lt;/p&gt;
+&lt;h3 id="关于实例配置文件"&gt;关于实例配置文件
+&lt;/h3&gt;&lt;p&gt;实例配置文件使用了 &lt;a class="link" href="https://mirror.ghproxy.com" target="_blank" rel="noopener"
+&gt;https://mirror.ghproxy.com&lt;/a&gt; 作为github的代理方便可以在无科学环境更新规则，但是ghproxy有被gfw污染的先例，请自行更新更稳定的或者自建的github代理。&lt;br&gt;
+配置文件中有一些额外的选项和注释，可以自行酌情删除。&lt;/p&gt;
+&lt;h3 id="是否可以替代原版ikuai-bypass"&gt;是否可以替代原版ikuai-bypass
+&lt;/h3&gt;&lt;p&gt;原版是基于docker的，所以也可以直接替代，参考上面的docker配置&lt;/p&gt;</description></item><item><title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</title><link>https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui-old/</link><pubDate>Sun, 26 Nov 2023 12:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui-old/</guid><description>&lt;h2 id="分流说明"&gt;分流说明
+&lt;/h2&gt;&lt;p&gt;使用爱快分流规则 + 一个二级路由的方式 实现比旁路由模式更稳定 速度更快的 深度学习网络。&lt;/p&gt;
+&lt;h2 id="ikuai-bypass修改版-说明"&gt;iKuai Bypass修改版 说明
+&lt;/h2&gt;&lt;p&gt;项目地址 &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/ikuai-bypass/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;fork 自 &lt;a class="link" href="https://github.com/ztc1997/ikuai-bypass/" target="_blank" rel="noopener"
+&gt;https://github.com/ztc1997/ikuai-bypass/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="ikuai-bypass-功能"&gt;iKuai Bypass 功能
+&lt;/h2&gt;&lt;p&gt;ip分流规则和域名分流规则添加到爱快的自定义运营商和域名分流，并自动更新规则文件。&lt;/p&gt;
+&lt;h2 id="更新"&gt;更新
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;并发处理 运营商/IP分流 和 域名分流&lt;/li&gt;
+&lt;li&gt;更新成功后再删除旧规则&lt;/li&gt;
+&lt;li&gt;支持无docker运行&lt;/li&gt;
+&lt;li&gt;支持单次运行参数&lt;code&gt;-r nocron&lt;/code&gt;忽略配置文件的cron配置&lt;/li&gt;
+&lt;li&gt;支持单独清理模式&lt;code&gt;-r clean&lt;/code&gt; 清理本工具添加的备注为&lt;code&gt;IKUAI_BYPASS&lt;/code&gt;的分流规则&lt;/li&gt;
+&lt;li&gt;支持cron运行参数&lt;code&gt;-r cron&lt;/code&gt; &lt;code&gt;-r cronAft&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="命令"&gt;命令
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ikuai-bypass -c 配置文件路径 -r 运行模式
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;ul&gt;
+&lt;li&gt;配置文件路径：默认为当前目录下的 config.yml&lt;/li&gt;
+&lt;li&gt;运行模式&lt;/li&gt;
+&lt;li&gt;cron 默认，会先执行一次然后使用配置文件的cron定时重复执行，如果cron为空那么执行依次后直接退出&lt;/li&gt;
+&lt;li&gt;cronAft 不马上执行,等到cron定时任务触发后再执行&lt;/li&gt;
+&lt;li&gt;nocron为单次执行 运行完成后自动推出&lt;/li&gt;
+&lt;li&gt;clean 清理本工具添加的备注为&lt;code&gt;IKUAI_BYPASS&lt;/code&gt;的分流规则&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="通常使用方法"&gt;通常使用方法
+&lt;/h2&gt;&lt;h3 id="简单说明"&gt;简单说明
+&lt;/h3&gt;&lt;p&gt;建议在pve/esxi/unraid/群晖/docker/lxc/podman中运行爱快+openwrt，当然也可以物理设备。 &lt;br&gt;
+单网卡 pve测试没问题，其他环境同样不会有问题。
+爱快3个或者3个以上网卡/虚拟网卡 作为主路由&lt;br&gt;
+openwrt/其他linux 双网卡/虚拟网卡，作为下级路由（非旁路由）&lt;/p&gt;
+&lt;h3 id="pve下推荐配置"&gt;pve下推荐配置
+&lt;/h3&gt;&lt;p&gt;推荐 2G内存安装ikuai 32位版，硬盘1G即可，然后修改为 512M内存&lt;br&gt;
+openwrt 官方版，或者自编译版本 内存 256-512M（开clash要300M，v2系256M就可以） 硬盘512M即可，或者看你img的分区。或lxc运行&lt;br&gt;
+iKuai Bypass 运行在 openwrt &lt;br&gt;
+mosdns 也可以运行在 openwrt &lt;a class="link" href="https://dev.leiyanhui.com/route/mosdns-all-in-one/" target="_blank" rel="noopener"
+&gt;mosdns all in one方案&lt;/a&gt; &lt;a class="link" href="https://dev.leiyanhui.com/route/safe-dns/" target="_blank" rel="noopener"
+&gt;modns配adg方案&lt;/a&gt;
+64位 爱快，kvm/docker 运行 openwrt 和 iKuai Bypass 以及 mosdns 也可以，但是不推荐。&lt;/p&gt;
+&lt;h2 id="物理网络虚拟网卡配置-举例"&gt;物理网络/虚拟网卡配置 举例
+&lt;/h2&gt;&lt;p&gt;爱快 lan1 绑定到 eth0 开DHCP dhcp范围 10.1.1.5-10.1.1.254&lt;br&gt;
+爱快 wan1 绑定到 eth1 pppoe拨号 wan1先设置为默认线路
+爱快 wan2 绑定到 eth2 静态ip指定 10.0.0.2 网关10.0.0.1&lt;/p&gt;
+&lt;p&gt;openwrt wan 绑定到eth1 DHCP客户端，连接到爱快lan1 从爱快静态ip绑定为10.1.1.3
+openwrt lan 绑定套eth0 关闭DHCP服务，ip地址配置 10.1.1.1&lt;/p&gt;
+&lt;p&gt;下文说配置都以上述为例&lt;/p&gt;
+&lt;h2 id="避免死循环"&gt;避免死循环
+&lt;/h2&gt;&lt;p&gt;爱快添加一个分流规则 流控分流 &amp;gt; 分流设置 &amp;gt; 端口分流&lt;br&gt;
+分流方式：外网线路 线路：wan1 源地址 ip/mac分组 添加一个 10.1.1.3 点加入 保存&lt;br&gt;
+此时 openwrt出来的流量 走wan1 不会再到wan2回到openwrt 导致死循环。&lt;br&gt;
+此时openwrt 可以正常访问外部网络。&lt;/p&gt;
+&lt;h2 id="配置--wan2-为默认线路"&gt;配置 wan2 为默认线路
+&lt;/h2&gt;&lt;p&gt;此时所有对外网访问 都会 经过wan2 到openwrt,然后根据你的深度学习软件的分流情况决定是否加密，再回到爱快的lan1 再流向外网。&lt;br&gt;
+此时你的上网速度和传统的旁路由模式完全一样，略慢。&lt;/p&gt;
+&lt;h2 id="配置国内域名强制走wan1直连"&gt;配置国内域名强制走wan1直连
+&lt;/h2&gt;&lt;p&gt;流控分流 &amp;gt; 分流设置 &amp;gt; 域名分流，选择wan1 ，输入几个域名，输入客户端ip,建议 10.1.1.5-10.1.1.254 ，此时10.1.1.5-10.1.1.254 的设备访问这个域名会直接走wan1 , 不经过openwrt，速度飞快。&lt;br&gt;
+当然你自己输入太麻烦了。ikuai-bypass 可以自动帮你维护这个域名列表。&lt;/p&gt;
+&lt;h2 id="配置某些域名强制走wan2-交给openwrt处理"&gt;配置某些域名强制走wan2 交给openwrt处理
+&lt;/h2&gt;&lt;p&gt;目的是啥，你肯定知道。配置和上面一样，同样 ikuai-bypass 可以自动帮你维护这个域名列表。&lt;/p&gt;
+&lt;h2 id="配置国内ip强制走wan1"&gt;配置国内ip强制走wan1
+&lt;/h2&gt;&lt;p&gt;因为域名清单里面的域名不能覆盖所有网站，还有一些是没有域名直接ip连接情况。所以需要维护一个根据ip分流的规则。&lt;br&gt;
+流控分流 &amp;gt; 分流设置 &amp;gt; 多线负载 自定义运营商 添加运营商 名称：&lt;code&gt;国内ip地址&lt;/code&gt; 目的地址：输入几个国内的ip,备注：&lt;code&gt;自定义&lt;/code&gt;&lt;br&gt;
+返回 流控分流 &amp;gt; 分流设置 &amp;gt; 多线负载 点右侧添加 运营商：选择你刚刚添加的名称，点wan1 后面的启用，保存。&lt;br&gt;
+此时 你访问这个ip上的网站或者其他东西，会强制走wan1 不经过openwrt，速度飞快。 &lt;br&gt;
+同样 ikuai-bypass 可以自动帮你维护这个IP地址列表。&lt;/p&gt;
+&lt;h2 id="配置默认线路-确保网络100可用性"&gt;配置默认线路 确保网络100%可用性
+&lt;/h2&gt;&lt;p&gt;把wan2 配置为默认线路，网络设置 &amp;gt; 内外网设置 wan2 同时打开&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;默认网关：设此条线路为默认网关&lt;/li&gt;
+&lt;li&gt;自动切换：掉线自动切换&lt;/li&gt;
+&lt;li&gt;线路检测：HTTP &lt;a class="link" href="https://www.google.com" target="_blank" rel="noopener"
+&gt;www.google.com&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;此时，访问不在国内域名清单的域名，并且ip不再自定义运营商的&lt;code&gt;国内ip地址&lt;/code&gt;的服务器，会默认走wan2。如果openwrt死机或者google连不上，会自动临时禁用wan2 默认走wan1。&lt;/p&gt;
+&lt;h2 id="使用ikuai-bypass-自动维护ip和域名规则"&gt;使用ikuai-bypass 自动维护ip和域名规则。
+&lt;/h2&gt;&lt;h3 id="配置文件"&gt;配置文件
+&lt;/h3&gt;&lt;p&gt;需要自定义一个配置文件 config.yml 格式如下。&lt;br&gt;
+然后运行 &lt;code&gt;./ikuai-bypass -c /路径/config.yml&lt;/code&gt; 即可在启动时候 自动更新一次规则文件，并在 cron指定的时间内定时运行。&lt;br&gt;
+下面的配置文件 会执行一下操作&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;自动登陆到 网址是 http://10.1.1.1 的爱快 使用用户名admin 密码 admin888登陆，如果登陆成功。&lt;/li&gt;
+&lt;li&gt;运营商/IP分流规则 他会帮你添加 一个 &lt;code&gt;国内IP列表&lt;/code&gt; 的运营商，你需要去爱快 流控分流 &amp;gt; 分流设置 &amp;gt; 多线负载 添加规则，选择 国内IP列表 启用wan1&lt;br&gt;
+也会添加几个 telegram google 等ip地址，你可以删掉那几行，也可以添加规则 启用wan2&lt;/li&gt;
+&lt;li&gt;另外会添加4个域名分流规则 分别强制走wan1 和wan2 你可以在下面配置文件清晰看到。需要注意的是 china-list 和 gfw两个清单 都很长，添加/更新的时候会很慢。你可以根据你的需求决定是否要保留，添加后会增加你访问网址的速度，但是会增加ikuai的性能消耗（大概增加30-120M内存消耗，cpu负载也会增加一点），如果你的ikuai配置很烂，可以去掉其他规则 只使用 国内IP列表 的IP分流即可 。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;文件内容参考 &lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/blob/main/config_example.yml" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/ikuai-bypass/blob/main/config_example.yml&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="部署ikuai-bypass"&gt;部署ikuai-bypass
+&lt;/h3&gt;&lt;p&gt;ikuai-bypass 只要部署在可以访问到 爱快路由器的地方即可。&lt;/p&gt;
+&lt;h3 id="下载最新版"&gt;下载最新版
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/ikuai-bypass/releases" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/ikuai-bypass/releases&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="直接运行"&gt;直接运行
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;./ikuai-bypass_linux_amd64 -c /opt/ikuai-bypass/config_example.yml
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="服务模式-openwrtalpinercsystemd"&gt;服务模式 openwrt/alpine/rc/systemd
+&lt;/h3&gt;&lt;p&gt;以openwrt为例&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; /root
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://github.com/joyanhui/ikuai-bypass/releases/download/v版本号/ikuai-bypass_v版本号_linux_amd64.tar.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;tar -zxvf ikuai-bypass*linux_amd64.tar.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm ikuai-bypass*linux_amd64.tar.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 默认配置文件 自己可以根据需求编辑一下&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget -c https://github.com/joyanhui/ikuai-bypass/raw/main/config_example.yml -O kuai-bypass.yml
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 测试 &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/root/ikuai-bypass -c /root/kuai-bypass.yml
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;添加服务&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat &amp;gt;/etc/init.d/ikuai-bypass&lt;span class="s"&gt;&amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;#!/bin/sh /etc/rc.common
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;#service startup sequence
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;START=99
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;start() {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; #start your process with parameters in background
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; /root/ikuai-bypass -c /root/kuai-bypass.yml &amp;amp;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;stop() {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; killall ikuai-bypass
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;chmod +x /etc/init.d/ikuai-bypass
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 开机启动&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;service ikuai-bypass &lt;span class="nb"&gt;enable&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 现在启动&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;service ikuai-bypass start
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#或者&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/init.d/ikuai-bypass start
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启 openwrt,然后shell运行 &lt;code&gt;ps |grep ikuai-bypass&lt;/code&gt; 验证一下是否开机自动启动。&lt;br&gt;
+如果不能自动启动，在系统 启动项 本地启动脚本 添加一行 放到 exit 0 前面&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh -c &lt;span class="s1"&gt;&amp;#39;sleep 30 &amp;amp;&amp;amp; /etc/init.d/ikuai-bypass start &amp;#39;&lt;/span&gt; &lt;span class="p"&gt;&amp;amp;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="docker"&gt;docker
+&lt;/h3&gt;&lt;p&gt;我没有打包docker镜像，因为完全没必要，你可以自己用下面的命令启动一个docker&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir ~/ikuai-bypass/ &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="nb"&gt;cd&lt;/span&gt; ～/ikuai-bypass_exe
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget -c https://github.com/joyanhui/ikuai-bypass/raw/main/ikuai-bypass_linux_amd64
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;chmod +x ./ikuai-bypass_linux_amd64
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget -c https://github.com/joyanhui/ikuai-bypass/raw/main/config_example.yml
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --name ikuai-bypass --privileged&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nb"&gt;true&lt;/span&gt; --restart&lt;span class="o"&gt;=&lt;/span&gt;always &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -v ~/ikuai-bypass/:/opt/ikuai-bypass/ &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; alpine:3.18.4 /opt/ikuai-bypass/ikuai-bypass_linux_amd64 -c /opt/ikuai-bypass/config_example.yml
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果你想部署到爱快内的docker里面 下载 alpine镜像，上传两个文件，然后入口 命令修改为 类似下面的命令即可&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;chmod +x /opt/ikuai-bypass/ikuai-bypass_linux_amd64 &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; /opt/ikuai-bypass/ikuai-bypass_linux_amd64 -c /opt/ikuai-bypass/config_example.yml
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="其他补充"&gt;其他补充
+&lt;/h2&gt;&lt;h3 id="自定义规则和ikuai-bypass的规则"&gt;自定义规则和ikuai-bypass的规则
+&lt;/h3&gt;&lt;p&gt;ikuai-bypass 自动维护的规则 都会添加备注 &lt;code&gt;IKUAI_BYPASS&lt;/code&gt; ，只要你添加的自定义的规则备注不是这个即可。&lt;/p&gt;
+&lt;h3 id="关于实例配置文件"&gt;关于实例配置文件
+&lt;/h3&gt;&lt;p&gt;实例配置文件使用了 &lt;a class="link" href="https://mirror.ghproxy.com" target="_blank" rel="noopener"
+&gt;https://mirror.ghproxy.com&lt;/a&gt; 作为github的代理方便可以在无科学环境更新规则，但是ghproxy有被gfw污染的先例，请自行更新更稳定的或者自建的github代理。&lt;/p&gt;
+&lt;h3 id="是否可以替代原版ikuai-bypass"&gt;是否可以替代原版ikuai-bypass
+&lt;/h3&gt;&lt;p&gt;可以直接替代，参考上面的docker配置&lt;/p&gt;</description></item></channel></rss>

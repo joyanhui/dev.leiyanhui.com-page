@@ -1,0 +1,157 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='考虑到使用方便，把证书加密后 发送到公开仓库。部署的时候，只需要定时从公开仓库wget下来即可使用。\n后续会考虑自动推送到cdn，因为cdn那边是生产环境，暂时还是不用免费证书。\ngithub自动申请 域名证书，加密推送到公开库以及自动部署等 自动申请 准备 1、两个github仓库 1个私有库 存放 自动脚本，另外一个公开仓库存放加密的证书压缩包 公开就好，可以开pages 或者套cdn 默认分支为main\n2、申请域名证书的域名dns服务器的api，我这里都是用dnspods为例\n3、一对ssh公私钥。公钥匙要配置到 公开仓库 的Deploy keys，私玥部署到 私有库的Secret\n4、一个16位以上足够复杂的密码（zip包可以穷举，所以务必要高强度的密码）\n5、少许linux基础知识\n配置加密信息 配置公私玥 公开库的在仓库的 Settings 中Deploy keys添加 填写 ssh公钥，勾选上 Allow write access 名字随意\n私钥部署到私有库的Secret 名称为 MYGITHUBKEY\ndns api 在仓库的 Settings 中添加 Secret，创建 DNSAPI 填写上文获取的 API KEY 格式如下，具体格式 查看 acme.sh 的文档\n1 2 3 4 export DP_Id="214234234" export DP_Key="XXXXXXXXXX" export CF_Token="XXXXXXXXXXXXXX" export CF_Account_ID="XXXXXXXXXXXX" 压缩包密码 再创建一个 ZIPPASSWORD 输入压缩包解压密码，一定必须要超级高强度的密码。比如 16位以上 包含数字字母特殊符号汉字\n配置github actions 在私有仓库中创建 \u200b .github/workflows/AutoACME.yml \u200b\u200b 配置文件,参考复制粘贴如下.\n'><title>私有仓库GitHub actions运行acme.sh 并加密推送到公开仓库</title><link rel=canonical href=https://dev.leiyanhui.com/web/auto-get-ssl/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="私有仓库GitHub actions运行acme.sh 并加密推送到公开仓库"><meta property='og:description' content='考虑到使用方便，把证书加密后 发送到公开仓库。部署的时候，只需要定时从公开仓库wget下来即可使用。\n后续会考虑自动推送到cdn，因为cdn那边是生产环境，暂时还是不用免费证书。\ngithub自动申请 域名证书，加密推送到公开库以及自动部署等 自动申请 准备 1、两个github仓库 1个私有库 存放 自动脚本，另外一个公开仓库存放加密的证书压缩包 公开就好，可以开pages 或者套cdn 默认分支为main\n2、申请域名证书的域名dns服务器的api，我这里都是用dnspods为例\n3、一对ssh公私钥。公钥匙要配置到 公开仓库 的Deploy keys，私玥部署到 私有库的Secret\n4、一个16位以上足够复杂的密码（zip包可以穷举，所以务必要高强度的密码）\n5、少许linux基础知识\n配置加密信息 配置公私玥 公开库的在仓库的 Settings 中Deploy keys添加 填写 ssh公钥，勾选上 Allow write access 名字随意\n私钥部署到私有库的Secret 名称为 MYGITHUBKEY\ndns api 在仓库的 Settings 中添加 Secret，创建 DNSAPI 填写上文获取的 API KEY 格式如下，具体格式 查看 acme.sh 的文档\n1 2 3 4 export DP_Id="214234234" export DP_Key="XXXXXXXXXX" export CF_Token="XXXXXXXXXXXXXX" export CF_Account_ID="XXXXXXXXXXXX" 压缩包密码 再创建一个 ZIPPASSWORD 输入压缩包解压密码，一定必须要超级高强度的密码。比如 16位以上 包含数字字母特殊符号汉字\n配置github actions 在私有仓库中创建 \u200b .github/workflows/AutoACME.yml \u200b\u200b 配置文件,参考复制粘贴如下.\n'><meta property='og:url' content='https://dev.leiyanhui.com/web/auto-get-ssl/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Web'><meta property='article:published_time' content='2023-02-14T07:14:20+08:00'><meta property='article:modified_time' content='2023-02-14T07:14:20+08:00'><meta name=twitter:title content="私有仓库GitHub actions运行acme.sh 并加密推送到公开仓库"><meta name=twitter:description content='考虑到使用方便，把证书加密后 发送到公开仓库。部署的时候，只需要定时从公开仓库wget下来即可使用。\n后续会考虑自动推送到cdn，因为cdn那边是生产环境，暂时还是不用免费证书。\ngithub自动申请 域名证书，加密推送到公开库以及自动部署等 自动申请 准备 1、两个github仓库 1个私有库 存放 自动脚本，另外一个公开仓库存放加密的证书压缩包 公开就好，可以开pages 或者套cdn 默认分支为main\n2、申请域名证书的域名dns服务器的api，我这里都是用dnspods为例\n3、一对ssh公私钥。公钥匙要配置到 公开仓库 的Deploy keys，私玥部署到 私有库的Secret\n4、一个16位以上足够复杂的密码（zip包可以穷举，所以务必要高强度的密码）\n5、少许linux基础知识\n配置加密信息 配置公私玥 公开库的在仓库的 Settings 中Deploy keys添加 填写 ssh公钥，勾选上 Allow write access 名字随意\n私钥部署到私有库的Secret 名称为 MYGITHUBKEY\ndns api 在仓库的 Settings 中添加 Secret，创建 DNSAPI 填写上文获取的 API KEY 格式如下，具体格式 查看 acme.sh 的文档\n1 2 3 4 export DP_Id="214234234" export DP_Key="XXXXXXXXXX" export CF_Token="XXXXXXXXXXXXXX" export CF_Account_ID="XXXXXXXXXXXX" 压缩包密码 再创建一个 ZIPPASSWORD 输入压缩包解压密码，一定必须要超级高强度的密码。比如 16位以上 包含数字字母特殊符号汉字\n配置github actions 在私有仓库中创建 \u200b .github/workflows/AutoACME.yml \u200b\u200b 配置文件,参考复制粘贴如下.\n'></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><ol><li><a href=#自动申请>自动申请</a><ol><li><a href=#准备>准备</a></li><li><a href=#配置加密信息>配置加密信息</a></li></ol></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/git/ style=background-color:#bedcef;color:#0f2c3d>Git
+</a><a href=/categories/actions/ style=background-color:#efbeef;color:#3d0f3d>Actions
+</a><a href=/categories/acme/ style=background-color:#bed2ef;color:#0f223d>Acme</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/web/auto-get-ssl/>私有仓库GitHub actions运行acme.sh 并加密推送到公开仓库</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-02-14T07:14:20+08:00>2023-02-14</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 2 分钟</time></div></footer></div></header><section class=article-content><p>考虑到使用方便，把证书加密后 发送到公开仓库。部署的时候，只需要定时从公开仓库wget下来即可使用。</p><p>后续会考虑自动推送到cdn，因为cdn那边是生产环境，暂时还是不用免费证书。</p><h1 id=github自动申请-域名证书加密推送到公开库以及自动部署等>github自动申请 域名证书，加密推送到公开库以及自动部署等</h1><h3 id=自动申请>自动申请</h3><h4 id=准备>准备</h4><p>1、两个github仓库 1个私有库 存放 自动脚本，另外一个公开仓库存放加密的证书压缩包 公开就好，可以开pages 或者套cdn 默认分支为main</p><p>2、申请域名证书的域名dns服务器的api，我这里都是用dnspods为例</p><p>3、一对ssh公私钥。公钥匙要配置到 公开仓库 的Deploy keys，私玥部署到 私有库的Secret</p><p>4、一个16位以上足够复杂的密码（zip包可以穷举，所以务必要高强度的密码）</p><p>5、少许linux基础知识</p><h4 id=配置加密信息>配置加密信息</h4><h5 id=配置公私玥>配置公私玥</h5><p>公开库的在仓库的 Settings 中Deploy keys添加 填写 ssh公钥，勾选上 Allow write access 名字随意</p><p>私钥部署到私有库的Secret 名称为 MYGITHUBKEY</p><h5 id=dns-api>dns api</h5><p>在仓库的 Settings 中添加 Secret，创建 DNSAPI 填写上文获取的 API KEY 格式如下，具体格式 查看 acme.sh 的文档</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nb>export</span> <span class=nv>DP_Id</span><span class=o>=</span><span class=s2>&#34;214234234&#34;</span>
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>DP_Key</span><span class=o>=</span><span class=s2>&#34;XXXXXXXXXX&#34;</span>
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>CF_Token</span><span class=o>=</span><span class=s2>&#34;XXXXXXXXXXXXXX&#34;</span>
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>CF_Account_ID</span><span class=o>=</span><span class=s2>&#34;XXXXXXXXXXXX&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><h5 id=压缩包密码>压缩包密码</h5><p>再创建一个 ZIPPASSWORD 输入压缩包解压密码，一定必须要超级高强度的密码。比如 16位以上 包含数字字母特殊符号汉字</p><h5 id=配置github-actions>配置github actions</h5><p>在私有仓库中创建 <code>​ .github/workflows/AutoACME.yml ​</code>​ 配置文件,参考复制粘贴如下.</p><blockquote><p>cron 是 UTC时间 每月26日下午17点7分 自动执行
+完整内容参考 ：https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/%E8%87%AA%E5%8A%A8%E7%94%B3%E8%AF%B7%E8%AF%81%E4%B9%A6%E5%B9%B6%E6%8E%A8%E9%80%81%E5%88%B0%E5%85%AC%E5%BC%80%E4%BB%93%E5%BA%93.yml</p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>name: Auto ACME
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>on:
+</span></span><span class=line><span class=cl>  workflow_dispatch:
+</span></span><span class=line><span class=cl>  schedule:
+</span></span><span class=line><span class=cl>    - cron: <span class=s2>&#34;7 17 20 * *&#34;</span>
+</span></span><span class=line><span class=cl>  watch:
+</span></span><span class=line><span class=cl>    types: <span class=o>[</span>started<span class=o>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>env:
+</span></span><span class=line><span class=cl>    ACME: /home/runner/.acme.sh/acme.sh
+</span></span><span class=line><span class=cl>    PUBHUB: /你的用户名/仓库地址
+</span></span><span class=line><span class=cl>    DNSAPI: <span class=si>${</span><span class=p>{ secrets.DNSAPI </span><span class=si>}</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>    ZIPPASSWORD: <span class=si>${</span><span class=p>{ secrets.ZIPPASSWORD </span><span class=si>}</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>    MYGITHUBKEY: <span class=si>${</span><span class=p>{ secrets.MYGITHUBKEY </span><span class=si>}</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>    EMAIL: 你的邮箱地址@qq.com
+</span></span><span class=line><span class=cl>    TZ: Asia/Shanghai
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>jobs:
+</span></span><span class=line><span class=cl>  build:
+</span></span><span class=line><span class=cl>    runs-on: ubuntu-latest
+</span></span><span class=line><span class=cl>    <span class=k>if</span>: github.event.repository.owner.id <span class=o>==</span> github.event.sender.id
+</span></span><span class=line><span class=cl>    steps:
+</span></span><span class=line><span class=cl>    - name: Checkout
+</span></span><span class=line><span class=cl>      uses: actions/checkout@v2
+</span></span><span class=line><span class=cl>      with:
+</span></span><span class=line><span class=cl>        ref: main
+</span></span><span class=line><span class=cl>        github_token: <span class=si>${</span><span class=p>{ secrets.GITHUB_TOKEN </span><span class=si>}</span><span class=o>}</span>
+</span></span><span class=line><span class=cl>    - name: 安装和初始化acme.sh
+</span></span><span class=line><span class=cl>      run: <span class=p>|</span>
+</span></span><span class=line><span class=cl>        curl  https://get.acme.sh <span class=p>|</span> sh
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> <span class=s2>&#34;</span><span class=nv>$DNSAPI</span><span class=s2>&#34;</span> &gt;&gt; /home/runner/.acme.sh/account.conf
+</span></span><span class=line><span class=cl>        <span class=nv>$ACME</span>  --register-account -m <span class=nv>$EMAIL</span> 
+</span></span><span class=line><span class=cl>    - name: 开始获取证书
+</span></span><span class=line><span class=cl>      run: <span class=p>|</span>
+</span></span><span class=line><span class=cl>        mkdir -p ./ssl
+</span></span><span class=line><span class=cl>        <span class=c1>#如果要处理多个域名，复制后面三行即可 默认使用zerossl的证书 其他参数参考acme.sh文档</span>
+</span></span><span class=line><span class=cl>        <span class=nv>mydomian</span><span class=o>=</span>你的域名.com  
+</span></span><span class=line><span class=cl>        <span class=nv>$ACME</span> --issue  --dns dns_dp -d <span class=si>${</span><span class=nv>mydomian</span><span class=si>}</span> -d *.<span class=si>${</span><span class=nv>mydomian</span><span class=si>}</span> 
+</span></span><span class=line><span class=cl>        <span class=nv>$ACME</span> --installcert -d <span class=si>${</span><span class=nv>mydomian</span><span class=si>}</span> --key-file ./ssl/<span class=si>${</span><span class=nv>mydomian</span><span class=si>}</span>.key --fullchain-file ./ssl/<span class=si>${</span><span class=nv>mydomian</span><span class=si>}</span>.cer
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    - name: 带密码打包证书
+</span></span><span class=line><span class=cl>      run: <span class=p>|</span>
+</span></span><span class=line><span class=cl>        zip -r acme.zip /home/runner/.acme.sh -P <span class=nv>$ZIPPASSWORD</span>
+</span></span><span class=line><span class=cl>        zip -r ssl.zip ssl -P <span class=nv>$ZIPPASSWORD</span>
+</span></span><span class=line><span class=cl>    - name: 提交加密后的证书到公开库
+</span></span><span class=line><span class=cl>      run: <span class=p>|</span>
+</span></span><span class=line><span class=cl>        mkdir -p ~/.ssh/
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> <span class=s2>&#34;</span><span class=nv>$MYGITHUBKEY</span><span class=s2>&#34;</span> &gt; ~/.ssh/id_rsa
+</span></span><span class=line><span class=cl>        chmod <span class=m>600</span> ~/.ssh/id_rsa
+</span></span><span class=line><span class=cl>        ssh-keyscan github.com &gt;&gt; ~/.ssh/known_hosts
+</span></span><span class=line><span class=cl>        rm -rf .git* <span class=o>&amp;&amp;</span> rm -rf README.md
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> <span class=s2>&#34;处理公开库的readme文件&#34;</span>
+</span></span><span class=line><span class=cl>        wget https://raw.githubusercontent.com/<span class=nv>$PUBHUB</span>/main/README.md
+</span></span><span class=line><span class=cl>        <span class=nb>echo</span> -e <span class=s2>&#34;\n证书最后更新： </span><span class=k>$(</span>date <span class=s1>&#39;+%Y-%m-%d %H:%M:%S&#39;</span><span class=k>)</span><span class=s2>&#34;</span>&gt;&gt;README.md
+</span></span><span class=line><span class=cl>        git init
+</span></span><span class=line><span class=cl>        git config --global user.name <span class=s2>&#34;githubactions bot&#34;</span>
+</span></span><span class=line><span class=cl>        git config --global user.email <span class=s2>&#34;</span><span class=nv>$ACME</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>        git add ./ssl.zip  ./README.md ./acme.zip 
+</span></span><span class=line><span class=cl>        git commit -m <span class=s2>&#34;证书自动更新 on </span><span class=k>$(</span>date <span class=s1>&#39;+%Y-%m-%d %H:%M:%S&#39;</span><span class=k>)</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>        git remote add origin git@github.com:<span class=nv>$PUBHUB</span>.git
+</span></span><span class=line><span class=cl>        git remote -v
+</span></span><span class=line><span class=cl>        git push origin master:main -f -q
+</span></span></code></pre></td></tr></table></div></div><p>‍</p><p>‍</p><p>客户端使用 wget 后 7z -P 密码 ，然后 nginx -s reload即可</p><p>自动更新 参考 ：<a class=link href=https://dev.leiyanhui.com/web/auto-updatessl-form-github target=_blank rel=noopener>https://dev.leiyanhui.com/web/auto-updatessl-form-github</a></p><p>自动部署到国内cdn 后续处理</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/web/auto-updatessl-form-github/><div class=article-details><h2 class=article-title>从自己的github上自动获取证书并部署到本地</h2></div></a></article><article><a href=/openwrt/nginx-proxy-ssl/><div class=article-details><h2 class=article-title>docker运行nginx 并反代内网的一些服务2(nginxwebui修改版)</h2></div></a></article><article><a href=/docker/debian-go-codeserver-git/><div class=article-details><h2 class=article-title>docker部署vscode和golang git</h2></div></a></article><article><a href=/docker/baota/><div class=article-details><h2 class=article-title>docker运行 官方宝塔</h2></div></a></article><article><a href=/docker/nginx-proxy-manage/><div class=article-details><h2 class=article-title>docker运行nginx 并反代内网的一些服务，</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

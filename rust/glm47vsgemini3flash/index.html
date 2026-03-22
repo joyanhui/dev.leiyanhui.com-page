@@ -1,0 +1,936 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='此次对比因为用的agent工具不同，并且个人主观感受多，仅供参考。基础文件一致，都是50行的中文规范说明和项目的大概介绍。\n提示词 1 2 3 4 5 6 审计 yh-file-manager-sev-s3 的分片上传状态储存从dashmap修改为yh-fast-kv-storage-hub 后，由于yh-fast-kv-storage-hub 不支持全量扫描 或者其他特性 导致的很多操作难实现或者性能低下。是否应该改回用内置的dashmap实现，如果改为dhasmp实现，那么如何利用目前的yh-task-registry yh-journal-log yh-filemanager-vfs-storage-hub 等模块可以保证在 进程被kill系统被重启 断电等情况下。对应的分片文件文件可以完成根据情况保 留或者清理的逻辑的实现和判断；避免太多临时文件或者已经完成写入的文件丢失；还要避免内存炸掉。 或者 yh-fast-kv-storage-hub 在保证支持多种后端的情况下 并保证性能的情况下，可否实现一下对这类操作的兼容性 先帮我分析 给出建议 opencode/gemini3flash preview 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 这是一个非常深入的架构演进问题。将状态管理从散落在各个模块的 DashMap 收口到 yh-fast-kv-storage-hub（以下简称 KV-Hub），是实现系统无状态化、水平扩展和高可靠性的关键。 以下是针对您提出的三个维度的分析与建议： 1. SFTP/FTP 连接会话的复用建议 结论：元数据可以复用 KV-Hub，但活跃连接（Handle）必须保留在本地内存。 * 活跃连接（Active Handles）：TCP 连接、SSH 频道、FTP 控制套接字是不可序列化的。这些必须留在每个服务的 DashMap 中，因为它们绑定在具体的进程和物理端口上。 * 会话元数据（Session Metadata）： * 登录状态：如果用户在节点 A 登录了，节点 B 是否应该知道？如果是，则复用 KV-Hub 存储会话 ID -> 用户信息的映射。 * 连接统计：用于全局限流（例如：限制同一个账号全系统只能开 10 个连接）。这类数据非常适合放入 KV-Hub。 * 建议：SFTP/FTP 模块保留一个极简的本地 DashMap<SessionId, SocketHandle>，而将认证信息、限流计数、最后活动时间等逻辑下沉到 KV-Hub。这样即使节点重启，KV-Hub 里的“最后活动时间”依然存在，有助于清理因断电导致的挂线连接。 2. KV-Hub 增强：多后端支持与性能保证 要同时支持 DashMap/SQL/Redis/Valkey/KeyDB，建议采用 Trait 抽象 + 异步驱动 的设计： * *统一抽象 (Trait)*： #[async_trait] pub trait CacheBackend: Send + Sync { // ... 原有的 get/set/del ... // 核心增强：支持模式匹配的键扫描 async fn scan_keys(&amp;self, prefix: &amp;str) -> Result<Vec<String>, CacheError>; // 批量获取，减少网络 RTT 或数据库查询次数 async fn mget(&amp;self, keys: &[String]) -> Result<Vec<Option<Bytes>>, CacheError>; } * 各后端实现策略： * *DashMap (本地)*：直接 iter() 配合 starts_with 过滤。速度最快，但数据随进程消失。 * *SQL (SeaORM)*：使用 Column::Key.like(format!("{}%", prefix))。利用数据库索引提高扫描效率。 * Redis/Valkey/KeyDB：严禁使用 KEYS 命令。必须使用 SCAN 命令配合游标（Cursor），它在保证性能的同时不会阻塞主线程。 * 性能保证：对于 S3 分片这类频繁读写、但最终会消失的数据，建议在 KV-Hub 层增加 二级缓存（L1: DashMap, L2: SQL/Redis）。读操作先看本地，写操作异步刷入持久化后端。 3. 整合 Task-Registry 与 Journal-Log：实现 S3 分片智能清理 这是保证系统在 Kill/重启/断电后不产生“存储垃圾”的核心逻辑。 流程设计： 1. *操作留痕 (Journal-Log)*： * 当用户初始化分片上传时，记录一条 S3:MULTIPART_START 日志。 * 当上传完成或取消时，记录 S3:MULTIPART_COMPLETE 或 S3:MULTIPART_ABORT。 2. *状态持久化 (KV-Hub)*： * 在 KV-Hub 中存储 s3:multipart:{upload_id}，值包含：user_id、physical_temp_path、created_at。 * 设置 TTL（生存时间）。例如分片上传默认有效期 24 小时。 3. *智能清理任务 (Task-Registry)*： 注册一个定时任务（如每小时执行一次），逻辑如下： * 主动清理：调用 KV-Hub 的 scan_keys("s3:multipart:")。如果发现某个 Key 的 created_at 超过阈值，或已经触发了 TTL 逻辑，则启动清理。 * 死后补偿（关键）：如果系统断电，重启后 Task-Registry 会触发。 * 策略 A（KV 驱动）：遍历 KV-Hub 里的所有状态，调用 VFS 接口检查对应的物理目录。如果物理目录存在但 KV 记录已过期，执行物理删除。 * 策略 B（物理驱动 - 更彻底）：Task-Registry 扫描 VFS 的 /.multipart/ 目录。对于每一个文件夹，去 KV-Hub 查对应的 upload_id。如果 KV-Hub 里没有（说明系统重启丢失了非持久化状态，或者已过期），则认为这是孤儿文件夹，强制物理清理。 4. 原子性保证： * 使用 VfsWalManager（写前日志）。在 VFS 执行物理删除前，先在 WAL 记录“准备删除 X”，删除成功后再抹除。如果删除到一半断电，重启后 WAL 补偿逻辑会继续完成删除。 总结建议 1. 升级 KV-Hub：增加 scan_keys 接口，并为 SQL 和 Redis 提供高性能实现（LIKE 和 SCAN）。 2. S3 状态全量入库：S3 模块不再自己持有 DashMap，所有状态读写直接走 KV-Hub。 3. 双重检查清理：由 Task-Registry 周期性地进行“物理路径”与“KV 索引”的对账。这种“对账式清理”是应对系统崩溃最健壮的方案。 如果您希望我开始实施，我可以先为您编写 KV-Hub 的多后端 Scan 接口 以及 S3 分片上传的定时清理 Task。 iflow/glm4.7结果 由于 iflow输出格式 很扯淡\n'><title>glm4.7和gemini3flash的一次简单对比 ifow/glm4.7 vs opencode/gemini3flash preview</title><link rel=canonical href=https://dev.leiyanhui.com/rust/glm47vsgemini3flash/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="glm4.7和gemini3flash的一次简单对比 ifow/glm4.7 vs opencode/gemini3flash preview"><meta property='og:description' content='此次对比因为用的agent工具不同，并且个人主观感受多，仅供参考。基础文件一致，都是50行的中文规范说明和项目的大概介绍。\n提示词 1 2 3 4 5 6 审计 yh-file-manager-sev-s3 的分片上传状态储存从dashmap修改为yh-fast-kv-storage-hub 后，由于yh-fast-kv-storage-hub 不支持全量扫描 或者其他特性 导致的很多操作难实现或者性能低下。是否应该改回用内置的dashmap实现，如果改为dhasmp实现，那么如何利用目前的yh-task-registry yh-journal-log yh-filemanager-vfs-storage-hub 等模块可以保证在 进程被kill系统被重启 断电等情况下。对应的分片文件文件可以完成根据情况保 留或者清理的逻辑的实现和判断；避免太多临时文件或者已经完成写入的文件丢失；还要避免内存炸掉。 或者 yh-fast-kv-storage-hub 在保证支持多种后端的情况下 并保证性能的情况下，可否实现一下对这类操作的兼容性 先帮我分析 给出建议 opencode/gemini3flash preview 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 这是一个非常深入的架构演进问题。将状态管理从散落在各个模块的 DashMap 收口到 yh-fast-kv-storage-hub（以下简称 KV-Hub），是实现系统无状态化、水平扩展和高可靠性的关键。 以下是针对您提出的三个维度的分析与建议： 1. SFTP/FTP 连接会话的复用建议 结论：元数据可以复用 KV-Hub，但活跃连接（Handle）必须保留在本地内存。 * 活跃连接（Active Handles）：TCP 连接、SSH 频道、FTP 控制套接字是不可序列化的。这些必须留在每个服务的 DashMap 中，因为它们绑定在具体的进程和物理端口上。 * 会话元数据（Session Metadata）： * 登录状态：如果用户在节点 A 登录了，节点 B 是否应该知道？如果是，则复用 KV-Hub 存储会话 ID -> 用户信息的映射。 * 连接统计：用于全局限流（例如：限制同一个账号全系统只能开 10 个连接）。这类数据非常适合放入 KV-Hub。 * 建议：SFTP/FTP 模块保留一个极简的本地 DashMap<SessionId, SocketHandle>，而将认证信息、限流计数、最后活动时间等逻辑下沉到 KV-Hub。这样即使节点重启，KV-Hub 里的“最后活动时间”依然存在，有助于清理因断电导致的挂线连接。 2. KV-Hub 增强：多后端支持与性能保证 要同时支持 DashMap/SQL/Redis/Valkey/KeyDB，建议采用 Trait 抽象 + 异步驱动 的设计： * *统一抽象 (Trait)*： #[async_trait] pub trait CacheBackend: Send + Sync { // ... 原有的 get/set/del ... // 核心增强：支持模式匹配的键扫描 async fn scan_keys(&amp;self, prefix: &amp;str) -> Result<Vec<String>, CacheError>; // 批量获取，减少网络 RTT 或数据库查询次数 async fn mget(&amp;self, keys: &[String]) -> Result<Vec<Option<Bytes>>, CacheError>; } * 各后端实现策略： * *DashMap (本地)*：直接 iter() 配合 starts_with 过滤。速度最快，但数据随进程消失。 * *SQL (SeaORM)*：使用 Column::Key.like(format!("{}%", prefix))。利用数据库索引提高扫描效率。 * Redis/Valkey/KeyDB：严禁使用 KEYS 命令。必须使用 SCAN 命令配合游标（Cursor），它在保证性能的同时不会阻塞主线程。 * 性能保证：对于 S3 分片这类频繁读写、但最终会消失的数据，建议在 KV-Hub 层增加 二级缓存（L1: DashMap, L2: SQL/Redis）。读操作先看本地，写操作异步刷入持久化后端。 3. 整合 Task-Registry 与 Journal-Log：实现 S3 分片智能清理 这是保证系统在 Kill/重启/断电后不产生“存储垃圾”的核心逻辑。 流程设计： 1. *操作留痕 (Journal-Log)*： * 当用户初始化分片上传时，记录一条 S3:MULTIPART_START 日志。 * 当上传完成或取消时，记录 S3:MULTIPART_COMPLETE 或 S3:MULTIPART_ABORT。 2. *状态持久化 (KV-Hub)*： * 在 KV-Hub 中存储 s3:multipart:{upload_id}，值包含：user_id、physical_temp_path、created_at。 * 设置 TTL（生存时间）。例如分片上传默认有效期 24 小时。 3. *智能清理任务 (Task-Registry)*： 注册一个定时任务（如每小时执行一次），逻辑如下： * 主动清理：调用 KV-Hub 的 scan_keys("s3:multipart:")。如果发现某个 Key 的 created_at 超过阈值，或已经触发了 TTL 逻辑，则启动清理。 * 死后补偿（关键）：如果系统断电，重启后 Task-Registry 会触发。 * 策略 A（KV 驱动）：遍历 KV-Hub 里的所有状态，调用 VFS 接口检查对应的物理目录。如果物理目录存在但 KV 记录已过期，执行物理删除。 * 策略 B（物理驱动 - 更彻底）：Task-Registry 扫描 VFS 的 /.multipart/ 目录。对于每一个文件夹，去 KV-Hub 查对应的 upload_id。如果 KV-Hub 里没有（说明系统重启丢失了非持久化状态，或者已过期），则认为这是孤儿文件夹，强制物理清理。 4. 原子性保证： * 使用 VfsWalManager（写前日志）。在 VFS 执行物理删除前，先在 WAL 记录“准备删除 X”，删除成功后再抹除。如果删除到一半断电，重启后 WAL 补偿逻辑会继续完成删除。 总结建议 1. 升级 KV-Hub：增加 scan_keys 接口，并为 SQL 和 Redis 提供高性能实现（LIKE 和 SCAN）。 2. S3 状态全量入库：S3 模块不再自己持有 DashMap，所有状态读写直接走 KV-Hub。 3. 双重检查清理：由 Task-Registry 周期性地进行“物理路径”与“KV 索引”的对账。这种“对账式清理”是应对系统崩溃最健壮的方案。 如果您希望我开始实施，我可以先为您编写 KV-Hub 的多后端 Scan 接口 以及 S3 分片上传的定时清理 Task。 iflow/glm4.7结果 由于 iflow输出格式 很扯淡\n'><meta property='og:url' content='https://dev.leiyanhui.com/rust/glm47vsgemini3flash/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Rust'><meta property='article:published_time' content='2026-01-14T01:14:20+08:00'><meta property='article:modified_time' content='2026-01-14T01:14:20+08:00'><meta name=twitter:title content="glm4.7和gemini3flash的一次简单对比 ifow/glm4.7 vs opencode/gemini3flash preview"><meta name=twitter:description content='此次对比因为用的agent工具不同，并且个人主观感受多，仅供参考。基础文件一致，都是50行的中文规范说明和项目的大概介绍。\n提示词 1 2 3 4 5 6 审计 yh-file-manager-sev-s3 的分片上传状态储存从dashmap修改为yh-fast-kv-storage-hub 后，由于yh-fast-kv-storage-hub 不支持全量扫描 或者其他特性 导致的很多操作难实现或者性能低下。是否应该改回用内置的dashmap实现，如果改为dhasmp实现，那么如何利用目前的yh-task-registry yh-journal-log yh-filemanager-vfs-storage-hub 等模块可以保证在 进程被kill系统被重启 断电等情况下。对应的分片文件文件可以完成根据情况保 留或者清理的逻辑的实现和判断；避免太多临时文件或者已经完成写入的文件丢失；还要避免内存炸掉。 或者 yh-fast-kv-storage-hub 在保证支持多种后端的情况下 并保证性能的情况下，可否实现一下对这类操作的兼容性 先帮我分析 给出建议 opencode/gemini3flash preview 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 这是一个非常深入的架构演进问题。将状态管理从散落在各个模块的 DashMap 收口到 yh-fast-kv-storage-hub（以下简称 KV-Hub），是实现系统无状态化、水平扩展和高可靠性的关键。 以下是针对您提出的三个维度的分析与建议： 1. SFTP/FTP 连接会话的复用建议 结论：元数据可以复用 KV-Hub，但活跃连接（Handle）必须保留在本地内存。 * 活跃连接（Active Handles）：TCP 连接、SSH 频道、FTP 控制套接字是不可序列化的。这些必须留在每个服务的 DashMap 中，因为它们绑定在具体的进程和物理端口上。 * 会话元数据（Session Metadata）： * 登录状态：如果用户在节点 A 登录了，节点 B 是否应该知道？如果是，则复用 KV-Hub 存储会话 ID -> 用户信息的映射。 * 连接统计：用于全局限流（例如：限制同一个账号全系统只能开 10 个连接）。这类数据非常适合放入 KV-Hub。 * 建议：SFTP/FTP 模块保留一个极简的本地 DashMap<SessionId, SocketHandle>，而将认证信息、限流计数、最后活动时间等逻辑下沉到 KV-Hub。这样即使节点重启，KV-Hub 里的“最后活动时间”依然存在，有助于清理因断电导致的挂线连接。 2. KV-Hub 增强：多后端支持与性能保证 要同时支持 DashMap/SQL/Redis/Valkey/KeyDB，建议采用 Trait 抽象 + 异步驱动 的设计： * *统一抽象 (Trait)*： #[async_trait] pub trait CacheBackend: Send + Sync { // ... 原有的 get/set/del ... // 核心增强：支持模式匹配的键扫描 async fn scan_keys(&amp;self, prefix: &amp;str) -> Result<Vec<String>, CacheError>; // 批量获取，减少网络 RTT 或数据库查询次数 async fn mget(&amp;self, keys: &[String]) -> Result<Vec<Option<Bytes>>, CacheError>; } * 各后端实现策略： * *DashMap (本地)*：直接 iter() 配合 starts_with 过滤。速度最快，但数据随进程消失。 * *SQL (SeaORM)*：使用 Column::Key.like(format!("{}%", prefix))。利用数据库索引提高扫描效率。 * Redis/Valkey/KeyDB：严禁使用 KEYS 命令。必须使用 SCAN 命令配合游标（Cursor），它在保证性能的同时不会阻塞主线程。 * 性能保证：对于 S3 分片这类频繁读写、但最终会消失的数据，建议在 KV-Hub 层增加 二级缓存（L1: DashMap, L2: SQL/Redis）。读操作先看本地，写操作异步刷入持久化后端。 3. 整合 Task-Registry 与 Journal-Log：实现 S3 分片智能清理 这是保证系统在 Kill/重启/断电后不产生“存储垃圾”的核心逻辑。 流程设计： 1. *操作留痕 (Journal-Log)*： * 当用户初始化分片上传时，记录一条 S3:MULTIPART_START 日志。 * 当上传完成或取消时，记录 S3:MULTIPART_COMPLETE 或 S3:MULTIPART_ABORT。 2. *状态持久化 (KV-Hub)*： * 在 KV-Hub 中存储 s3:multipart:{upload_id}，值包含：user_id、physical_temp_path、created_at。 * 设置 TTL（生存时间）。例如分片上传默认有效期 24 小时。 3. *智能清理任务 (Task-Registry)*： 注册一个定时任务（如每小时执行一次），逻辑如下： * 主动清理：调用 KV-Hub 的 scan_keys("s3:multipart:")。如果发现某个 Key 的 created_at 超过阈值，或已经触发了 TTL 逻辑，则启动清理。 * 死后补偿（关键）：如果系统断电，重启后 Task-Registry 会触发。 * 策略 A（KV 驱动）：遍历 KV-Hub 里的所有状态，调用 VFS 接口检查对应的物理目录。如果物理目录存在但 KV 记录已过期，执行物理删除。 * 策略 B（物理驱动 - 更彻底）：Task-Registry 扫描 VFS 的 /.multipart/ 目录。对于每一个文件夹，去 KV-Hub 查对应的 upload_id。如果 KV-Hub 里没有（说明系统重启丢失了非持久化状态，或者已过期），则认为这是孤儿文件夹，强制物理清理。 4. 原子性保证： * 使用 VfsWalManager（写前日志）。在 VFS 执行物理删除前，先在 WAL 记录“准备删除 X”，删除成功后再抹除。如果删除到一半断电，重启后 WAL 补偿逻辑会继续完成删除。 总结建议 1. 升级 KV-Hub：增加 scan_keys 接口，并为 SQL 和 Redis 提供高性能实现（LIKE 和 SCAN）。 2. S3 状态全量入库：S3 模块不再自己持有 DashMap，所有状态读写直接走 KV-Hub。 3. 双重检查清理：由 Task-Registry 周期性地进行“物理路径”与“KV 索引”的对账。这种“对账式清理”是应对系统崩溃最健壮的方案。 如果您希望我开始实施，我可以先为您编写 KV-Hub 的多后端 Scan 接口 以及 S3 分片上传的定时清理 Task。 iflow/glm4.7结果 由于 iflow输出格式 很扯淡\n'></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#提示词>提示词</a></li><li><a href=#opencodegemini3flash-preview>opencode/gemini3flash preview</a></li><li><a href=#iflowglm47结果>iflow/glm4.7结果</a></li><li><a href=#我长期体验>我长期体验</a><ol><li><a href=#iflowglm47minimax21-眼下适合做什么>iflow/glm4.7/minimax2.1 眼下适合做什么</a></li><li><a href=#opencode-vs-claudecode>opencode vs claudecode</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/opencode/ style=background-color:#beebef;color:#0f3a3d>Opencode
+</a><a href=/categories/glm/ style=background-color:#beefe6;color:#0f3d35>Glm
+</a><a href=/categories/rust/ style=background-color:#d9efbe;color:#293d0f>Rust
+</a><a href=/categories/minimax/ style=background-color:#beefe8;color:#0f3d37>Minimax
+</a><a href=/categories/claudecode/ style=background-color:#edefbe;color:#3c3d0f>Claudecode</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/rust/glm47vsgemini3flash/>glm4.7和gemini3flash的一次简单对比 ifow/glm4.7 vs opencode/gemini3flash preview</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-01-14T01:14:20+08:00>2026-01-14</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 10 分钟</time></div></footer></div></header><section class=article-content><p>此次对比因为用的agent工具不同，并且个人主观感受多，仅供参考。基础文件一致，都是50行的中文规范说明和项目的大概介绍。</p><h2 id=提示词>提示词</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>审计 yh-file-manager-sev-s3 的分片上传状态储存从dashmap修改为yh-fast-kv-storage-hub 后，由于yh-fast-kv-storage-hub 不支持全量扫描
+</span></span><span class=line><span class=cl>或者其他特性 导致的很多操作难实现或者性能低下。是否应该改回用内置的dashmap实现，如果改为dhasmp实现，那么如何利用目前的yh-task-registry
+</span></span><span class=line><span class=cl>yh-journal-log yh-filemanager-vfs-storage-hub 等模块可以保证在 进程被kill系统被重启 断电等情况下。对应的分片文件文件可以完成根据情况保
+</span></span><span class=line><span class=cl>留或者清理的逻辑的实现和判断；避免太多临时文件或者已经完成写入的文件丢失；还要避免内存炸掉。
+</span></span><span class=line><span class=cl>或者 yh-fast-kv-storage-hub  在保证支持多种后端的情况下 并保证性能的情况下，可否实现一下对这类操作的兼容性
+</span></span><span class=line><span class=cl>先帮我分析 给出建议
+</span></span></code></pre></td></tr></table></div></div><h2 id=opencodegemini3flash-preview>opencode/gemini3flash preview</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=err>这是一个非常深入的架构演进问题。将状态管理从散落在各个模块的</span> <span class=n>DashMap</span> <span class=err>收口到</span> <span class=n>yh</span><span class=o>-</span><span class=n>fast</span><span class=o>-</span><span class=n>kv</span><span class=o>-</span><span class=n>storage</span><span class=o>-</span><span class=n>hub</span><span class=err>（以下简称</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span><span class=err>），是实现系统无状态化、水平扩展和高可靠性的关键。</span>
+</span></span><span class=line><span class=cl><span class=err>以下是针对您提出的三个维度的分析与建议：</span>
+</span></span><span class=line><span class=cl><span class=mf>1.</span> <span class=n>SFTP</span><span class=o>/</span><span class=n>FTP</span> <span class=err>连接会话的复用建议</span>
+</span></span><span class=line><span class=cl><span class=err>结论：元数据可以复用</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span><span class=err>，但活跃连接（</span><span class=n>Handle</span><span class=err>）必须保留在本地内存。</span>
+</span></span><span class=line><span class=cl><span class=o>*</span>   <span class=err>活跃连接（</span><span class=n>Active</span> <span class=n>Handles</span><span class=err>）：</span><span class=n>TCP</span> <span class=err>连接、</span><span class=n>SSH</span> <span class=err>频道、</span><span class=n>FTP</span> <span class=err>控制套接字是不可序列化的。这些必须留在每个服务的</span> <span class=n>DashMap</span> <span class=err>中，因为它们绑定在具体的进程和物理端口上。</span>
+</span></span><span class=line><span class=cl><span class=o>*</span>   <span class=err>会话元数据（</span><span class=n>Session</span> <span class=n>Metadata</span><span class=err>）：</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>登录状态：如果用户在节点</span> <span class=n>A</span> <span class=err>登录了，节点</span> <span class=n>B</span> <span class=err>是否应该知道？如果是，则复用</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>存储会话</span> <span class=n>ID</span> <span class=o>-&gt;</span> <span class=err>用户信息的映射。</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>连接统计：用于全局限流（例如：限制同一个账号全系统只能开</span> <span class=mi>10</span> <span class=err>个连接）。这类数据非常适合放入</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span><span class=err>。</span>
+</span></span><span class=line><span class=cl><span class=o>*</span>   <span class=err>建议：</span><span class=n>SFTP</span><span class=o>/</span><span class=n>FTP</span> <span class=err>模块保留一个极简的本地</span> <span class=n>DashMap</span><span class=o>&lt;</span><span class=n>SessionId</span><span class=p>,</span> <span class=n>SocketHandle</span><span class=o>&gt;</span><span class=err>，而将认证信息、限流计数、最后活动时间等逻辑下沉到</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span><span class=err>。这样即使节点重启，</span><span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>里的“最后活动时间”依然存在，有助于清理因断电导致的挂线连接。</span>
+</span></span><span class=line><span class=cl><span class=mf>2.</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>增强：多后端支持与性能保证</span>
+</span></span><span class=line><span class=cl><span class=err>要同时支持</span> <span class=n>DashMap</span><span class=o>/</span><span class=n>SQL</span><span class=o>/</span><span class=n>Redis</span><span class=o>/</span><span class=n>Valkey</span><span class=o>/</span><span class=n>KeyDB</span><span class=err>，建议采用</span> <span class=n>Trait</span> <span class=err>抽象</span> <span class=o>+</span> <span class=err>异步驱动</span> <span class=err>的设计：</span>
+</span></span><span class=line><span class=cl><span class=o>*</span>   <span class=o>*</span><span class=err>统一抽象</span> <span class=p>(</span><span class=n>Trait</span><span class=p>)</span><span class=o>*</span><span class=err>：</span>
+</span></span><span class=line><span class=cl>        <span class=c1>#[async_trait]</span>
+</span></span><span class=line><span class=cl>    <span class=n>pub</span> <span class=n>trait</span> <span class=n>CacheBackend</span><span class=p>:</span> <span class=n>Send</span> <span class=o>+</span> <span class=n>Sync</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=o>//</span> <span class=o>...</span> <span class=err>原有的</span> <span class=n>get</span><span class=o>/</span><span class=n>set</span><span class=o>/</span><span class=n>del</span> <span class=o>...</span>
+</span></span><span class=line><span class=cl>        <span class=o>//</span> <span class=err>核心增强：支持模式匹配的键扫描</span>
+</span></span><span class=line><span class=cl>        <span class=n>async</span> <span class=n>fn</span> <span class=n>scan_keys</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=n>prefix</span><span class=p>:</span> <span class=o>&amp;</span><span class=nb>str</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Result</span><span class=o>&lt;</span><span class=n>Vec</span><span class=o>&lt;</span><span class=ne>String</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>CacheError</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=o>//</span> <span class=err>批量获取，减少网络</span> <span class=n>RTT</span> <span class=err>或数据库查询次数</span>
+</span></span><span class=line><span class=cl>        <span class=n>async</span> <span class=n>fn</span> <span class=n>mget</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=n>keys</span><span class=p>:</span> <span class=o>&amp;</span><span class=p>[</span><span class=ne>String</span><span class=p>])</span> <span class=o>-&gt;</span> <span class=n>Result</span><span class=o>&lt;</span><span class=n>Vec</span><span class=o>&lt;</span><span class=n>Option</span><span class=o>&lt;</span><span class=n>Bytes</span><span class=o>&gt;&gt;</span><span class=p>,</span> <span class=n>CacheError</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>各后端实现策略：</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=o>*</span><span class=n>DashMap</span> <span class=p>(</span><span class=err>本地</span><span class=p>)</span><span class=o>*</span><span class=err>：直接</span> <span class=n>iter</span><span class=p>()</span> <span class=err>配合</span> <span class=n>starts_with</span> <span class=err>过滤。速度最快，但数据随进程消失。</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=o>*</span><span class=n>SQL</span> <span class=p>(</span><span class=n>SeaORM</span><span class=p>)</span><span class=o>*</span><span class=err>：使用</span> <span class=n>Column</span><span class=p>::</span><span class=n>Key</span><span class=o>.</span><span class=n>like</span><span class=p>(</span><span class=n>format</span><span class=o>!</span><span class=p>(</span><span class=s2>&#34;{}%&#34;</span><span class=p>,</span> <span class=n>prefix</span><span class=p>))</span><span class=err>。利用数据库索引提高扫描效率。</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=n>Redis</span><span class=o>/</span><span class=n>Valkey</span><span class=o>/</span><span class=n>KeyDB</span><span class=err>：严禁使用</span> <span class=n>KEYS</span> <span class=err>命令。必须使用</span> <span class=n>SCAN</span> <span class=err>命令配合游标（</span><span class=n>Cursor</span><span class=err>），它在保证性能的同时不会阻塞主线程。</span>
+</span></span><span class=line><span class=cl><span class=o>*</span>   <span class=err>性能保证：对于</span> <span class=n>S3</span> <span class=err>分片这类频繁读写、但最终会消失的数据，建议在</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>层增加</span> <span class=err>二级缓存（</span><span class=n>L1</span><span class=p>:</span> <span class=n>DashMap</span><span class=p>,</span> <span class=n>L2</span><span class=p>:</span> <span class=n>SQL</span><span class=o>/</span><span class=n>Redis</span><span class=err>）。读操作先看本地，写操作异步刷入持久化后端。</span>
+</span></span><span class=line><span class=cl><span class=mf>3.</span> <span class=err>整合</span> <span class=n>Task</span><span class=o>-</span><span class=n>Registry</span> <span class=err>与</span> <span class=n>Journal</span><span class=o>-</span><span class=n>Log</span><span class=err>：实现</span> <span class=n>S3</span> <span class=err>分片智能清理</span>
+</span></span><span class=line><span class=cl><span class=err>这是保证系统在</span> <span class=n>Kill</span><span class=o>/</span><span class=err>重启</span><span class=o>/</span><span class=err>断电后不产生“存储垃圾”的核心逻辑。</span>
+</span></span><span class=line><span class=cl><span class=err>流程设计：</span>
+</span></span><span class=line><span class=cl><span class=mf>1.</span>  <span class=o>*</span><span class=err>操作留痕</span> <span class=p>(</span><span class=n>Journal</span><span class=o>-</span><span class=n>Log</span><span class=p>)</span><span class=o>*</span><span class=err>：</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>当用户初始化分片上传时，记录一条</span> <span class=n>S3</span><span class=p>:</span><span class=n>MULTIPART_START</span> <span class=err>日志。</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>当上传完成或取消时，记录</span> <span class=n>S3</span><span class=p>:</span><span class=n>MULTIPART_COMPLETE</span> <span class=err>或</span> <span class=n>S3</span><span class=p>:</span><span class=n>MULTIPART_ABORT</span><span class=err>。</span>
+</span></span><span class=line><span class=cl><span class=mf>2.</span>  <span class=o>*</span><span class=err>状态持久化</span> <span class=p>(</span><span class=n>KV</span><span class=o>-</span><span class=n>Hub</span><span class=p>)</span><span class=o>*</span><span class=err>：</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>在</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>中存储</span> <span class=n>s3</span><span class=p>:</span><span class=n>multipart</span><span class=p>:{</span><span class=n>upload_id</span><span class=p>}</span><span class=err>，值包含：</span><span class=n>user_id</span><span class=err>、</span><span class=n>physical_temp_path</span><span class=err>、</span><span class=n>created_at</span><span class=err>。</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>设置</span> <span class=n>TTL</span><span class=err>（生存时间）。例如分片上传默认有效期</span> <span class=mi>24</span> <span class=err>小时。</span>
+</span></span><span class=line><span class=cl><span class=mf>3.</span>  <span class=o>*</span><span class=err>智能清理任务</span> <span class=p>(</span><span class=n>Task</span><span class=o>-</span><span class=n>Registry</span><span class=p>)</span><span class=o>*</span><span class=err>：</span>
+</span></span><span class=line><span class=cl>    <span class=err>注册一个定时任务（如每小时执行一次），逻辑如下：</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>主动清理：调用</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>的</span> <span class=n>scan_keys</span><span class=p>(</span><span class=s2>&#34;s3:multipart:&#34;</span><span class=p>)</span><span class=err>。如果发现某个</span> <span class=n>Key</span> <span class=err>的</span> <span class=n>created_at</span> <span class=err>超过阈值，或已经触发了</span> <span class=n>TTL</span> <span class=err>逻辑，则启动清理。</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>死后补偿（关键）：如果系统断电，重启后</span> <span class=n>Task</span><span class=o>-</span><span class=n>Registry</span> <span class=err>会触发。</span>
+</span></span><span class=line><span class=cl>        <span class=o>*</span>   <span class=err>策略</span> <span class=n>A</span><span class=err>（</span><span class=n>KV</span> <span class=err>驱动）：遍历</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>里的所有状态，调用</span> <span class=n>VFS</span> <span class=err>接口检查对应的物理目录。如果物理目录存在但</span> <span class=n>KV</span> <span class=err>记录已过期，执行物理删除。</span>
+</span></span><span class=line><span class=cl>        <span class=o>*</span>   <span class=err>策略</span> <span class=n>B</span><span class=err>（物理驱动</span> <span class=o>-</span> <span class=err>更彻底）：</span><span class=n>Task</span><span class=o>-</span><span class=n>Registry</span> <span class=err>扫描</span> <span class=n>VFS</span> <span class=err>的</span> <span class=o>/.</span><span class=n>multipart</span><span class=o>/</span> <span class=err>目录。对于每一个文件夹，去</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>查对应的</span> <span class=n>upload_id</span><span class=err>。如果</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>里没有（说明系统重启丢失了非持久化状态，或者已过期），则认为这是孤儿文件夹，强制物理清理。</span>
+</span></span><span class=line><span class=cl><span class=mf>4.</span>  <span class=err>原子性保证：</span>
+</span></span><span class=line><span class=cl>    <span class=o>*</span>   <span class=err>使用</span> <span class=n>VfsWalManager</span><span class=err>（写前日志）。在</span> <span class=n>VFS</span> <span class=err>执行物理删除前，先在</span> <span class=n>WAL</span> <span class=err>记录“准备删除</span> <span class=n>X</span><span class=err>”，删除成功后再抹除。如果删除到一半断电，重启后</span> <span class=n>WAL</span> <span class=err>补偿逻辑会继续完成删除。</span>
+</span></span><span class=line><span class=cl><span class=err>总结建议</span>
+</span></span><span class=line><span class=cl><span class=mf>1.</span>  <span class=err>升级</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span><span class=err>：增加</span> <span class=n>scan_keys</span> <span class=err>接口，并为</span> <span class=n>SQL</span> <span class=err>和</span> <span class=n>Redis</span> <span class=err>提供高性能实现（</span><span class=n>LIKE</span> <span class=err>和</span> <span class=n>SCAN</span><span class=err>）。</span>
+</span></span><span class=line><span class=cl><span class=mf>2.</span>  <span class=n>S3</span> <span class=err>状态全量入库：</span><span class=n>S3</span> <span class=err>模块不再自己持有</span> <span class=n>DashMap</span><span class=err>，所有状态读写直接走</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span><span class=err>。</span>
+</span></span><span class=line><span class=cl><span class=mf>3.</span>  <span class=err>双重检查清理：由</span> <span class=n>Task</span><span class=o>-</span><span class=n>Registry</span> <span class=err>周期性地进行“物理路径”与“</span><span class=n>KV</span> <span class=err>索引”的对账。这种“对账式清理”是应对系统崩溃最健壮的方案。</span>
+</span></span><span class=line><span class=cl><span class=err>如果您希望我开始实施，我可以先为您编写</span> <span class=n>KV</span><span class=o>-</span><span class=n>Hub</span> <span class=err>的多后端</span> <span class=n>Scan</span> <span class=err>接口</span> <span class=err>以及</span> <span class=n>S3</span> <span class=err>分片上传的定时清理</span> <span class=n>Task</span><span class=err>。</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=iflowglm47结果>iflow/glm4.7结果</h2><p>由于 iflow输出格式 很扯淡</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span><span class=lnt>174
+</span><span class=lnt>175
+</span><span class=lnt>176
+</span><span class=lnt>177
+</span><span class=lnt>178
+</span><span class=lnt>179
+</span><span class=lnt>180
+</span><span class=lnt>181
+</span><span class=lnt>182
+</span><span class=lnt>183
+</span><span class=lnt>184
+</span><span class=lnt>185
+</span><span class=lnt>186
+</span><span class=lnt>187
+</span><span class=lnt>188
+</span><span class=lnt>189
+</span><span class=lnt>190
+</span><span class=lnt>191
+</span><span class=lnt>192
+</span><span class=lnt>193
+</span><span class=lnt>194
+</span><span class=lnt>195
+</span><span class=lnt>196
+</span><span class=lnt>197
+</span><span class=lnt>198
+</span><span class=lnt>199
+</span><span class=lnt>200
+</span><span class=lnt>201
+</span><span class=lnt>202
+</span><span class=lnt>203
+</span><span class=lnt>204
+</span><span class=lnt>205
+</span><span class=lnt>206
+</span><span class=lnt>207
+</span><span class=lnt>208
+</span><span class=lnt>209
+</span><span class=lnt>210
+</span><span class=lnt>211
+</span><span class=lnt>212
+</span><span class=lnt>213
+</span><span class=lnt>214
+</span><span class=lnt>215
+</span><span class=lnt>216
+</span><span class=lnt>217
+</span><span class=lnt>218
+</span><span class=lnt>219
+</span><span class=lnt>220
+</span><span class=lnt>221
+</span><span class=lnt>222
+</span><span class=lnt>223
+</span><span class=lnt>224
+</span><span class=lnt>225
+</span><span class=lnt>226
+</span><span class=lnt>227
+</span><span class=lnt>228
+</span><span class=lnt>229
+</span><span class=lnt>230
+</span><span class=lnt>231
+</span><span class=lnt>232
+</span><span class=lnt>233
+</span><span class=lnt>234
+</span><span class=lnt>235
+</span><span class=lnt>236
+</span><span class=lnt>237
+</span><span class=lnt>238
+</span><span class=lnt>239
+</span><span class=lnt>240
+</span><span class=lnt>241
+</span><span class=lnt>242
+</span><span class=lnt>243
+</span><span class=lnt>244
+</span><span class=lnt>245
+</span><span class=lnt>246
+</span><span class=lnt>247
+</span><span class=lnt>248
+</span><span class=lnt>249
+</span><span class=lnt>250
+</span><span class=lnt>251
+</span><span class=lnt>252
+</span><span class=lnt>253
+</span><span class=lnt>254
+</span><span class=lnt>255
+</span><span class=lnt>256
+</span><span class=lnt>257
+</span><span class=lnt>258
+</span><span class=lnt>259
+</span><span class=lnt>260
+</span><span class=lnt>261
+</span><span class=lnt>262
+</span><span class=lnt>263
+</span><span class=lnt>264
+</span><span class=lnt>265
+</span><span class=lnt>266
+</span><span class=lnt>267
+</span><span class=lnt>268
+</span><span class=lnt>269
+</span><span class=lnt>270
+</span><span class=lnt>271
+</span><span class=lnt>272
+</span><span class=lnt>273
+</span><span class=lnt>274
+</span><span class=lnt>275
+</span><span class=lnt>276
+</span><span class=lnt>277
+</span><span class=lnt>278
+</span><span class=lnt>279
+</span><span class=lnt>280
+</span><span class=lnt>281
+</span><span class=lnt>282
+</span><span class=lnt>283
+</span><span class=lnt>284
+</span><span class=lnt>285
+</span><span class=lnt>286
+</span><span class=lnt>287
+</span><span class=lnt>288
+</span><span class=lnt>289
+</span><span class=lnt>290
+</span><span class=lnt>291
+</span><span class=lnt>292
+</span><span class=lnt>293
+</span><span class=lnt>294
+</span><span class=lnt>295
+</span><span class=lnt>296
+</span><span class=lnt>297
+</span><span class=lnt>298
+</span><span class=lnt>299
+</span><span class=lnt>300
+</span><span class=lnt>301
+</span><span class=lnt>302
+</span><span class=lnt>303
+</span><span class=lnt>304
+</span><span class=lnt>305
+</span><span class=lnt>306
+</span><span class=lnt>307
+</span><span class=lnt>308
+</span><span class=lnt>309
+</span><span class=lnt>310
+</span><span class=lnt>311
+</span><span class=lnt>312
+</span><span class=lnt>313
+</span><span class=lnt>314
+</span><span class=lnt>315
+</span><span class=lnt>316
+</span><span class=lnt>317
+</span><span class=lnt>318
+</span><span class=lnt>319
+</span><span class=lnt>320
+</span><span class=lnt>321
+</span><span class=lnt>322
+</span><span class=lnt>323
+</span><span class=lnt>324
+</span><span class=lnt>325
+</span><span class=lnt>326
+</span><span class=lnt>327
+</span><span class=lnt>328
+</span><span class=lnt>329
+</span><span class=lnt>330
+</span><span class=lnt>331
+</span><span class=lnt>332
+</span><span class=lnt>333
+</span><span class=lnt>334
+</span><span class=lnt>335
+</span><span class=lnt>336
+</span><span class=lnt>337
+</span><span class=lnt>338
+</span><span class=lnt>339
+</span><span class=lnt>340
+</span><span class=lnt>341
+</span><span class=lnt>342
+</span><span class=lnt>343
+</span><span class=lnt>344
+</span><span class=lnt>345
+</span><span class=lnt>346
+</span><span class=lnt>347
+</span><span class=lnt>348
+</span><span class=lnt>349
+</span><span class=lnt>350
+</span><span class=lnt>351
+</span><span class=lnt>352
+</span><span class=lnt>353
+</span><span class=lnt>354
+</span><span class=lnt>355
+</span><span class=lnt>356
+</span><span class=lnt>357
+</span><span class=lnt>358
+</span><span class=lnt>359
+</span><span class=lnt>360
+</span><span class=lnt>361
+</span><span class=lnt>362
+</span><span class=lnt>363
+</span><span class=lnt>364
+</span><span class=lnt>365
+</span><span class=lnt>366
+</span><span class=lnt>367
+</span><span class=lnt>368
+</span><span class=lnt>369
+</span><span class=lnt>370
+</span><span class=lnt>371
+</span><span class=lnt>372
+</span><span class=lnt>373
+</span><span class=lnt>374
+</span><span class=lnt>375
+</span><span class=lnt>376
+</span><span class=lnt>377
+</span><span class=lnt>378
+</span><span class=lnt>379
+</span><span class=lnt>380
+</span><span class=lnt>381
+</span><span class=lnt>382
+</span><span class=lnt>383
+</span><span class=lnt>384
+</span><span class=lnt>385
+</span><span class=lnt>386
+</span><span class=lnt>387
+</span><span class=lnt>388
+</span><span class=lnt>389
+</span><span class=lnt>390
+</span><span class=lnt>391
+</span><span class=lnt>392
+</span><span class=lnt>393
+</span><span class=lnt>394
+</span><span class=lnt>395
+</span><span class=lnt>396
+</span><span class=lnt>397
+</span><span class=lnt>398
+</span><span class=lnt>399
+</span><span class=lnt>400
+</span><span class=lnt>401
+</span><span class=lnt>402
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=err>分析报告：</span><span class=n>S3</span> <span class=err>分片上传状态存储方案</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>🔍</span> <span class=err>当前问题诊断</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=mf>1.</span> <span class=err>现状分析</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>当前实现</span> <span class=p>(</span><span class=n>crates</span><span class=o>/</span><span class=n>yh</span><span class=o>-</span><span class=n>file</span><span class=o>-</span><span class=n>manager</span><span class=o>-</span><span class=n>sev</span><span class=o>-</span><span class=n>s3</span><span class=o>/</span><span class=n>src</span><span class=o>/</span><span class=n>vfs_s3</span><span class=o>.</span><span class=n>rs</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>使用</span> <span class=n>yh</span><span class=o>-</span><span class=n>fast</span><span class=o>-</span><span class=n>kv</span><span class=o>-</span><span class=n>storage</span><span class=o>-</span><span class=n>hub</span> <span class=err>存储分片上传状态</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=n>Key</span> <span class=err>格式</span><span class=p>:</span> <span class=n>s3</span><span class=p>:</span><span class=n>multipart</span><span class=p>:{</span><span class=n>upload_id</span><span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=n>TTL</span><span class=p>:</span> <span class=mi>86400</span> <span class=err>秒（</span><span class=mi>24</span><span class=err>小时）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>核心痛点</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=mi>1</span> <span class=o>//</span> <span class=n>vfs_s3</span><span class=o>.</span><span class=n>rs</span><span class=p>:</span><span class=mi>267</span> <span class=o>-</span> <span class=n>list_multipart_uploads</span> <span class=err>返回空列表</span>
+</span></span><span class=line><span class=cl>    <span class=mi>2</span> <span class=n>async</span> <span class=n>fn</span> <span class=n>list_multipart_uploads</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>S3Result</span><span class=o>&lt;...&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>3</span>     <span class=o>//</span> <span class=err>注意：这里由于</span> <span class=n>KV</span> <span class=err>后端不支持全量扫描，暂时返回空列表以保持</span> <span class=n>API</span> <span class=err>兼容。</span>
+</span></span><span class=line><span class=cl>    <span class=mi>4</span>     <span class=n>let</span> <span class=n>uploads</span> <span class=o>=</span> <span class=n>Vec</span><span class=p>::</span><span class=n>new</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=mi>5</span>     <span class=n>Ok</span><span class=p>(</span><span class=n>s3s</span><span class=p>::</span><span class=n>S3Response</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>ListMultipartUploadsOutput</span> <span class=p>{</span> <span class=o>...</span> <span class=p>}))</span>
+</span></span><span class=line><span class=cl>    <span class=mi>6</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=mi>7</span>
+</span></span><span class=line><span class=cl>    <span class=mi>8</span> <span class=o>//</span> <span class=n>vfs_s3</span><span class=o>.</span><span class=n>rs</span><span class=p>:</span><span class=mi>244</span> <span class=o>-</span> <span class=n>cleanup_expired_multipart_uploads</span> <span class=err>返回</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl>    <span class=mi>9</span> <span class=n>pub</span> <span class=n>async</span> <span class=n>fn</span> <span class=n>cleanup_expired_multipart_uploads</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=n>_seconds</span><span class=p>:</span> <span class=n>u64</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>usize</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>10</span>     <span class=o>//</span> <span class=err>集中清理逻辑由</span> <span class=n>yh</span><span class=o>-</span><span class=n>task</span><span class=o>-</span><span class=n>registry</span> <span class=err>负责，这里保持接口兼容</span>
+</span></span><span class=line><span class=cl>   <span class=mi>11</span>     <span class=mi>0</span>
+</span></span><span class=line><span class=cl>   <span class=mi>12</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=mf>2.</span> <span class=n>yh</span><span class=o>-</span><span class=n>fast</span><span class=o>-</span><span class=n>kv</span><span class=o>-</span><span class=n>storage</span><span class=o>-</span><span class=n>hub</span> <span class=err>的限制</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>从</span> <span class=n>trait</span><span class=o>.</span><span class=n>rs</span> <span class=err>可以看出，</span><span class=n>CacheBackend</span> <span class=err>接口没有提供：</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>❌</span> <span class=n>keys</span><span class=p>()</span> <span class=o>-</span> <span class=err>全量扫描所有键</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>❌</span> <span class=n>scan</span><span class=p>()</span> <span class=o>-</span> <span class=err>模式匹配扫描</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>❌</span> <span class=n>iterate</span><span class=p>()</span> <span class=o>-</span> <span class=err>迭代器</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>sql</span><span class=o>.</span><span class=n>rs</span> <span class=err>后端只支持：</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>精确查询</span> <span class=p>(</span><span class=n>get</span><span class=p>,</span> <span class=n>set</span><span class=p>,</span> <span class=n>del</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=n>Hash</span> <span class=err>操作</span> <span class=p>(</span><span class=n>hget</span><span class=p>,</span> <span class=n>hset</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=n>TTL</span> <span class=err>管理</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>根本原因</span><span class=p>:</span> <span class=n>SQL</span> <span class=err>后端的设计目标是高性能</span> <span class=n>KV</span> <span class=err>缓存，而非全量扫描场景。</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=o>---</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>💡</span> <span class=err>解决方案对比</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>方案</span> <span class=n>A</span><span class=p>:</span> <span class=err>改回内置</span> <span class=n>DashMap</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>优点</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>支持全量扫描</span> <span class=p>(</span><span class=n>map</span><span class=o>.</span><span class=n>iter</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>高性能（内存操作）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>简单直接</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>缺点</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>❌</span> <span class=err>进程重启后数据丢失（致命问题）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>❌</span> <span class=err>无法利用现有的容灾机制（</span><span class=n>WAL</span><span class=err>、</span><span class=n>Journal</span><span class=err>、</span><span class=n>Task</span> <span class=n>Registry</span><span class=err>）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>❌</span> <span class=err>需要重新实现持久化逻辑</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=o>---</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>方案</span> <span class=n>B</span><span class=p>:</span> <span class=err>增强</span> <span class=n>yh</span><span class=o>-</span><span class=n>fast</span><span class=o>-</span><span class=n>kv</span><span class=o>-</span><span class=n>storage</span><span class=o>-</span><span class=n>hub</span><span class=err>（推荐）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>优点</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>保持架构统一</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>支持多种后端（</span><span class=n>SQL</span><span class=o>/</span><span class=n>Redis</span><span class=o>/</span><span class=n>DashMap</span><span class=err>）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>可以复用现有的清理机制</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>实现策略</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=mi>1</span> <span class=o>//</span> <span class=mf>1.</span> <span class=err>在</span> <span class=n>CacheBackend</span> <span class=n>trait</span> <span class=err>中添加扫描接口</span>
+</span></span><span class=line><span class=cl>    <span class=mi>2</span> <span class=c1>#[async_trait::async_trait]</span>
+</span></span><span class=line><span class=cl>    <span class=mi>3</span> <span class=n>pub</span> <span class=n>trait</span> <span class=n>CacheBackend</span><span class=p>:</span> <span class=n>Send</span> <span class=o>+</span> <span class=n>Sync</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>4</span>     <span class=o>//</span> <span class=o>...</span> <span class=err>现有方法</span> <span class=o>...</span>
+</span></span><span class=line><span class=cl>    <span class=mi>5</span>
+</span></span><span class=line><span class=cl>    <span class=mi>6</span>     <span class=o>///</span> <span class=err>按前缀扫描键（可选实现）</span> <span class=o>/</span> <span class=n>Scan</span> <span class=n>keys</span> <span class=n>by</span> <span class=n>prefix</span> <span class=p>(</span><span class=n>optional</span> <span class=n>implementation</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=mi>7</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>scan_prefix</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=n>prefix</span><span class=p>:</span> <span class=o>&amp;</span><span class=nb>str</span><span class=p>,</span> <span class=n>limit</span><span class=p>:</span> <span class=n>usize</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Result</span><span class=o>&lt;</span><span class=n>Vec</span><span class=o>&lt;</span><span class=ne>String</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>CacheError</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>8</span>         <span class=o>//</span> <span class=err>默认实现：返回空列表</span>
+</span></span><span class=line><span class=cl>    <span class=mi>9</span>         <span class=n>Ok</span><span class=p>(</span><span class=n>Vec</span><span class=p>::</span><span class=n>new</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>   <span class=mi>10</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>11</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>12</span>
+</span></span><span class=line><span class=cl>   <span class=mi>13</span> <span class=o>//</span> <span class=mf>2.</span> <span class=n>SqlBackend</span> <span class=err>实现</span> <span class=n>scan_prefix</span>
+</span></span><span class=line><span class=cl>   <span class=mi>14</span> <span class=n>impl</span> <span class=n>CacheBackend</span> <span class=k>for</span> <span class=n>SqlBackend</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>15</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>scan_prefix</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=n>prefix</span><span class=p>:</span> <span class=o>&amp;</span><span class=nb>str</span><span class=p>,</span> <span class=n>limit</span><span class=p>:</span> <span class=n>usize</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Result</span><span class=o>&lt;</span><span class=n>Vec</span><span class=o>&lt;</span><span class=ne>String</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>CacheError</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>16</span>         <span class=n>let</span> <span class=n>db_backend</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>db</span><span class=o>.</span><span class=n>get_database_backend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>17</span>         <span class=n>let</span> <span class=n>sql</span> <span class=o>=</span> <span class=n>format</span><span class=o>!</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>   <span class=mi>18</span>             <span class=s2>&#34;SELECT k FROM {} WHERE k LIKE $1 LIMIT $2&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>19</span>             <span class=bp>self</span><span class=o>.</span><span class=n>table_name</span>
+</span></span><span class=line><span class=cl>   <span class=mi>20</span>         <span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>21</span>         <span class=n>let</span> <span class=n>pattern</span> <span class=o>=</span> <span class=n>format</span><span class=o>!</span><span class=p>(</span><span class=s2>&#34;{}%&#34;</span><span class=p>,</span> <span class=n>prefix</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>22</span>
+</span></span><span class=line><span class=cl>   <span class=mi>23</span>         <span class=n>let</span> <span class=n>rows</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>db</span><span class=o>.</span><span class=n>query_all</span><span class=p>(</span><span class=n>Statement</span><span class=p>::</span><span class=n>from_sql_and_values</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>   <span class=mi>24</span>             <span class=n>db_backend</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>sql</span><span class=p>,</span> <span class=n>vec</span><span class=o>!</span><span class=p>[</span><span class=n>pattern</span><span class=o>.</span><span class=n>into</span><span class=p>(),</span> <span class=n>limit</span><span class=o>.</span><span class=n>into</span><span class=p>()]</span>
+</span></span><span class=line><span class=cl>   <span class=mi>25</span>         <span class=p>))</span><span class=o>.</span><span class=n>await</span><span class=err>?</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>26</span>
+</span></span><span class=line><span class=cl>   <span class=mi>27</span>         <span class=n>let</span> <span class=n>mut</span> <span class=n>keys</span> <span class=o>=</span> <span class=n>Vec</span><span class=p>::</span><span class=n>new</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>28</span>         <span class=k>for</span> <span class=n>row</span> <span class=ow>in</span> <span class=n>rows</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>29</span>             <span class=k>if</span> <span class=n>let</span> <span class=n>Some</span><span class=p>(</span><span class=n>k</span><span class=p>)</span> <span class=o>=</span> <span class=n>row</span><span class=o>.</span><span class=n>try_get_by_index</span><span class=p>::</span><span class=o>&lt;</span><span class=ne>String</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>0</span><span class=p>)</span><span class=o>.</span><span class=n>ok</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>30</span>                 <span class=n>keys</span><span class=o>.</span><span class=n>push</span><span class=p>(</span><span class=n>k</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>31</span>             <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>32</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>33</span>         <span class=n>Ok</span><span class=p>(</span><span class=n>keys</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>   <span class=mi>34</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>35</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=o>---</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>方案</span> <span class=n>C</span><span class=p>:</span> <span class=err>混合方案（最佳实践）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>架构设计</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=mi>1</span> <span class=err>┌─────────────────────────────────────────────────────────────┐</span>
+</span></span><span class=line><span class=cl>    <span class=mi>2</span> <span class=err>│</span>                   <span class=n>S3</span> <span class=err>分片上传状态管理</span>                         <span class=err>│</span>
+</span></span><span class=line><span class=cl>    <span class=mi>3</span> <span class=err>├─────────────────────────────────────────────────────────────┤</span>
+</span></span><span class=line><span class=cl>    <span class=mi>4</span> <span class=err>│</span>                                                              <span class=err>│</span>
+</span></span><span class=line><span class=cl>    <span class=mi>5</span> <span class=err>│</span>  <span class=mf>1.</span> <span class=err>内存层</span><span class=p>:</span> <span class=n>DashMap</span> <span class=p>(</span><span class=err>活跃分片</span><span class=p>)</span>                                <span class=err>│</span>
+</span></span><span class=line><span class=cl>    <span class=mi>6</span> <span class=err>│</span>     <span class=err>└──</span> <span class=err>快速访问，零延迟</span>                                       <span class=err>│</span>
+</span></span><span class=line><span class=cl>    <span class=mi>7</span> <span class=err>│</span>                                                              <span class=err>│</span>
+</span></span><span class=line><span class=cl>    <span class=mi>8</span> <span class=err>│</span>  <span class=mf>2.</span> <span class=err>持久层</span><span class=p>:</span> <span class=n>yh</span><span class=o>-</span><span class=n>fast</span><span class=o>-</span><span class=n>kv</span><span class=o>-</span><span class=n>storage</span><span class=o>-</span><span class=n>hub</span> <span class=p>(</span><span class=n>SQL</span><span class=p>)</span>                      <span class=err>│</span>
+</span></span><span class=line><span class=cl>    <span class=mi>9</span> <span class=err>│</span>     <span class=err>└──</span> <span class=err>进程重启恢复</span>                                           <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>10</span> <span class=err>│</span>                                                              <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>11</span> <span class=err>│</span>  <span class=mf>3.</span> <span class=err>清理层</span><span class=p>:</span> <span class=n>yh</span><span class=o>-</span><span class=n>task</span><span class=o>-</span><span class=n>registry</span> <span class=o>+</span> <span class=n>yh</span><span class=o>-</span><span class=n>journal</span><span class=o>-</span><span class=nb>log</span>                <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>12</span> <span class=err>│</span>     <span class=err>└──</span> <span class=err>定时清理</span> <span class=o>+</span> <span class=err>审计日志</span>                                    <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>13</span> <span class=err>│</span>                                                              <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>14</span> <span class=err>│</span>  <span class=mf>4.</span> <span class=err>容灾层</span><span class=p>:</span> <span class=n>yh</span><span class=o>-</span><span class=n>filemanager</span><span class=o>-</span><span class=n>vfs</span><span class=o>-</span><span class=n>storage</span><span class=o>-</span><span class=n>hub</span> <span class=p>(</span><span class=n>WAL</span><span class=p>)</span>              <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>15</span> <span class=err>│</span>     <span class=err>└──</span> <span class=err>物理文件保护</span>                                           <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>16</span> <span class=err>│</span>                                                              <span class=err>│</span>
+</span></span><span class=line><span class=cl>   <span class=mi>17</span> <span class=err>└─────────────────────────────────────────────────────────────┘</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>实现细节</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>##### 1. 双层存储结构</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=mi>1</span> <span class=o>//</span> <span class=n>vfs_s3</span><span class=o>.</span><span class=n>rs</span>
+</span></span><span class=line><span class=cl>    <span class=mi>2</span> <span class=n>use</span> <span class=n>dashmap</span><span class=p>::</span><span class=n>DashMap</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=mi>3</span> <span class=n>use</span> <span class=n>std</span><span class=p>::</span><span class=n>sync</span><span class=p>::</span><span class=n>Arc</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=mi>4</span>
+</span></span><span class=line><span class=cl>    <span class=mi>5</span> <span class=c1>#[derive(Clone)]</span>
+</span></span><span class=line><span class=cl>    <span class=mi>6</span> <span class=n>pub</span> <span class=n>struct</span> <span class=n>VfsS3Service</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>7</span>     <span class=n>db</span><span class=p>:</span> <span class=n>Arc</span><span class=o>&lt;</span><span class=n>DatabaseConnection</span><span class=o>&gt;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=mi>8</span>     <span class=n>hub</span><span class=p>:</span> <span class=n>Arc</span><span class=o>&lt;</span><span class=n>VfsStorageHub</span><span class=o>&gt;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=mi>9</span>     <span class=n>journal_logger</span><span class=p>:</span> <span class=n>Arc</span><span class=o>&lt;</span><span class=n>yh_journal_log</span><span class=p>::</span><span class=n>JournalLogger</span><span class=o>&gt;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>10</span>
+</span></span><span class=line><span class=cl>   <span class=mi>11</span>     <span class=o>//</span> <span class=err>新增：内存层缓存</span>
+</span></span><span class=line><span class=cl>   <span class=mi>12</span>     <span class=n>active_uploads</span><span class=p>:</span> <span class=n>Arc</span><span class=o>&lt;</span><span class=n>DashMap</span><span class=o>&lt;</span><span class=ne>String</span><span class=p>,</span> <span class=n>MultipartUploadState</span><span class=o>&gt;&gt;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>13</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>14</span>
+</span></span><span class=line><span class=cl>   <span class=mi>15</span> <span class=n>impl</span> <span class=n>VfsS3Service</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>16</span>     <span class=n>pub</span> <span class=n>fn</span> <span class=n>new</span><span class=p>(</span><span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Self</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>17</span>         <span class=n>Self</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>18</span>             <span class=n>db</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>19</span>             <span class=n>hub</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>20</span>             <span class=n>journal_logger</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>21</span>             <span class=n>active_uploads</span><span class=p>:</span> <span class=n>Arc</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>DashMap</span><span class=p>::</span><span class=n>new</span><span class=p>()),</span>
+</span></span><span class=line><span class=cl>   <span class=mi>22</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>23</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>24</span>
+</span></span><span class=line><span class=cl>   <span class=mi>25</span>     <span class=o>//</span> <span class=err>创建分片上传：同时写入内存和持久层</span>
+</span></span><span class=line><span class=cl>   <span class=mi>26</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>create_multipart_upload</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>S3Result</span><span class=o>&lt;...&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>27</span>         <span class=n>let</span> <span class=n>upload_id</span> <span class=o>=</span> <span class=n>uuid</span><span class=p>::</span><span class=n>Uuid</span><span class=p>::</span><span class=n>new_v4</span><span class=p>()</span><span class=o>.</span><span class=n>to_string</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>28</span>         <span class=n>let</span> <span class=n>state</span> <span class=o>=</span> <span class=n>MultipartUploadState</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=o>...</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>29</span>
+</span></span><span class=line><span class=cl>   <span class=mi>30</span>         <span class=o>//</span> <span class=mf>1.</span> <span class=err>写入内存</span>
+</span></span><span class=line><span class=cl>   <span class=mi>31</span>         <span class=bp>self</span><span class=o>.</span><span class=n>active_uploads</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=n>upload_id</span><span class=o>.</span><span class=n>clone</span><span class=p>(),</span> <span class=n>state</span><span class=o>.</span><span class=n>clone</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>   <span class=mi>32</span>
+</span></span><span class=line><span class=cl>   <span class=mi>33</span>         <span class=o>//</span> <span class=mf>2.</span> <span class=err>写入持久层</span>
+</span></span><span class=line><span class=cl>   <span class=mi>34</span>         <span class=bp>self</span><span class=o>.</span><span class=n>save_multipart_state</span><span class=p>(</span><span class=o>&amp;</span><span class=n>state</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=err>?</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>35</span>
+</span></span><span class=line><span class=cl>   <span class=mi>36</span>         <span class=o>//</span> <span class=mf>3.</span> <span class=err>记录审计日志</span>
+</span></span><span class=line><span class=cl>   <span class=mi>37</span>         <span class=bp>self</span><span class=o>.</span><span class=n>journal_logger</span><span class=o>.</span><span class=n>log_event</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>   <span class=mi>38</span>             <span class=n>user_id</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>39</span>             <span class=n>yh_journal_log</span><span class=p>::</span><span class=n>types</span><span class=p>::</span><span class=n>JournalType</span><span class=p>::</span><span class=n>FileOperation</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>40</span>             <span class=s2>&#34;S3_MULTIPART_CREATE&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>41</span>             <span class=n>serde_json</span><span class=p>::</span><span class=n>json</span><span class=o>!</span><span class=p>({</span><span class=s2>&#34;upload_id&#34;</span><span class=p>:</span> <span class=n>upload_id</span><span class=p>,</span> <span class=s2>&#34;key&#34;</span><span class=p>:</span> <span class=n>state</span><span class=o>.</span><span class=n>key</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>   <span class=mi>42</span>         <span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>43</span>
+</span></span><span class=line><span class=cl>   <span class=mi>44</span>         <span class=n>Ok</span><span class=p>(</span><span class=o>...</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>   <span class=mi>45</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>46</span>
+</span></span><span class=line><span class=cl>   <span class=mi>47</span>     <span class=o>//</span> <span class=err>上传分片：只更新内存，定期同步</span>
+</span></span><span class=line><span class=cl>   <span class=mi>48</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>upload_part</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>S3Result</span><span class=o>&lt;...&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>49</span>         <span class=n>let</span> <span class=n>mut</span> <span class=n>state</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>get_multipart_state</span><span class=p>(</span><span class=o>&amp;</span><span class=n>input</span><span class=o>.</span><span class=n>upload_id</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=err>?</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>50</span>
+</span></span><span class=line><span class=cl>   <span class=mi>51</span>         <span class=o>//</span> <span class=err>更新分片信息</span>
+</span></span><span class=line><span class=cl>   <span class=mi>52</span>         <span class=n>state</span><span class=o>.</span><span class=n>parts</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=o>...</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>53</span>
+</span></span><span class=line><span class=cl>   <span class=mi>54</span>         <span class=o>//</span> <span class=mf>1.</span> <span class=err>更新内存</span>
+</span></span><span class=line><span class=cl>   <span class=mi>55</span>         <span class=bp>self</span><span class=o>.</span><span class=n>active_uploads</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=n>input</span><span class=o>.</span><span class=n>upload_id</span><span class=o>.</span><span class=n>clone</span><span class=p>(),</span> <span class=n>state</span><span class=o>.</span><span class=n>clone</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>   <span class=mi>56</span>
+</span></span><span class=line><span class=cl>   <span class=mi>57</span>         <span class=o>//</span> <span class=mf>2.</span> <span class=err>延迟写入持久层（每</span> <span class=n>N</span> <span class=err>个分片或超时）</span>
+</span></span><span class=line><span class=cl>   <span class=mi>58</span>         <span class=k>if</span> <span class=n>state</span><span class=o>.</span><span class=n>parts</span><span class=o>.</span><span class=n>len</span><span class=p>()</span> <span class=o>%</span> <span class=mi>10</span> <span class=o>==</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>59</span>             <span class=bp>self</span><span class=o>.</span><span class=n>save_multipart_state</span><span class=p>(</span><span class=o>&amp;</span><span class=n>state</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=err>?</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>60</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>61</span>
+</span></span><span class=line><span class=cl>   <span class=mi>62</span>         <span class=n>Ok</span><span class=p>(</span><span class=o>...</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>   <span class=mi>63</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>64</span>
+</span></span><span class=line><span class=cl>   <span class=mi>65</span>     <span class=o>//</span> <span class=err>完成分片上传：清理所有层</span>
+</span></span><span class=line><span class=cl>   <span class=mi>66</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>complete_multipart_upload</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>S3Result</span><span class=o>&lt;...&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>67</span>         <span class=n>let</span> <span class=n>state</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>get_multipart_state</span><span class=p>(</span><span class=o>&amp;</span><span class=n>input</span><span class=o>.</span><span class=n>upload_id</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=err>?</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>68</span>
+</span></span><span class=line><span class=cl>   <span class=mi>69</span>         <span class=o>//</span> <span class=mf>1.</span> <span class=err>合并文件</span>
+</span></span><span class=line><span class=cl>   <span class=mi>70</span>         <span class=o>//</span> <span class=o>...</span> <span class=p>(</span><span class=err>现有逻辑</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>   <span class=mi>71</span>
+</span></span><span class=line><span class=cl>   <span class=mi>72</span>         <span class=o>//</span> <span class=mf>2.</span> <span class=err>清理临时文件</span>
+</span></span><span class=line><span class=cl>   <span class=mi>73</span>         <span class=k>for</span> <span class=n>part_num</span> <span class=ow>in</span> <span class=n>state</span><span class=o>.</span><span class=n>parts</span><span class=o>.</span><span class=n>keys</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>74</span>             <span class=n>let</span> <span class=n>_</span> <span class=o>=</span> <span class=n>engine</span><span class=o>.</span><span class=n>delete</span><span class=p>(</span><span class=o>&amp;</span><span class=n>format</span><span class=o>!</span><span class=p>(</span><span class=s2>&#34;/.multipart/{}/{}&#34;</span><span class=p>,</span> <span class=n>input</span><span class=o>.</span><span class=n>upload_id</span><span class=p>,</span> <span class=n>part_num</span><span class=p>))</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>75</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>76</span>
+</span></span><span class=line><span class=cl>   <span class=mi>77</span>         <span class=o>//</span> <span class=mf>3.</span> <span class=err>清理内存</span>
+</span></span><span class=line><span class=cl>   <span class=mi>78</span>         <span class=bp>self</span><span class=o>.</span><span class=n>active_uploads</span><span class=o>.</span><span class=n>remove</span><span class=p>(</span><span class=o>&amp;</span><span class=n>input</span><span class=o>.</span><span class=n>upload_id</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>79</span>
+</span></span><span class=line><span class=cl>   <span class=mi>80</span>         <span class=o>//</span> <span class=mf>4.</span> <span class=err>清理持久层</span>
+</span></span><span class=line><span class=cl>   <span class=mi>81</span>         <span class=bp>self</span><span class=o>.</span><span class=n>delete_multipart_state</span><span class=p>(</span><span class=o>&amp;</span><span class=n>input</span><span class=o>.</span><span class=n>upload_id</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=err>?</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>82</span>
+</span></span><span class=line><span class=cl>   <span class=mi>83</span>         <span class=o>//</span> <span class=mf>5.</span> <span class=err>记录审计日志</span>
+</span></span><span class=line><span class=cl>   <span class=mi>84</span>         <span class=bp>self</span><span class=o>.</span><span class=n>journal_logger</span><span class=o>.</span><span class=n>log_event</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>   <span class=mi>85</span>             <span class=n>user_id</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>86</span>             <span class=n>yh_journal_log</span><span class=p>::</span><span class=n>types</span><span class=p>::</span><span class=n>JournalType</span><span class=p>::</span><span class=n>FileOperation</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>87</span>             <span class=s2>&#34;S3_MULTIPART_COMPLETE&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>88</span>             <span class=n>serde_json</span><span class=p>::</span><span class=n>json</span><span class=o>!</span><span class=p>({</span><span class=s2>&#34;upload_id&#34;</span><span class=p>:</span> <span class=n>input</span><span class=o>.</span><span class=n>upload_id</span><span class=p>,</span> <span class=s2>&#34;key&#34;</span><span class=p>:</span> <span class=n>state</span><span class=o>.</span><span class=n>key</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>   <span class=mi>89</span>         <span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>90</span>
+</span></span><span class=line><span class=cl>   <span class=mi>91</span>         <span class=n>Ok</span><span class=p>(</span><span class=o>...</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>   <span class=mi>92</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>93</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>##### 2. 进程重启恢复</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=mi>1</span> <span class=o>//</span> <span class=err>在</span> <span class=n>VfsS3Service</span><span class=p>::</span><span class=n>new</span> <span class=err>中添加恢复逻辑</span>
+</span></span><span class=line><span class=cl>    <span class=mi>2</span> <span class=n>impl</span> <span class=n>VfsS3Service</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>3</span>     <span class=n>pub</span> <span class=n>fn</span> <span class=n>new</span><span class=p>(</span><span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Self</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>4</span>         <span class=n>let</span> <span class=n>active_uploads</span> <span class=o>=</span> <span class=n>Arc</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>DashMap</span><span class=p>::</span><span class=n>new</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=mi>5</span>
+</span></span><span class=line><span class=cl>    <span class=mi>6</span>         <span class=o>//</span> <span class=err>启动时恢复活跃分片</span>
+</span></span><span class=line><span class=cl>    <span class=mi>7</span>         <span class=n>let</span> <span class=n>active_uploads_clone</span> <span class=o>=</span> <span class=n>active_uploads</span><span class=o>.</span><span class=n>clone</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=mi>8</span>         <span class=n>let</span> <span class=n>db_clone</span> <span class=o>=</span> <span class=n>db</span><span class=o>.</span><span class=n>clone</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=mi>9</span>         <span class=n>tokio</span><span class=p>::</span><span class=n>spawn</span><span class=p>(</span><span class=n>async</span> <span class=n>move</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>10</span>             <span class=n>Self</span><span class=p>::</span><span class=n>recover_active_uploads</span><span class=p>(</span><span class=n>db_clone</span><span class=p>,</span> <span class=n>active_uploads_clone</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>11</span>         <span class=p>});</span>
+</span></span><span class=line><span class=cl>   <span class=mi>12</span>
+</span></span><span class=line><span class=cl>   <span class=mi>13</span>         <span class=n>Self</span> <span class=p>{</span> <span class=n>db</span><span class=p>,</span> <span class=n>hub</span><span class=p>,</span> <span class=n>journal_logger</span><span class=p>,</span> <span class=n>active_uploads</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>14</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>15</span>
+</span></span><span class=line><span class=cl>   <span class=mi>16</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>recover_active_uploads</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>   <span class=mi>17</span>         <span class=n>db</span><span class=p>:</span> <span class=n>Arc</span><span class=o>&lt;</span><span class=n>DatabaseConnection</span><span class=o>&gt;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>18</span>         <span class=n>active_uploads</span><span class=p>:</span> <span class=n>Arc</span><span class=o>&lt;</span><span class=n>DashMap</span><span class=o>&lt;</span><span class=ne>String</span><span class=p>,</span> <span class=n>MultipartUploadState</span><span class=o>&gt;&gt;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>   <span class=mi>19</span>     <span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>20</span>         <span class=o>//</span> <span class=err>从</span> <span class=n>SQL</span> <span class=err>后端扫描所有</span> <span class=n>s3</span><span class=p>:</span><span class=n>multipart</span><span class=p>:</span><span class=o>*</span> <span class=err>键</span>
+</span></span><span class=line><span class=cl>   <span class=mi>21</span>         <span class=o>//</span> <span class=err>需要实现</span> <span class=n>scan_prefix</span> <span class=err>接口</span>
+</span></span><span class=line><span class=cl>   <span class=mi>22</span>         <span class=k>if</span> <span class=n>let</span> <span class=n>Ok</span><span class=p>(</span><span class=n>manager</span><span class=p>)</span> <span class=o>=</span> <span class=n>yh_fast_kv_storage_hub</span><span class=p>::</span><span class=n>api</span><span class=p>::</span><span class=n>cache_manager</span><span class=p>::</span><span class=n>CacheManager</span><span class=p>::</span><span class=n>get</span><span class=p>()</span><span class=o>.</span><span class=n>await</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>23</span>             <span class=n>let</span> <span class=n>backend</span> <span class=o>=</span> <span class=n>manager</span><span class=o>.</span><span class=n>get_backend</span><span class=p>()</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>24</span>
+</span></span><span class=line><span class=cl>   <span class=mi>25</span>             <span class=o>//</span> <span class=err>扫描所有分片上传状态</span>
+</span></span><span class=line><span class=cl>   <span class=mi>26</span>             <span class=n>let</span> <span class=n>keys</span> <span class=o>=</span> <span class=n>backend</span><span class=o>.</span><span class=n>scan_prefix</span><span class=p>(</span><span class=s2>&#34;s3:multipart:&#34;</span><span class=p>,</span> <span class=mi>1000</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=o>.</span><span class=n>unwrap_or_default</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>27</span>
+</span></span><span class=line><span class=cl>   <span class=mi>28</span>             <span class=k>for</span> <span class=n>key</span> <span class=ow>in</span> <span class=n>keys</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>29</span>                 <span class=k>if</span> <span class=n>let</span> <span class=n>Some</span><span class=p>(</span><span class=n>state</span><span class=p>)</span> <span class=o>=</span> <span class=n>backend</span><span class=o>.</span><span class=n>get_json</span><span class=p>::</span><span class=o>&lt;</span><span class=n>MultipartUploadState</span><span class=o>&gt;</span><span class=p>(</span><span class=o>&amp;</span><span class=n>key</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=o>.</span><span class=n>ok</span><span class=p>()</span><span class=o>.</span><span class=n>flatten</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>30</span>                     <span class=o>//</span> <span class=err>检查是否过期</span>
+</span></span><span class=line><span class=cl>   <span class=mi>31</span>                     <span class=n>let</span> <span class=n>age</span> <span class=o>=</span> <span class=n>SystemTime</span><span class=p>::</span><span class=n>now</span><span class=p>()</span><span class=o>.</span><span class=n>duration_since</span><span class=p>(</span><span class=n>state</span><span class=o>.</span><span class=n>created_at</span><span class=p>)</span><span class=o>.</span><span class=n>unwrap_or_default</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>32</span>                     <span class=k>if</span> <span class=n>age</span><span class=o>.</span><span class=n>as_secs</span><span class=p>()</span> <span class=o>&lt;</span> <span class=mi>86400</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>33</span>                         <span class=o>//</span> <span class=err>恢复到内存</span>
+</span></span><span class=line><span class=cl>   <span class=mi>34</span>                         <span class=n>active_uploads</span><span class=o>.</span><span class=n>insert</span><span class=p>(</span><span class=n>state</span><span class=o>.</span><span class=n>upload_id</span><span class=o>.</span><span class=n>clone</span><span class=p>(),</span> <span class=n>state</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>35</span>                         <span class=n>yh_console_log</span><span class=p>::</span><span class=n>yhlog</span><span class=p>(</span><span class=s2>&#34;info&#34;</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>format</span><span class=o>!</span><span class=p>(</span><span class=s2>&#34;Recovered multipart upload: {}&#34;</span><span class=p>,</span> <span class=n>state</span><span class=o>.</span><span class=n>upload_id</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>   <span class=mi>36</span>                     <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>37</span>                         <span class=o>//</span> <span class=err>清理过期状态</span>
+</span></span><span class=line><span class=cl>   <span class=mi>38</span>                         <span class=n>let</span> <span class=n>_</span> <span class=o>=</span> <span class=n>backend</span><span class=o>.</span><span class=n>del</span><span class=p>(</span><span class=o>&amp;</span><span class=n>key</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>39</span>                         <span class=n>yh_console_log</span><span class=p>::</span><span class=n>yhlog</span><span class=p>(</span><span class=s2>&#34;warn&#34;</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>format</span><span class=o>!</span><span class=p>(</span><span class=s2>&#34;Cleaned expired multipart upload: {}&#34;</span><span class=p>,</span> <span class=n>state</span><span class=o>.</span><span class=n>upload_id</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>   <span class=mi>40</span>                     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>41</span>                 <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>42</span>             <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>43</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>44</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>45</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>##### 3. 定时清理机制</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=mi>1</span> <span class=o>//</span> <span class=n>vfs</span><span class=o>/</span><span class=n>hub</span><span class=o>.</span><span class=n>rs</span>
+</span></span><span class=line><span class=cl>    <span class=mi>2</span> <span class=n>impl</span> <span class=n>VfsStorageHub</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>3</span>     <span class=n>pub</span> <span class=n>async</span> <span class=n>fn</span> <span class=n>cleanup_all_s3_multiparts</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=n>max_age_secs</span><span class=p>:</span> <span class=n>u64</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>usize</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>4</span>         <span class=n>let</span> <span class=n>mut</span> <span class=n>cleaned</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=mi>5</span>
+</span></span><span class=line><span class=cl>    <span class=mi>6</span>         <span class=k>if</span> <span class=n>let</span> <span class=n>Ok</span><span class=p>(</span><span class=n>manager</span><span class=p>)</span> <span class=o>=</span> <span class=n>yh_fast_kv_storage_hub</span><span class=p>::</span><span class=n>api</span><span class=p>::</span><span class=n>cache_manager</span><span class=p>::</span><span class=n>CacheManager</span><span class=p>::</span><span class=n>get</span><span class=p>()</span><span class=o>.</span><span class=n>await</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>7</span>             <span class=n>let</span> <span class=n>backend</span> <span class=o>=</span> <span class=n>manager</span><span class=o>.</span><span class=n>get_backend</span><span class=p>()</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=mi>8</span>
+</span></span><span class=line><span class=cl>    <span class=mi>9</span>             <span class=o>//</span> <span class=err>扫描所有分片上传状态</span>
+</span></span><span class=line><span class=cl>   <span class=mi>10</span>             <span class=n>let</span> <span class=n>keys</span> <span class=o>=</span> <span class=n>backend</span><span class=o>.</span><span class=n>scan_prefix</span><span class=p>(</span><span class=s2>&#34;s3:multipart:&#34;</span><span class=p>,</span> <span class=mi>1000</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=o>.</span><span class=n>unwrap_or_default</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>11</span>
+</span></span><span class=line><span class=cl>   <span class=mi>12</span>             <span class=k>for</span> <span class=n>key</span> <span class=ow>in</span> <span class=n>keys</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>13</span>                 <span class=k>if</span> <span class=n>let</span> <span class=n>Some</span><span class=p>(</span><span class=n>state</span><span class=p>)</span> <span class=o>=</span> <span class=n>backend</span><span class=o>.</span><span class=n>get_json</span><span class=p>::</span><span class=o>&lt;</span><span class=n>MultipartUploadState</span><span class=o>&gt;</span><span class=p>(</span><span class=o>&amp;</span><span class=n>key</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=o>.</span><span class=n>ok</span><span class=p>()</span><span class=o>.</span><span class=n>flatten</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>14</span>                     <span class=n>let</span> <span class=n>age</span> <span class=o>=</span> <span class=n>SystemTime</span><span class=p>::</span><span class=n>now</span><span class=p>()</span><span class=o>.</span><span class=n>duration_since</span><span class=p>(</span><span class=n>state</span><span class=o>.</span><span class=n>created_at</span><span class=p>)</span><span class=o>.</span><span class=n>unwrap_or_default</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>15</span>
+</span></span><span class=line><span class=cl>   <span class=mi>16</span>                     <span class=k>if</span> <span class=n>age</span><span class=o>.</span><span class=n>as_secs</span><span class=p>()</span> <span class=o>&gt;</span> <span class=n>max_age_secs</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>17</span>                         <span class=o>//</span> <span class=mf>1.</span> <span class=err>清理临时文件</span>
+</span></span><span class=line><span class=cl>   <span class=mi>18</span>                         <span class=k>if</span> <span class=n>let</span> <span class=n>Ok</span><span class=p>(</span><span class=n>engine</span><span class=p>)</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>create_scoped_engine</span><span class=p>(</span><span class=o>...</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>19</span>                             <span class=k>for</span> <span class=n>part_num</span> <span class=ow>in</span> <span class=n>state</span><span class=o>.</span><span class=n>parts</span><span class=o>.</span><span class=n>keys</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>20</span>                                 <span class=n>let</span> <span class=n>_</span> <span class=o>=</span> <span class=n>engine</span><span class=o>.</span><span class=n>delete</span><span class=p>(</span><span class=o>&amp;</span><span class=n>format</span><span class=o>!</span><span class=p>(</span><span class=s2>&#34;/.multipart/{}/{}&#34;</span><span class=p>,</span> <span class=n>state</span><span class=o>.</span><span class=n>upload_id</span><span class=p>,</span> <span class=n>part_num</span><span class=p>))</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>21</span>                             <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>22</span>                             <span class=n>let</span> <span class=n>_</span> <span class=o>=</span> <span class=n>engine</span><span class=o>.</span><span class=n>delete</span><span class=p>(</span><span class=o>&amp;</span><span class=n>format</span><span class=o>!</span><span class=p>(</span><span class=s2>&#34;/.multipart/{}&#34;</span><span class=p>,</span> <span class=n>state</span><span class=o>.</span><span class=n>upload_id</span><span class=p>))</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>23</span>                         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>24</span>
+</span></span><span class=line><span class=cl>   <span class=mi>25</span>                         <span class=o>//</span> <span class=mf>2.</span> <span class=err>清理持久层</span>
+</span></span><span class=line><span class=cl>   <span class=mi>26</span>                         <span class=n>let</span> <span class=n>_</span> <span class=o>=</span> <span class=n>backend</span><span class=o>.</span><span class=n>del</span><span class=p>(</span><span class=o>&amp;</span><span class=n>key</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>27</span>
+</span></span><span class=line><span class=cl>   <span class=mi>28</span>                         <span class=o>//</span> <span class=mf>3.</span> <span class=err>记录审计日志</span>
+</span></span><span class=line><span class=cl>   <span class=mi>29</span>                         <span class=o>//</span> <span class=bp>self</span><span class=o>.</span><span class=n>journal_logger</span><span class=o>.</span><span class=n>log_event</span><span class=p>(</span><span class=o>...</span><span class=p>)</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>30</span>
+</span></span><span class=line><span class=cl>   <span class=mi>31</span>                         <span class=n>cleaned</span> <span class=o>+=</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>32</span>                     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>33</span>                 <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>34</span>             <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>35</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>36</span>
+</span></span><span class=line><span class=cl>   <span class=mi>37</span>         <span class=n>cleaned</span>
+</span></span><span class=line><span class=cl>   <span class=mi>38</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>39</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>##### 4. 内存保护机制</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=mi>1</span> <span class=o>//</span> <span class=err>防止内存爆炸</span>
+</span></span><span class=line><span class=cl>    <span class=mi>2</span> <span class=n>impl</span> <span class=n>VfsS3Service</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>3</span>     <span class=k>const</span> <span class=n>MAX_ACTIVE_UPLOADS</span><span class=p>:</span> <span class=n>usize</span> <span class=o>=</span> <span class=mi>1000</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=mi>4</span>
+</span></span><span class=line><span class=cl>    <span class=mi>5</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>create_multipart_upload</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>S3Result</span><span class=o>&lt;...&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>6</span>         <span class=o>//</span> <span class=err>检查内存限制</span>
+</span></span><span class=line><span class=cl>    <span class=mi>7</span>         <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>active_uploads</span><span class=o>.</span><span class=n>len</span><span class=p>()</span> <span class=o>&gt;=</span> <span class=n>Self</span><span class=p>::</span><span class=n>MAX_ACTIVE_UPLOADS</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=mi>8</span>             <span class=o>//</span> <span class=err>触发清理</span>
+</span></span><span class=line><span class=cl>    <span class=mi>9</span>             <span class=bp>self</span><span class=o>.</span><span class=n>evict_inactive_uploads</span><span class=p>()</span><span class=o>.</span><span class=n>await</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>   <span class=mi>10</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>11</span>
+</span></span><span class=line><span class=cl>   <span class=mi>12</span>         <span class=o>//</span> <span class=o>...</span> <span class=err>创建逻辑</span>
+</span></span><span class=line><span class=cl>   <span class=mi>13</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>14</span>
+</span></span><span class=line><span class=cl>   <span class=mi>15</span>     <span class=n>async</span> <span class=n>fn</span> <span class=n>evict_inactive_uploads</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>16</span>         <span class=n>let</span> <span class=n>now</span> <span class=o>=</span> <span class=n>SystemTime</span><span class=p>::</span><span class=n>now</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>17</span>         <span class=n>let</span> <span class=n>mut</span> <span class=n>to_evict</span> <span class=o>=</span> <span class=n>Vec</span><span class=p>::</span><span class=n>new</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>18</span>
+</span></span><span class=line><span class=cl>   <span class=mi>19</span>         <span class=k>for</span> <span class=n>entry</span> <span class=ow>in</span> <span class=bp>self</span><span class=o>.</span><span class=n>active_uploads</span><span class=o>.</span><span class=n>iter</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>20</span>             <span class=n>let</span> <span class=n>age</span> <span class=o>=</span> <span class=n>now</span><span class=o>.</span><span class=n>duration_since</span><span class=p>(</span><span class=n>entry</span><span class=o>.</span><span class=n>value</span><span class=p>()</span><span class=o>.</span><span class=n>created_at</span><span class=p>)</span><span class=o>.</span><span class=n>unwrap_or_default</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>   <span class=mi>21</span>             <span class=k>if</span> <span class=n>age</span><span class=o>.</span><span class=n>as_secs</span><span class=p>()</span> <span class=o>&gt;</span> <span class=mi>3600</span> <span class=p>{</span> <span class=o>//</span> <span class=mi>1</span><span class=err>小时未活跃</span>
+</span></span><span class=line><span class=cl>   <span class=mi>22</span>                 <span class=n>to_evict</span><span class=o>.</span><span class=n>push</span><span class=p>(</span><span class=n>entry</span><span class=o>.</span><span class=n>key</span><span class=p>()</span><span class=o>.</span><span class=n>clone</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>   <span class=mi>23</span>             <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>24</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>25</span>
+</span></span><span class=line><span class=cl>   <span class=mi>26</span>         <span class=k>for</span> <span class=n>key</span> <span class=ow>in</span> <span class=n>to_evict</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>   <span class=mi>27</span>             <span class=bp>self</span><span class=o>.</span><span class=n>active_uploads</span><span class=o>.</span><span class=n>remove</span><span class=p>(</span><span class=o>&amp;</span><span class=n>key</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>   <span class=mi>28</span>             <span class=o>//</span> <span class=err>注意：持久层保留，可按需恢复</span>
+</span></span><span class=line><span class=cl>   <span class=mi>29</span>         <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>30</span>     <span class=p>}</span>
+</span></span><span class=line><span class=cl>   <span class=mi>31</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=o>---</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>📋</span> <span class=err>推荐实施方案</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>阶段</span> <span class=mi>1</span><span class=p>:</span> <span class=err>增强</span> <span class=n>yh</span><span class=o>-</span><span class=n>fast</span><span class=o>-</span><span class=n>kv</span><span class=o>-</span><span class=n>storage</span><span class=o>-</span><span class=n>hub</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=mf>1.</span> <span class=err>在</span> <span class=n>trait</span><span class=o>.</span><span class=n>rs</span> <span class=err>添加</span> <span class=n>scan_prefix</span><span class=p>()</span> <span class=err>接口</span>
+</span></span><span class=line><span class=cl>   <span class=mf>2.</span> <span class=n>SqlBackend</span> <span class=err>实现</span> <span class=n>scan_prefix</span><span class=p>()</span><span class=err>（使用</span> <span class=n>LIKE</span> <span class=err>查询）</span>
+</span></span><span class=line><span class=cl>   <span class=mf>3.</span> <span class=n>DashMap</span> <span class=err>实现全量扫描（已有能力）</span>
+</span></span><span class=line><span class=cl>   <span class=mf>4.</span> <span class=n>Redis</span> <span class=err>实现使用</span> <span class=n>SCAN</span> <span class=err>命令</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>工作量</span><span class=p>:</span> <span class=mi>2</span><span class=o>-</span><span class=mi>3</span> <span class=err>小时</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>阶段</span> <span class=mi>2</span><span class=p>:</span> <span class=err>实现混合存储方案</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=mf>1.</span> <span class=err>在</span> <span class=n>VfsS3Service</span> <span class=err>添加</span> <span class=n>DashMap</span> <span class=err>层</span>
+</span></span><span class=line><span class=cl>   <span class=mf>2.</span> <span class=err>实现双层写入逻辑</span>
+</span></span><span class=line><span class=cl>   <span class=mf>3.</span> <span class=err>实现启动恢复逻辑</span>
+</span></span><span class=line><span class=cl>   <span class=mf>4.</span> <span class=err>实现内存保护机制</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>工作量</span><span class=p>:</span> <span class=mi>4</span><span class=o>-</span><span class=mi>6</span> <span class=err>小时</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>阶段</span> <span class=mi>3</span><span class=p>:</span> <span class=err>集成容灾机制</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=mf>1.</span> <span class=err>使用</span> <span class=n>yh</span><span class=o>-</span><span class=n>journal</span><span class=o>-</span><span class=nb>log</span> <span class=err>记录分片操作</span>
+</span></span><span class=line><span class=cl>   <span class=mf>2.</span> <span class=err>实现</span> <span class=n>cleanup_all_s3_multiparts</span> <span class=err>完整逻辑</span>
+</span></span><span class=line><span class=cl>   <span class=mf>3.</span> <span class=err>添加</span> <span class=n>WAL</span> <span class=err>保护（可选，用于关键操作）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>工作量</span><span class=p>:</span> <span class=mi>2</span><span class=o>-</span><span class=mi>3</span> <span class=err>小时</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=o>---</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>🎯</span> <span class=err>最终建议</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>推荐方案</span> <span class=n>C</span><span class=err>（混合方案），理由：</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=mf>1.</span> <span class=err>性能最优</span><span class=p>:</span> <span class=err>活跃分片在内存，零延迟访问</span>
+</span></span><span class=line><span class=cl>   <span class=mf>2.</span> <span class=err>容灾完整</span><span class=p>:</span> <span class=err>进程重启可恢复，断电不丢失</span>
+</span></span><span class=line><span class=cl>   <span class=mf>3.</span> <span class=err>架构统一</span><span class=p>:</span> <span class=err>复用现有模块（</span><span class=n>Task</span> <span class=n>Registry</span><span class=err>、</span><span class=n>Journal</span><span class=err>、</span><span class=n>WAL</span><span class=err>）</span>
+</span></span><span class=line><span class=cl>   <span class=mf>4.</span> <span class=err>内存安全</span><span class=p>:</span> <span class=err>有</span> <span class=n>LRU</span> <span class=err>淘汰机制，防止爆炸</span>
+</span></span><span class=line><span class=cl>   <span class=mf>5.</span> <span class=err>易于维护</span><span class=p>:</span> <span class=err>清晰的分层设计</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>关键指标</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>支持全量扫描（通过</span> <span class=n>scan_prefix</span><span class=err>）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>进程重启恢复（通过持久层）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>断电保护（通过</span> <span class=n>WAL</span> <span class=o>+</span> <span class=n>Journal</span><span class=err>）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>内存可控（通过</span> <span class=n>LRU</span> <span class=err>淘汰）</span>
+</span></span><span class=line><span class=cl>   <span class=o>-</span> <span class=err>✅</span> <span class=err>自动清理（通过</span> <span class=n>Task</span> <span class=n>Registry</span><span class=err>）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=err>实施优先级</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>   <span class=mf>1.</span> <span class=err>高优先级</span><span class=p>:</span> <span class=err>阶段</span> <span class=mi>1</span><span class=err>（增强</span> <span class=n>KV</span> <span class=err>接口）</span>
+</span></span><span class=line><span class=cl>   <span class=mf>2.</span> <span class=err>中优先级</span><span class=p>:</span> <span class=err>阶段</span> <span class=mi>2</span><span class=err>（混合存储）</span>
+</span></span><span class=line><span class=cl>   <span class=mf>3.</span> <span class=err>低优先级</span><span class=p>:</span> <span class=err>阶段</span> <span class=mi>3</span><span class=err>（容灾集成，可分步实施）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=err>✦</span> <span class=err>这个方案既解决了当前的性能和功能问题，又保持了系统的整体架构一致性。</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=我长期体验>我长期体验</h2><p>作为两个都可以白嫖的大模型/工具，opencode/gemini3flash 对iflow/glm4.7/minixm2.1 几乎是碾压。前者是生产力，后者是辅助。
+在opencode 使用 cpa转发的iflow的glm4.7/m2.1的时候，会有提升，但是提升不大。也对比过过minimax m2.1的官方接口 暂时没感觉iflow提供的版本有降智（主观上很难感受低智个弱智的区别）。</p><h3 id=iflowglm47minimax21-眼下适合做什么>iflow/glm4.7/minimax2.1 眼下适合做什么</h3><p>iflow目前依旧不支持lsp 在2026年1月算开发效率很低的工具。glm4.7/minimax2.1 在面对略微复杂一丢丢的业务的时候，经常出现空实现 自吹自擂等情况，
+所以目前 这套方案，仅仅适合 简单的文档整理（是的，复杂的文档他也整理不来），以及提示词的管理优化，也适合做主流工作模型的一个对照组，并不是适合开发工作。但是我发现 glm4.7对项目审计能力非常好，比较有深度。</p><h3 id=opencode-vs-claudecode>opencode vs claudecode</h3><p>opencode目前1.0.152 已经 可以胜任日用工作。但是存在一些小bug，比如 卡掉、会创建一些垃圾文件，init-deep工具基本不可用。但是整体体验不次于claudecode，细节满分，小bug不影响工作。</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/rust/cosmic/><div class=article-details><h2 class=article-title>cosmic桌面已经完全可用而且非常优秀</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,0 +1,2056 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Unraid on 小类随手记</title><link>https://dev.leiyanhui.com/categories/unraid/</link><description>Recent content in Unraid on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 31 Jan 2023 11:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/unraid/index.xml" rel="self" type="application/rss+xml"/><item><title>padaven 固件端口转发配置无效的问题</title><link>https://dev.leiyanhui.com/openwrt/padaven-port-rule/</link><pubDate>Tue, 31 Jan 2023 11:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/padaven-port-rule/</guid><description>&lt;p&gt;具体表现，padaven路由器打开允许外网访问，外网可以访问到路由器web管理界面。然后端口转发的内网的服务器 均无法访问。&lt;br&gt;
+有人说是网关问题，测试后发现 应该就是 固件的bug，修改端口转发协议也无效。。。&lt;/p&gt;
+&lt;p&gt;因为我内网还有一个旁路由，所以 干脆就不辛苦这个10年老古董的k2p（padaven）了，开dmz 到旁路由，端口转发转移到旁路由来处理。。。&lt;/p&gt;
+&lt;p&gt;因为我这个旁路由 性能过得去，所以这里也就干脆 用 Socat 在旁路由上处理了。&lt;/p&gt;
+&lt;p&gt;Socat 的优点，设置简单，支持ipv6 ipv4 缺点：比防火墙转发更加消耗cpu性能，不适合太低配置的路由器使用。&lt;/p&gt;
+&lt;p&gt;也可以用op自带的防火墙&lt;/p&gt;</description></item><item><title>我的all in one 以及路由器 nas 的纠结和最终的方案</title><link>https://dev.leiyanhui.com/all-in-one/my-jiujie/</link><pubDate>Tue, 31 Jan 2023 11:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/my-jiujie/</guid><description>&lt;h2 id="设备情况如下"&gt;设备情况如下：
+&lt;/h2&gt;&lt;p&gt;1、AP： 小米路由器 AP 2个 1个是访客网络 一个是北厂区的AP，还有一个K2P 在用
+2、x86 ： 两台 一个i7 8850h 装的pve 另外一个是信步的N2600 装的openwrt
+3、终端：几十个2.4G的物联网设备 14个ppoe监控 监控硬盘机 手机 笔记本若干&lt;/p&gt;
+&lt;p&gt;一直没扔的k2p 是因为他的2.4G信号很稳，适合物联网设备覆盖。之前也是拿他当作主路由使用了10多年。&lt;/p&gt;
+&lt;p&gt;一直以来的纠结 就是 软路由和 pve 的功能重叠，以及信步这个板子的一些问题。&lt;/p&gt;
+&lt;h2 id="纠结的地方"&gt;纠结的地方
+&lt;/h2&gt;&lt;h3 id="关于-信步这个板子"&gt;关于 信步这个板子
+&lt;/h3&gt;&lt;p&gt;断电后偶尔会出现不能自动启动，另外N2600 不支持虚拟化，自带显卡也无法在linux下驱动 这就导致很多限制。&lt;/p&gt;
+&lt;p&gt;还是想去掉他，卖掉的钱还能换一个 1-2T矿场硬盘。&lt;/p&gt;
+&lt;h3 id="路由的思考"&gt;路由的思考
+&lt;/h3&gt;&lt;p&gt;在不添加新硬件（穷）的情况下，想用靠谱的网络。 最终的解决方案 可能还是 旁路由（旁网关）方案。
+我的k2p 在不跑科学软件的情况下，实际是可以跑满带宽，内网有交换机不需要他。驼子里面拔将军，还是尝试用他做主路由。然后再尝试指定ip的网关到pve上的旁路由。
+这就需要，k2p刷的固件的dhcp支持这个功能.&lt;br&gt;
+因为 运行pve的aio本身是不需要科学的。 为了全局科学（物联网设备可以在openwrt排除） 考虑方案如下&lt;/p&gt;
+&lt;h3 id="新方案"&gt;新方案
+&lt;/h3&gt;&lt;p&gt;尽量不影响现有设备的情况下快速平滑过度。&lt;/p&gt;
+&lt;h4 id="k2p-固件"&gt;k2p 固件
+&lt;/h4&gt;&lt;p&gt;k2p 是肯定不能刷爱快的，硬改后可以但是不少人说内网都会掉到500M。剩下的就是高ge 官改 openwrt 和 Padavan。&lt;br&gt;
+openwrt 熟悉很多，但是padaven 有人说 是可以跑满1000M 的，而openwrt 不太清楚，本着能用就行的态度。我决定 还是 用 padaven ，只是dhcp静态绑定的迁移有一点麻烦。两者的配置文件不通用。&lt;/p&gt;
+&lt;h4 id="旁路由网关"&gt;旁路由网关
+&lt;/h4&gt;&lt;p&gt;系统肯定是op了。 用pve的虚拟机跑吧 省心。然后除了跑openclash ipsec 其他基本都不需要。dhcp也暂定关掉。&lt;/p&gt;
+&lt;h4 id="最重要的-自动网关文末"&gt;最重要的： 自动网关（文末）
+&lt;/h4&gt;&lt;p&gt;因为我主路由受固件限制无法指定部分设备走旁路由网关，手动处理确实也比较麻烦，并且我需要 新设备加入后可以自动科学 ipsec拨进来的设备也可以。 所以打算在主路由上定时（1分钟）ping一下旁路由，如果不通，那么就把dhcp的网关切换回主路由，并重启 dhcp服务器。
+另外 dhcp的生命周期也尽可能短一些 这样才能尽快生效。 （虽然对padaven不熟悉，但是好在他也提供ssh的，总可以搞定。 ）&lt;br&gt;
+这样就完美实现了，全局都走科学，部分不需要科学的设备，单独从openclash里面用规则处理掉即可。&lt;/p&gt;
+&lt;p&gt;这样带来的好处就是 ，无论怎么折腾 主路由都可以提供基本的上网服务。旁路由上线 后 就提供科学和ipsec等。&lt;/p&gt;
+&lt;h4 id="小问题的处理"&gt;小问题的处理
+&lt;/h4&gt;&lt;h5 id="padaven-的内置ddns"&gt;padaven 的内置ddns
+&lt;/h5&gt;&lt;p&gt;不支持我常用的3322（自定义可以） 和 dnspod 以及 cloudfare， 暂时注册一个它支持的，然后用cname解决。&lt;/p&gt;
+&lt;h5 id="padaven-的静态dhcp的备份"&gt;padaven 的静态dhcp的备份
+&lt;/h5&gt;&lt;p&gt;喜欢备份是一个好习惯。。 系统管理 - 配置管理 直接备份&lt;/p&gt;
+&lt;h5 id="padaven--的ipv6"&gt;padaven 的ipv6
+&lt;/h5&gt;&lt;p&gt;可以开启 ，以及 padaven 详情：https://www.jianshu.com/p/cb51fb0fb2ac&lt;/p&gt;
+&lt;h5 id="padaven-p段的迁移"&gt;padaven p段的迁移
+&lt;/h5&gt;&lt;p&gt;之前的ip段是10.1.1.1 自定义的op固件，但padaven 默认的ip&lt;/p&gt;
+&lt;h5 id="vlmcsd"&gt;vlmcsd
+&lt;/h5&gt;&lt;p&gt;padaven 有自带&lt;/p&gt;
+&lt;h5 id="alist"&gt;alist
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="nginxwebui"&gt;nginxWebUI
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="rustdesk服务"&gt;rustdesk服务
+&lt;/h5&gt;&lt;p&gt;挪到pve里面，单独一个容器/vm运行&lt;/p&gt;
+&lt;h5 id="内网穿透"&gt;内网穿透
+&lt;/h5&gt;&lt;p&gt;因为我有公网ip所以不需要其他穿透，仅需要80个443的穿透映射。
+pve 和 路由器的 web界面 用 ddnsto 直接弄 简单省心。
+3389 之类的端口可以直接用不费心。
+80和443端口穿透 有两个解决，是备案过的域名 用 腾讯cdn穿透，未备案的域名用cloudfare穿透&lt;br&gt;
+一些应用级的，直接用非标端口解决&lt;/p&gt;
+&lt;h5 id="端口转发"&gt;端口转发
+&lt;/h5&gt;&lt;p&gt;怎么都没想到，会在端口转发的上遇到问题 padaven 的固件的端口转发竟然有问题。&lt;br&gt;
+临时解决方案：dmz 到旁路由，在旁路由上 直接上 socat&lt;/p&gt;
+&lt;h5 id="pve的自动备份"&gt;pve的自动备份
+&lt;/h5&gt;&lt;p&gt;qm stop 后，直接cp磁盘出来。&lt;/p&gt;
+&lt;h5 id="nas的处理"&gt;nas的处理
+&lt;/h5&gt;&lt;p&gt;暂时用黑群晖简单很多，核心数据定时导出备份，影片等数据外挂直通的矿渣机械盘&lt;/p&gt;
+&lt;h4 id="自动检测旁路由脚本"&gt;自动检测旁路由脚本
+&lt;/h4&gt;&lt;p&gt;实现：全局科学，去广告等，外网可以用ipsec协议链回家并科学。指定ip段 禁止科学。
+旁路由离线后1-2分钟内，全局改为普通模式上网。 旁路由上限后 自动恢复。
+&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/auto-change-gatway" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/auto-change-gatway&lt;/a&gt;&lt;/p&gt;</description></item><item><title>docker运行nginx 并反代内网的一些服务2(nginxwebui修改版)</title><link>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</link><pubDate>Sat, 07 Jan 2023 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl/</guid><description>&lt;p&gt;家里路由器是openwrt x86，内外有跑一些服务。这里用路由器上配置nginx+ssl，然后内网的所有web服务都经过nginx到公网，因为家用宽带不只&lt;/p&gt;
+&lt;p&gt;nginxwebui是国产基于java的开源nginx配置文件生成器，用于替代死板的nginx-proxy-manage 。&lt;/p&gt;
+&lt;p&gt;优点是 更加灵活 强大 支持中文，几乎支持所有的nginx功能的可视化配置。&lt;/p&gt;
+&lt;p&gt;缺点是 略微繁琐，尤其是不能自动载入配置文件，创建项目后，要手动在webui里面，点替换和重载。&lt;/p&gt;
+&lt;h2 id="docker安装"&gt;docker安装
+&lt;/h2&gt;&lt;p&gt;nginxwebui 官网docker实例是用的host模式运行，不建议。还是自定义端口映射。&lt;/p&gt;
+&lt;p&gt;我这里需要3个端口 nginxwebui管理端口50088，http 端口50081 https 端口50443&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd --restart=always --name=nginxwebui --hostname nginxwebui -e BOOT_OPTIONS=&amp;#34;--server.port=50088&amp;#34; -p 50081:50081 -p 50088:50088 -p 50443:50443 --privileged=true cym1102/nginxwebui:latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;证书目录 是保存在： &lt;code&gt;/home/nginxWebUI/.acme.sh/&lt;/code&gt; 下面&lt;br&gt;
+配置文件&lt;code&gt;/home/nginxWebUI/nginx.conf&lt;/code&gt; 。&lt;/p&gt;
+&lt;p&gt;如果需要对证书单独管理，可以映射出来。也恩可以用docker cp 定时复制出来。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -itd -v /opt/docker_file/op_nginxWebUI:/home/nginxWebUI --restart=always --name=nginxwebui --hostname nginxwebui -e BOOT_OPTIONS=&amp;#34;–server.port=50088&amp;#34; -p 50081:50081 -p 50088:50088 -p 50443:50443 --privileged=true cym1102/nginxwebui:latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;而后在 nginxwebui 内部 再反代 管理端口出来 套上ssl 即可从外网ssl访问。&lt;/p&gt;
+&lt;p&gt;为了方便备份，我这里没有映射目录出来。记得自行定时清理日志：&lt;code&gt;/home/nginxWebUI/log/nginxWebUI.log&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;注意： http://10.0.0.1:50088/ web界面 打开可能会空白，这个&amp;hellip;.大概是因为java启动慢的原因，等一会 刷新一下就好了。&lt;/p&gt;
+&lt;h2 id="一个典型的反代配置"&gt;一个典型的反代配置
+&lt;/h2&gt;&lt;p&gt;包括http自动跳转ssl&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;转发类型 http
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;监听端口：这个如果要开启ssl的话要输入ssl端口 50443
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;选择密码文件：这个是base的密码
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;开机ssl：是
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;选择内置证书：（提前配置）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;开启https：是
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ssl协议版本：全部勾选
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;http跳转https：是
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;从该端口跳转：第一个留空 第二个输入ssl的端口后 50081
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样就可以实现，访问http的时候自动跳转到ssl &lt;br&gt;
+最终配置文件大概如下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;server {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; server_name 域名;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50443 ssl http2;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/fullchain.cer;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate_key /home/nginxWebUI/.acme.sh/jia.leiyanhui.com/jia.leiyanhui.com.key;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50081;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; if ($scheme = http) {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; return 301 https://$host:50443$request_uri;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; location / {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # 自己;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_pass http://10.0.0.1:50088;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header Host $host;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Real-IP $remote_addr;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-Host $http_host;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-Port $server_port;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header X-Forwarded-Proto $scheme;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_http_version 1.1;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header Upgrade $http_upgrade;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_set_header Connection &amp;#34;upgrade&amp;#34;;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_redirect http:// https://;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="自动备份到阿里云镜像"&gt;自动备份到阿里云镜像
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/docker/img-to-aliyun/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/docker/img-to-aliyun/&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;10 3 * * 6 sh /etc/docker_up_aliyun_nginxWebUi.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="使用nginxwebui反代-主路由的一个小问题"&gt;使用nginxWebUI反代 主路由的一个小问题
+&lt;/h2&gt;&lt;p&gt;如果op主路由配置了 根据域名跳转（https://dev.leiyanhui.com/openwrt/acme-ssl/），op需要绑定一个不属于最终配置文件的域名 。或者 使用下面的方法。
+另外 op里面的网页终端需要单独处理（我选择 直接弃用）。&lt;/p&gt;
+&lt;p&gt;还有一个方案 是 不传递host参数，然后直接访问 https://你的域名:端口/cgi-bin/luci/ 也可以解决。&lt;/p&gt;
+&lt;h3 id="关于使用http协议访问https端口的400错误处理"&gt;关于使用http协议访问https端口的400错误处理
+&lt;/h3&gt;&lt;p&gt;例如我正常访问我的路由器应该是&lt;code&gt;https://域名:50443&lt;/code&gt;如果用&lt;code&gt;http://域名:50443&lt;/code&gt;访问端口还是https的端口就会提示400错误。 因为服务是家人也用。 不能指望他们理解http（S）这些。所以我采取的方法是直接拦截错误，并跳转到正确的首页地址。&lt;/p&gt;
+&lt;p&gt;首先这个错误是 497 错误，nginxWebUI支持参数模板，添加一个参数模板，名字随意，添加参数&lt;code&gt;error_page 497&lt;/code&gt; 值&lt;code&gt;https://$host:50443; #解决http到ssl端口的400错误&lt;/code&gt; 然后用默认配置应用到反向代理。完毕&lt;/p&gt;
+&lt;h3 id="最好的解决方案"&gt;最好的解决方案
+&lt;/h3&gt;&lt;p&gt;编辑对应的ningxWebUi反向代理配置，
+添加一个 &lt;code&gt;= / &lt;/code&gt; 自定义localtions 添加参数 &lt;code&gt;return&lt;/code&gt; 值&lt;code&gt; 301 https://$host:50443/cgi-bin/luci&lt;/code&gt; （意思就是网址后面没有东西的情况下跳转到后面地址）即可 （注意好要清理浏览器缓存不然不会生效） &lt;br&gt;
+最终代码如下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;server {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; server_name op.jia.leiyanhui.com;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50443 ssl http2;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate /home/nginxWebUI/.acme.sh/*.jia.leiyanhui.com/fullchain.cer;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_certificate_key /home/nginxWebUI/.acme.sh/*.jia.leiyanhui.com/*.jia.leiyanhui.com.key;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; listen 50081;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; if ($scheme = http) {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; return 301 https://$host:50443$request_uri;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; error_page 497 https://$host:50443; #解决http到ssl端口的400错误;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; location = / {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # op自动跳转;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; return 301 https://$host:50443/cgi-bin/luci;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; location / {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # op代理;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_pass http://10.1.1.1/;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; proxy_redirect http:// https://;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="进阶"&gt;进阶
+&lt;/h3&gt;&lt;p&gt;1、解决 在web界面直接点击 域名 链接打开的是不带端口的导致非标端口打不开的情况。 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/nginxWebUI&lt;/a&gt;
+2、解决 定时续签2点拥堵的问题，
+下载 我自己的修改的 jar，替换到docker里面&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;exec&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;it&lt;/span&gt; &lt;span class="n"&gt;nginxwebui&lt;/span&gt; &lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt; &lt;span class="c1"&gt;#删除原版jar&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;github&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;com&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;joyanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;releases&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;download&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="n"&gt;st&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt; &lt;span class="n"&gt;nginxwebui&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt; &lt;span class="c1"&gt;# 复制宿主机上的修改过的jar进去&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;nginxwebui&lt;/span&gt; &lt;span class="c1"&gt;#重启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="n"&gt;nginxWebUI&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;jar&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="下载地址"&gt;下载地址
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://www.123pan.com/s/EqorVv-n0nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-n0nPA&lt;/a&gt; 提取码:yhjt&lt;/p&gt;
+&lt;p&gt;详细 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/nginxWebUI&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="其他问题"&gt;其他问题
+&lt;/h3&gt;&lt;p&gt;nginxwebui 和 nginx-proxy-manager 都同样的问题，就是在web界面直接点击 域名 链接打开的是不带端口的。在前者的github 提交过issues但是作者没有回应。后at作者后，作者表示：&lt;code&gt;这个界面是展示信息用，不是给你高强度使用的&lt;/code&gt; 不知所云。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;已经自己修改 &lt;a class="link" href="https://github.com/joyanhui/nginxWebUI" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/nginxWebUI&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;不过nginxwebui 相对 nginx-proxy-manager 依旧适合非标端口的
+如果是内网使用，家用宽带没有标准端口的情况下，可以通过一个简单方法实现，就是在路由器上转发跳转一次，详情：https://dev.leiyanhui.com/openwrt/acme-ssl/&lt;/p&gt;
+&lt;p&gt;另外 nginxwebui 的证书申请 有几个小遗憾，1 证书检查时间固定在凌晨2点不可以修改，还是很拥挤的。2 没有日志显示，如果出错你也不知道。。。只能等待。。。&lt;/p&gt;</description></item><item><title>docker 一个可用的完整桌面系统</title><link>https://dev.leiyanhui.com/docker/docker-linux-desktop/</link><pubDate>Sun, 01 Jan 2023 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/docker-linux-desktop/</guid><description>&lt;p&gt;选择 用 &lt;a class="link" href="https://hub.docker.com/r/linuxserver/webtop" target="_blank" rel="noopener"
+&gt;https://hub.docker.com/r/linuxserver/webtop&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;默认用户名：abc 密码：abc&lt;/p&gt;
+&lt;h2 id="3d加速-ubuntu"&gt;3D加速 Ubuntu
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--device=/dev/dri:/dev/dri
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="fuse"&gt;fuse
+&lt;/h2&gt;&lt;p&gt;宿主机要安装fuse&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --privileged
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;另外一个方案 是&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--device /dev/fuse \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --cap-add SYS_ADMIN \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="端口"&gt;端口
+&lt;/h2&gt;&lt;p&gt;3000 是web-vnc 3389 和22 不用多说&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 10100:3000
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 10101:3389
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 10102:22
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="ubuntu-3d"&gt;ubuntu 3D
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;privileged&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;security&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;opt&lt;/span&gt; &lt;span class="n"&gt;seccomp&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;unconfined&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PUID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PGID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TZ&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;Asia&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Shanghai&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;SUBFOLDER&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;KEYBOARD&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;en&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;us&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;qwerty&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TITLE&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10100&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10101&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3389&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10102&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;22&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;device&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;unless&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;stopped&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;lscr&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;io&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;linuxserver&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="n"&gt;ubuntu&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;kde&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="输入法"&gt;输入法
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install fcitx5 fcitx5-rime
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;另外需要编辑 /init 实现自动启动&lt;/p&gt;
+&lt;h2 id="arch"&gt;arch
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;kde的镜像 有点问题，xrdp连不上&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;privileged&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;security&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;opt&lt;/span&gt; &lt;span class="n"&gt;seccomp&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;unconfined&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PUID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;PGID&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TZ&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;Asia&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Shanghai&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;SUBFOLDER&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;KEYBOARD&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;en&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;us&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;qwerty&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;TITLE&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10100&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3000&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10101&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3389&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;10102&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;22&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;device&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dri&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;unless&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;stopped&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;lscr&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;io&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;linuxserver&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;webtop&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="n"&gt;arch&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;i3&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>选择arch-aio，彻底抛弃pve esxi unraid</title><link>https://dev.leiyanhui.com/all-in-one/arch-aio/</link><pubDate>Fri, 30 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/arch-aio/</guid><description>&lt;p&gt;旧版查看 ：&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/diy/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="安装和下载"&gt;安装和下载
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://www.123pan.com/s/EqorVv-K2nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-K2nPA&lt;/a&gt; 提取码:arch
+下载后解压，然后用ventoy，用支持x11转发的ssh客户端（例如 MobaXterm） 登录 用户名yanhui 密码 1 root 密码也是 1 但是root默认禁止登录。&lt;/p&gt;
+&lt;h2 id="简明使用方法"&gt;简明使用方法
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="部分需要你继续处理的"&gt;部分需要你继续处理的
+&lt;/h2&gt;&lt;p&gt;仅限2022-12-29 版本 ： &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/server-after/" target="_blank" rel="noopener"
+&gt;修改服务引导顺序&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="使用桥接网络"&gt;使用桥接网络
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="自动挂载其他磁盘的案例"&gt;自动挂载其他磁盘的案例
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto--dock-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto&amp;ndash;dock-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="其他常见问题"&gt;其他常见问题
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/faq" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/faq&lt;/a&gt;&lt;/p&gt;</description></item><item><title>旁路由方案，自动切换网关方案 参考</title><link>https://dev.leiyanhui.com/openwrt/auto-change-gatway/</link><pubDate>Fri, 30 Dec 2022 09:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/auto-change-gatway/</guid><description>&lt;h2 id="旁路由方案的痛点"&gt;旁路由方案的痛点
+&lt;/h2&gt;&lt;p&gt;旁路由在出问题的时候，会影响网关配置为旁路由的设备使用。所以需要自动检测旁路由。&lt;br&gt;
+首先 主路由要有完整权限的系统，就是有ssh权限的！ 爱快请使用分流方案 到二级路由以及环回等方式实现。&lt;br&gt;
+旁路由的自动切换方案是很多的人的刚性需求。&lt;br&gt;
+用软路由做主路由，主要问题两点，折腾过程中的失误一些不确定东西，容易断网。还有x86软路由 不少人遇到突然断电导致的无法启动后全家断网 &lt;br&gt;
+自动切换旁路由方案，更加稳定一些。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;本文撰写于2019年，后期虽有修改补充，但是部分内容已经落后 &lt;br&gt;
+有能力有时间的朋友，建议还是上x86 方案，不需要旁路由。 或者使用爱快分流方案。 &lt;a class="link" href="https://dev.leiyanhui.com/route/ikuai-bypass-gfw/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/route/ikuai-bypass-gfw/&lt;/a&gt;&lt;br&gt;
+个人经验 爱快分流方案更为稳健，但是需要另外开一个op 以及docker来处理分流规则。 对设备内存要求较高（x32爱快不支持kvm docker可用镜像有限，爱快x64 需要4G内存安装 2G内存运行）。 如果内存紧张最好还是选择openwrt one only&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="实现目标"&gt;实现目标
+&lt;/h3&gt;&lt;p&gt;主路由为硬路由负责上网和dhcp 顺带wifi，硬交换负责nas和机顶盒 台式机之间通讯。
+去掉 x86 软路由 &lt;br&gt;
+nas或者aio主机 或者 N1 或者闲置手机作为旁路由/旁网关(后面统称旁路由)&lt;/p&gt;
+&lt;h4 id="重点目标"&gt;重点目标：
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;旁路由离线后，所有设备自动切换到主路由网关&lt;/li&gt;
+&lt;li&gt;双旁路由A和B A正常运行的时候B删除不存在在需要调整的时候，复制一个独立的旁路由出来，自己手动修改主机电脑的网关到旁路由B测试没问题后替换A&lt;/li&gt;
+&lt;li&gt;可控制部分设备科学，部分设备不科学&lt;/li&gt;
+&lt;li&gt;ksm ipsec 科学 广告过滤 alist ddns nas 等，全部由旁路由或者aio/nas处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="实现原理"&gt;实现原理
+&lt;/h3&gt;&lt;p&gt;旁路由用pve 或者 unraid 或者docker运行，关闭dhcp服务，静态ip（10.0.0.50），网关指定为主路由。也就是旁路由只是主路由下面的一个普通设备而已。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;双DHCP 存在抢dhcp的情况，所以dhcp本身占不了太多资源，还是主路由统一管理。
+主路由10.1.1.1 开启dhcp dhcp的网关改为程序脚本控制 dhcp的租期尽可能短一些（120秒）
+主路由 dhcp的ip段为 10.1.1.200-245 重点设备 静态绑定到 10.1.1.200以内的ip段。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="逻辑如下"&gt;逻辑如下
+&lt;/h4&gt;&lt;p&gt;主路由每隔一定时间 30秒或者1分钟，检查一次旁路由是否在线，
+如果在线那么 dhcp服务的网关改为旁路由（10.0.0.50）&lt;br&gt;
+如果旁路由不在线 那么dhcp服务的网关改为主路由（10.0.0.1）&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果旁路由状态发生了变化，那么重启一次dnsmasq（或者再重启wifi 或者重启整个系统）&lt;br&gt;
+科学部分，由openclash 实现分流，就是部分设备不走科学还有部分设备强制全局科学等等。 这个可以看我以前的文章 &lt;a class="link" href="https://dev.leiyanhui.com/openwrt/openclash/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/openclash/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="具体实现"&gt;具体实现
+&lt;/h3&gt;&lt;p&gt;我主路由依旧用10多年前的 古董级k2p刷Padavan 固件，因为他的2.4G信号一直很好，Padavan 可以跑满1000M，5G的话也能跑到500M，另外一个5G路由器因为2.4G信号一般所以只能做ap用。 万兆由下级一个交换机处理，千兆以内众生平等 适合自己的才是最好的。&lt;br&gt;
+Padavan 也是开源linux 和openwrt使用起来在系统层面差距不是很大 ，只要有ssh权限，所有固件都大同小异。&lt;br&gt;
+旁路由 用 pve 跑的自己编译的openwrt，直接挂的vm跑的，因为我这边，8核心，64G内存 所以没用lxc和docker。&lt;/p&gt;
+&lt;h4 id="脚本测试"&gt;脚本测试
+&lt;/h4&gt;&lt;p&gt;padvan默认是关闭ssh的，系统管理 - 服务 找到ssh 打开，客户端登录ssh&lt;/p&gt;
+&lt;h5 id="检查旁路由是否在线"&gt;检查旁路由是否在线
+&lt;/h5&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;curl http://10.1.1.50
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这是openwrt的登录页面 他会自动301跳转，查看返回http代码 &lt;code&gt;-m 3&lt;/code&gt; 是3秒&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;curl -I -s -m 3 http://10.1.1.50 -w %{http_code} | tail -n1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;应该会自动返回一个301代码, http://10.1.1.50/cgi-bin/luci/ 的话应该是返回403，这个先不管
+如果是不存在的地址，那么应该是返回 000&lt;/p&gt;
+&lt;h5 id="找dnsmasql的配置文件地址"&gt;找dnsmasql的配置文件地址
+&lt;/h5&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;find / -name &amp;#34;*dnsmasq*&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;返回 结果 逐个检查后发现Padavan和openwrt一样 都是&lt;code&gt;/etc/dnsmasq.conf&lt;/code&gt; 这个文件，同时已经分配的列表也是&lt;code&gt;/tmp/dnsmasq.leases&lt;/code&gt;这个文件。&lt;br&gt;
+在主路由中 设置dhcp的网关为 旁路由地址10.1.1.50 ，然后执行 &lt;code&gt;cat /etc/dnsmasq.conf&lt;/code&gt;应该有一行&lt;code&gt;dhcp-option=tag:lan,3,10.1.1.50&lt;/code&gt;&lt;/p&gt;
+&lt;h5 id="测试配置文件的查找和替换"&gt;测试配置文件的查找和替换
+&lt;/h5&gt;&lt;p&gt;记住上面的那段 &lt;code&gt;dhcp-option=tag:lan,3,10.1.1.50&lt;/code&gt; 用grep搜索试试&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;grep dhcp-option=tag:lan,3,10.1.1.50 /etc/dnsmasq.conf |wc -l # 查找 如果有的话应该返回1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;替换&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &amp;#34;s/dhcp-option=tag:lan,3,10.1.1.50/dhcp-option=tag:lan,3,10.1.1.1/g&amp;#34; /etc/dnsmasq.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;## 检查
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat /etc/dnsmasq.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果padavan的话不用这么麻烦 用&lt;code&gt;nvram set dhcp_gateway_x=10.1.1.1 &lt;/code&gt;&lt;/p&gt;
+&lt;h5 id="重启-dnsmasq"&gt;重启 dnsmasq
+&lt;/h5&gt;&lt;p&gt;openwrt 下面这两个命令 都一样的效果&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;service dnsmasq restart
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/init.d/dnsmasq restart
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Padavan 下可执行文件是 &lt;code&gt;/usr/sbin/dnsmasq&lt;/code&gt; 通过查询网上资料得知 Padavan把服务脚本放在/sbin 直接执行&lt;code&gt;/sbin/restart_dhcpd&lt;/code&gt; 即可&lt;/p&gt;
+&lt;h4 id="编写脚本"&gt;编写脚本
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;span class="lnt"&gt;26
+&lt;/span&gt;&lt;span class="lnt"&gt;27
+&lt;/span&gt;&lt;span class="lnt"&gt;28
+&lt;/span&gt;&lt;span class="lnt"&gt;29
+&lt;/span&gt;&lt;span class="lnt"&gt;30
+&lt;/span&gt;&lt;span class="lnt"&gt;31
+&lt;/span&gt;&lt;span class="lnt"&gt;32
+&lt;/span&gt;&lt;span class="lnt"&gt;33
+&lt;/span&gt;&lt;span class="lnt"&gt;34
+&lt;/span&gt;&lt;span class="lnt"&gt;35
+&lt;/span&gt;&lt;span class="lnt"&gt;36
+&lt;/span&gt;&lt;span class="lnt"&gt;37
+&lt;/span&gt;&lt;span class="lnt"&gt;38
+&lt;/span&gt;&lt;span class="lnt"&gt;39
+&lt;/span&gt;&lt;span class="lnt"&gt;40
+&lt;/span&gt;&lt;span class="lnt"&gt;41
+&lt;/span&gt;&lt;span class="lnt"&gt;42
+&lt;/span&gt;&lt;span class="lnt"&gt;43
+&lt;/span&gt;&lt;span class="lnt"&gt;44
+&lt;/span&gt;&lt;span class="lnt"&gt;45
+&lt;/span&gt;&lt;span class="lnt"&gt;46
+&lt;/span&gt;&lt;span class="lnt"&gt;47
+&lt;/span&gt;&lt;span class="lnt"&gt;48
+&lt;/span&gt;&lt;span class="lnt"&gt;49
+&lt;/span&gt;&lt;span class="lnt"&gt;50
+&lt;/span&gt;&lt;span class="lnt"&gt;51
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;default_gateway&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;10.1.1.1&amp;#39;&lt;/span&gt; &lt;span class="c1"&gt;#主路由 IP&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;up_gateway&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;10.1.1.50&amp;#39;&lt;/span&gt; &lt;span class="c1"&gt;#旁路由 IP （需设置的主路由 DNS 地址）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;check_ip_available&lt;span class="o"&gt;(){&lt;/span&gt; &lt;span class="c1"&gt;#使用 ping 命令检测旁路由是否在线&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ping -c &lt;span class="m"&gt;3&lt;/span&gt; &lt;span class="nv"&gt;$1&lt;/span&gt; &lt;span class="p"&gt;|&lt;/span&gt; grep packets &lt;span class="p"&gt;|&lt;/span&gt; awk &lt;span class="s1"&gt;&amp;#39;{print $4}&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;change_gateway_dns&lt;span class="o"&gt;(){&lt;/span&gt; &lt;span class="c1"&gt;#网关 DNS 切换&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram &lt;span class="nb"&gt;set&lt;/span&gt; &lt;span class="nv"&gt;dhcp_gateway_x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt; &lt;span class="c1"&gt;#设置网关&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram &lt;span class="nb"&gt;set&lt;/span&gt; &lt;span class="nv"&gt;dhcp_dns1_x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram &lt;span class="nb"&gt;set&lt;/span&gt; &lt;span class="nv"&gt;dhcp_dns2_x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&amp;#34;&lt;/span&gt; &lt;span class="c1"&gt;#设置 DNS&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nvram commit &lt;span class="c1"&gt;#提交修改&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; sleep &lt;span class="m"&gt;2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; rc rc_service restart_net_and_phy &lt;span class="c1"&gt;#重启主路由 网络服务&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; restart_dns &lt;span class="c1"&gt;#重启主路由 DNS&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; restart_dhcpd &lt;span class="c1"&gt;#重启主路由 DHCP&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# sleep 5&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# reboot #自动修改后存在网络故障，可能需要直接重启路由器， 等待时间较长&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# If the gateway of the up close, the network is completely unusable&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;res&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt;check_ip_available &lt;span class="nv"&gt;$up_gateway&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#检测旁路由是否存在&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;current_gateway&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt;nvram get dhcp_gateway_x&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#获取主路由当前网关&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="k"&gt;$((&lt;/span&gt;&lt;span class="nv"&gt;$res&lt;/span&gt;&lt;span class="k"&gt;))&lt;/span&gt; -eq &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;#检测结果等于 0，即旁路由不存在，应设置网关和 DNS 为主路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$current_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; !&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$default_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt; &lt;span class="c1"&gt;#如果当前网关地址不是主路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;up_gateway to default&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="sb"&gt;`&lt;/span&gt;change_gateway_dns &lt;span class="nv"&gt;$default_gateway&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#将网关和DNS切换为主路由地址 并重启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;use default gateway , nothing changed&amp;#34;&lt;/span&gt; &lt;span class="c1"&gt;# 什么都不用做&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;exit&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="k"&gt;$((&lt;/span&gt;&lt;span class="nv"&gt;$res&lt;/span&gt;&lt;span class="k"&gt;))&lt;/span&gt; -ne &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;#检测结果不等于 0，即旁路由存在，应设置网关和 DNS 为旁路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$current_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; !&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$up_gateway&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt; &lt;span class="c1"&gt;#如果当前网关地址不是主路由地址&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;up_gateway to auxiliary_gateway&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="sb"&gt;`&lt;/span&gt;change_gateway_dns &lt;span class="nv"&gt;$up_gateway&lt;/span&gt;&lt;span class="sb"&gt;`&lt;/span&gt; &lt;span class="c1"&gt;#将网关和DNS切换为旁路由地址 并重启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;use auxiliary_gateway , nothing changed&amp;#34;&lt;/span&gt; &lt;span class="c1"&gt;# 什么都不用做&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;exit&lt;/span&gt; &lt;span class="m"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#将脚本置于 /etc/storage/change_gatway.sh &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#设置脚本运行权限：`chmod +x /etc/storage/change_gatway.sh ` &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#保存脚本，防止重启丢失：`/sbin/mtd_storage.sh save`&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#自动定时运行脚本（每一分钟检测一次）：&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#`系统管理 - 服务 ` 调度任务 (Crontab) 加入 `*/1 * * * * /etc/storage/change_gatway.sh` &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最后&lt;/p&gt;
+&lt;p&gt;将脚本置于 /etc/storage/change_gatway.sh
+设置脚本运行权限：&lt;code&gt;chmod +x /etc/storage/change_gatway.sh &lt;/code&gt;&lt;br&gt;
+保存脚本，防止重启丢失：&lt;code&gt;/sbin/mtd_storage.sh save&lt;/code&gt;
+自动定时运行脚本（每一分钟检测一次）：
+&lt;code&gt;系统管理 - 服务 &lt;/code&gt; 调度任务 (Crontab) 加入 &lt;code&gt;*/1 * * * * /etc/storage/change_gatway.sh&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;以上内容抄 自：恩山，xuezou&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="最后存在的问题"&gt;最后存在的问题
+&lt;/h2&gt;&lt;p&gt;经过测试 无论是wifi接入还是网线加入的设备 都可以在短暂掉线后 自动切换成功&lt;/p&gt;</description></item><item><title>arch-aio 常见问题</title><link>https://dev.leiyanhui.com/all-in-one/faq/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/faq/</guid><description>&lt;h2 id="libvirtdvirt-manager-找不到磁盘"&gt;libvirtd/virt-manager 找不到磁盘
+&lt;/h2&gt;&lt;p&gt;libvirtd 应该在rc.local 之后启动&lt;/p&gt;
+&lt;h2 id="virt-manager-弹不出界面"&gt;virt-manager 弹不出界面
+&lt;/h2&gt;&lt;p&gt;1、 使用支持x11转发的客户端，win下使用 MobaXterm Macos和linux andriod下也又对应的客户端。如果是ios设备也有弯道解决方案
+2、后台有virt-manager进程，那么先关掉 &lt;code&gt;killall virt-manager&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="virt-manager-无法连接"&gt;virt-manager 无法连接
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;Unable to connect to libvirt qemu:///system.
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="连不到virtqemud-sock"&gt;连不到virtqemud-sock
+&lt;/h3&gt;&lt;p&gt;因为 libvirtd 没启动，可以用下面两种方式启动&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="修改dockerkvm目录后无法自动启动"&gt;修改docker/kvm目录后，无法自动启动
+&lt;/h3&gt;&lt;p&gt;自动挂载建议放到rc-local 服务用，docker和libvirtd 在rc-local之后启动 &lt;a class="link" href="https://dev.leiyanhui.com/arch/auto-mount-dock-kvm/" target="_blank" rel="noopener"
+&gt;具体方法&lt;/a&gt;&lt;/p&gt;</description></item><item><title>arch-aio 的 virt-manager上配置桥接网络</title><link>https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/</guid><description>&lt;p&gt;本文基于&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt; arch-aio&lt;/a&gt;，如果你是其他系统，请先处理好相关依赖。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;未完成&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="查看"&gt;查看
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat /etc/qemu/bridge.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--------------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;allow virbr0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;virbr0 是自动创建的，并不能完成虚拟机 映射到外网&lt;br&gt;
+继续查看其他情况&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ip a
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo brctl show
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;判断出来物理口是 &lt;code&gt;enp1s0&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="安装-networkmanager"&gt;安装 networkmanager
+&lt;/h3&gt;&lt;p&gt;我这里还是选用传统的networkmanager来处理，感觉更简单无脑一些。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S networkmanager
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl enable NetworkManager
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start NetworkManager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="配置桥接br0"&gt;配置桥接br0
+&lt;/h3&gt;&lt;p&gt;根据你的实际情况修改ip网关dns等&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection add type bridge ifname br0 con-name br0 ipv4.addresses 10.1.1.1/24 ipv4.gateway 10.1.1.254 ipv4.dns 114.114.114.114 ipv4.method manual
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我这里还是打算用dhcp所以执行下面的&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection add type bridge ifname br0 con-name br0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="桥接网卡子网卡-关联物理卡"&gt;桥接网卡子网卡 关联物理卡
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection add type bridge-slave con-name br0-slave1 ifname enp1s0 master br0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="开启"&gt;开启
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection up br0-slave1
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection up br0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nmcli connection show
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# systemctl restart NetworkManager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;此时网络会断开，原来ip无法连接，可以使用br0上的ip 重新连接。 如果是dhcp 可以从路由器看到多分配到br0上的ip。&lt;br&gt;
+重启 NetworkManager 后，或者重启物理机器后，两个ip都可以连接。&lt;/p&gt;
+&lt;h3 id="后续可选处理"&gt;后续可选处理
+&lt;/h3&gt;&lt;p&gt;关闭br0的stp&lt;br&gt;
+禁止物理卡开机启动 可以避免要占用两个ip的问题&lt;/p&gt;
+&lt;h3 id="开启ip4转发"&gt;开启ip4转发
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sysctl net.ipv4.ip_forward=1
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/sysctl.d/99-sysctl.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;--------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;net.ipv4.ip_forward = 1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="加载tun"&gt;加载tun
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;modprobe&lt;/span&gt; &lt;span class="n"&gt;tun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;nano&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nb"&gt;load&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;tun&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-------------&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;tun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="恢复之前的操作未经测试"&gt;恢复之前的操作(未经测试)
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set br0 down
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo brctl delif br0 enp1s0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set enp1s0 down
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set up enp1s0 #重启物理网卡
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ip link set dev br0 down #关闭 删除br0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo brctl delbr br0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;参考文章：&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://wiki.archlinux.org/title/Network_bridge" target="_blank" rel="noopener"
+&gt;https://wiki.archlinux.org/title/Network_bridge&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://blog.csdn.net/qq_42197548/article/details/120655449" target="_blank" rel="noopener"
+&gt;https://blog.csdn.net/qq_42197548/article/details/120655449&lt;/a&gt;&lt;/p&gt;</description></item><item><title>arch-aio 免费高扩展性灵活且开放的all in one 系统的基本使用</title><link>https://dev.leiyanhui.com/all-in-one/arch-aio-use/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/arch-aio-use/</guid><description>&lt;h3 id="下载"&gt;下载
+&lt;/h3&gt;&lt;p&gt;1、 arch-aio：https://dev.leiyanhui.com/all-in-one/diy/ 下载后解压到硬盘或U盘，要求分区格式是（exFAT/NTFS/UDF/XFS/Ext2(3)(4) ）&lt;br&gt;
+2、 &lt;a class="link" href="https://www.ventoy.net" target="_blank" rel="noopener"
+&gt;www.ventoy.net&lt;/a&gt; 下载 ，并安装到U盘 或者硬盘（新版支持无损安装了）&lt;br&gt;
+3、 配置ventoy的自动启动以及VTOY_LINUX_REMOUNT ，可以使用arch-aio 下载链接里面的ventoy文件的json文件，具体参考 ventoy官网说明&lt;br&gt;
+4、 配置 lnk.vtoy 等等，具体参考 ventoy官网说明，也可以在ventoy引导界面按下F2 浏览找到对应的 vhd.vtoy 文件&lt;/p&gt;
+&lt;h3 id="启动"&gt;启动
+&lt;/h3&gt;&lt;p&gt;使用ventoy启动即可，具体参考 ventoy官网说明&lt;/p&gt;
+&lt;h3 id="登录arch-aio"&gt;登录arch-aio
+&lt;/h3&gt;&lt;p&gt;使用默认用户 yanhui 或 root 登录。&lt;br&gt;
+win客户端登录建议使用&lt;a class="link" href="https://mobaxterm.mobatek.net/download-home-edition.html" target="_blank" rel="noopener"
+&gt;MobaXterm免费版&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="修改密码"&gt;修改密码
+&lt;/h3&gt;&lt;p&gt;root和yanhui的密码 都要修改,yanhui&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd yanhui
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;passwd root
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="可选shell和neofetch"&gt;可选shell和neofetch
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S fish neofetch
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#编辑
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano .bashrc
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;添加两行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;neofetch
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;fish
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;neofetch 是登录后自动打印系统信息，fish是一个还不错的shell终端，命令补充和提示好用一些，另外一个不错的shell 叫做&lt;code&gt;nushell&lt;/code&gt; 安装后启动命令是&lt;code&gt;nu&lt;/code&gt;&lt;br&gt;
+&lt;code&gt;.bashrc&lt;/code&gt; 文件是你命令行登录后自动执行的一个文件。可以让它自动启动一些脚本方便使用。&lt;/p&gt;
+&lt;h3 id="检查和自动配置挂载"&gt;检查和自动配置挂载
+&lt;/h3&gt;&lt;h4 id="检查"&gt;检查
+&lt;/h4&gt;&lt;p&gt;使用 &lt;code&gt;fdisk -l &lt;/code&gt; 和 &lt;code&gt;lsblk&lt;/code&gt; 查看分区情况，使用 &lt;code&gt;df -h&lt;/code&gt; 查看挂载情况。 值得注意的是，/dev/mapper/ventoy 的两个分区 是arch-aio 虚拟磁盘镜像的两个分区分别对应efi和&lt;code&gt;/&lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="配置自动挂载"&gt;配置自动挂载
+&lt;/h4&gt;&lt;p&gt;建议使用&lt;code&gt;rc-local&lt;/code&gt; 这个系统服务来处理，不建议使用fstab&lt;br&gt;
+以下实例直接从yanhui这个用户下处理&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd ~
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir -p mnt/nvme mnt/efi mnt/exfat
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 测试
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/nvme0n1p6 /home/yanhui/mnt/exfat
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/nvme0n1p5 /home/yanhui/mnt/nvme
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/nvme0n1p1 /home/yanhui/mnt/efi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;没问题后修改 &lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt; 内容&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p6 /home/yanhui/mnt/exfat
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p5 /home/yanhui/mnt/nvme
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvme0n1p1 /home/yanhui/mnt/efi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启测试&lt;/p&gt;
+&lt;h3 id="迁移和配置docker和kvm"&gt;迁移和配置docker和kvm
+&lt;/h3&gt;&lt;h4 id="docker"&gt;docker
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="n"&gt;docker&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;rsync&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;avzP&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;mv&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 完成后 rm -rf /var/lib/docker.bak&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="kvmlibvirtd"&gt;kvm/libvirtd
+&lt;/h4&gt;&lt;p&gt;此步骤 可以不处理&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="n"&gt;libvirtd&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rsync&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;avzP&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;mv&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;ln&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;home&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;yanhui&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;nvme&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libvirt&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 完成后 rm -rf /var/lib/libvirt.bak&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="配置docker和libvirtd开机自动启动"&gt;配置docker和libvirtd开机自动启动
+&lt;/h4&gt;&lt;p&gt;先禁止他们的开机自动启动，改为从rc.local这个服务里面启动，已方便在挂载完成后再启动对应的服务&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl disable docker
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl disable libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;修改 &lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt; 内容 添加两行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start docker
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;2022-12-29版本这个默认文件的libvirtd少了一个字母d，注意修改以下
+重启&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="安装一个系统win10为例"&gt;安装一个系统（win10为例）
+&lt;/h3&gt;&lt;h4 id="安装镜像"&gt;安装镜像
+&lt;/h4&gt;&lt;p&gt;先去弄一个win安装镜像,我这里有了&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mnt/exfat/iso/SW_DVD9_Win_Pro_10_22H2_64BIT_ChnSimp_Pro_Ent_EDU_N_MLF_X23-20012.ISO
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;对应的目录是 &lt;code&gt;/var/lib/libvirt/images &lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="windows-virio驱动镜像"&gt;windows virio驱动镜像
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;pacman&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt; &lt;span class="n"&gt;wget&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;iso&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;c&lt;/span&gt; &lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;fedorapeople&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;org&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;groups&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;win&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;direct&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;downloads&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;archive&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;win&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;225&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;virtio&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;win&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.1&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mf"&gt;225.&lt;/span&gt;&lt;span class="n"&gt;iso&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个网站访问速度很慢，最好挂个代理，或者下载后用MobaXterm上传到对应目录&lt;/p&gt;
+&lt;h4 id="准备安装"&gt;准备安装
+&lt;/h4&gt;&lt;p&gt;MobaXterm或者其他支持x11的ssh客户端里面 用yanhui登录，执行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;systemctl start libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virt-manager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;会弹出virt-manager 图形界面窗口，先connect上默认的&lt;code&gt;QEMU/KVM&lt;/code&gt;&lt;br&gt;
+点 file -&amp;gt; New virual Machine 选默认的 local install，点下一步 Forward&lt;br&gt;
+点后面的浏览&lt;code&gt;Browse&lt;/code&gt; 弹出来一个 locate Iso 管理窗口，点左下角的 &lt;code&gt;+&lt;/code&gt; 号 Name 输入 ISO ，&lt;code&gt;type&lt;/code&gt; 保持默认 &lt;code&gt;dir:&lt;/code&gt; ,目标路径 Target 输入ISO储存路径&lt;code&gt;/home/yanhui/mnt/exfat/iso&lt;/code&gt; 然后点&lt;code&gt;Finish&lt;/code&gt; 结束&lt;/p&gt;
+&lt;p&gt;然后选中新建的iso里面的win10安装镜像， 返回虚拟主机的配置界面 去掉&lt;code&gt;automatically ...&lt;/code&gt; 这个自动识别系统版本的勾号，在上面输入win10 搜索 选中对应的系统。然后 点下一步 Forward&lt;/p&gt;
+&lt;p&gt;可能弹出一个权限的提醒，下一步忽略就好，分配cpu和内存。下一步 Forward 创建磁盘。参考前面iso的配置同样的方法创建一个专门放置vdisk的目录&lt;code&gt;/home/yanhui/mnt/nvme/vdisk&lt;/code&gt;，并创建一个磁盘 win10-base.qcow2 在这里个目录，大小要14G以上哦，不然不够win10安装用的，下一步 Forward ，勾选上 &lt;code&gt;Customize configuration before install&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;继续配置，添加一个ide磁盘cdrom 到 驱动virtio-win-0.1.225.iso。&lt;/p&gt;
+&lt;p&gt;默认磁盘改为 virtIO,缓存 unfase，&lt;/p&gt;
+&lt;p&gt;如果需要和宿主机文件的交互，添加 File System，选择 virtio-9p&lt;/p&gt;
+&lt;p&gt;网络接口等等 其他简单也配置以下，点&lt;code&gt;begin installxxx&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;开始安装 就好了。
+找不到磁盘 记得加载驱动，完成后 记得装完整驱动。别的都简单 不用多说。&lt;/p&gt;
+&lt;p&gt;网络如果不会配置桥接的话，暂时先用NAT&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;win11 的话记得添加tpm
+桥接网络的配置 &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/" target="_blank" rel="noopener"
+&gt;点这里查看&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;</description></item><item><title>pve安装群晖最新版7.2 物理机安装同理</title><link>https://dev.leiyanhui.com/pve/qunhui/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/pve/qunhui/</guid><description>&lt;p&gt;最近开始对在线文档 和 第三方云备份有较大的需求，尝试过几次后，决定在pve上跑一个群晖来处理这些问题。&lt;br&gt;
+有很多开源免费项目都可以实现这些功能，但是群晖肯定是实现起来最简单功能也是最强的。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;再次感谢 群晖公司对黑群晖的容忍&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;本文不适合linux纯小白，但是部分内容适合pve新手&lt;/p&gt;
+&lt;h1 id="pve运行群晖"&gt;pve运行群晖
+&lt;/h1&gt;&lt;h2 id="个人期望和解决方案"&gt;个人期望和解决方案
+&lt;/h2&gt;&lt;p&gt;因为黑群晖出过问题，所以有以下需求。&lt;/p&gt;
+&lt;p&gt;1、方便备份整机&lt;/p&gt;
+&lt;p&gt;2、群晖挂了不影响数据访问&lt;/p&gt;
+&lt;h3 id="解决方案"&gt;解决方案
+&lt;/h3&gt;&lt;p&gt;为了满足我上面的要求，我才用 硬盘直通一个单独的lxc容器，然后开smb和webdav/sftp，这个容器称为 filecenter 。群晖用补丁实现 smb挂载的文件的 photo audio video的支持。&lt;/p&gt;
+&lt;h3 id="额外的支持"&gt;额外的支持
+&lt;/h3&gt;&lt;p&gt;群晖不做ssl 和 ddns 。&lt;/p&gt;
+&lt;h5 id="ssl"&gt;ssl
+&lt;/h5&gt;&lt;p&gt;用一个单独的lxc 运行 我自己修改过的 nginxWebUI 处理。&lt;/p&gt;
+&lt;h5 id="ddns"&gt;ddns
+&lt;/h5&gt;&lt;p&gt;用一个单独的lxc 运行 ddns-go&lt;/p&gt;
+&lt;h5 id="对象储存"&gt;对象储存
+&lt;/h5&gt;&lt;p&gt;用一个单独的 lxc 运行 minio&lt;/p&gt;
+&lt;h5 id="git仓库"&gt;git仓库
+&lt;/h5&gt;&lt;p&gt;可以用gitlab实现 我这里直接用阿里的codeup了&lt;/p&gt;
+&lt;h4 id="核心数据异地备份功能"&gt;核心数据异地备份功能
+&lt;/h4&gt;&lt;h6 id="群晖整机定时的备份"&gt;群晖整机定时的备份
+&lt;/h6&gt;&lt;p&gt;lxc单独运行一个alpine，定时任务ssh到pve实现。备份出来的oma，同步到 filecenter的sftp&lt;/p&gt;
+&lt;h6 id="备份到百度云"&gt;备份到百度云
+&lt;/h6&gt;&lt;p&gt;群晖cloud sysnc实现&lt;/p&gt;
+&lt;h6 id="备份到阿里云盘"&gt;备份到阿里云盘
+&lt;/h6&gt;&lt;p&gt;群晖cloud sysnc + alist webdav&lt;/p&gt;
+&lt;p&gt;‍&lt;/p&gt;
+&lt;h2 id="安装"&gt;安装
+&lt;/h2&gt;&lt;h3 id="pve准备"&gt;pve准备
+&lt;/h3&gt;&lt;h4 id="开启核显直通或者gvt-g"&gt;开启核显直通或者gvt-g。
+&lt;/h4&gt;&lt;p&gt;过程 ： &lt;a class="link" href="https://dev.leiyanhui.com/pve/igpu-one-key/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/igpu-one-key/&lt;/a&gt; 创建虚拟机，硬盘Sata，然后稍后删掉&lt;/p&gt;
+&lt;h4 id="准备引导镜像"&gt;准备引导镜像
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/fbelavenuto/arpl/releases" target="_blank" rel="noopener"
+&gt;https://github.com/fbelavenuto/arpl/releases&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img convert -p -f raw -O qcow2 arpl-1.0-beta13a.img arpl-1.0-beta13a.qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 导入
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qm importdisk 5000 /exfat/vm-cnf-and-vdisk-bak/Synology/arpl-1.0-beta13a.qcow2 local --format=qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="编译引导的说明"&gt;编译引导的说明
+&lt;/h4&gt;&lt;p&gt;启动虚拟机，然后按照提示打开网页&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;m&lt;/span&gt; &lt;span class="err"&gt;是选择机型，我这里选&lt;/span&gt; &lt;span class="n"&gt;DS920&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;n&lt;/span&gt; &lt;span class="err"&gt;是选择版本，选最新的&lt;/span&gt; &lt;span class="mi"&gt;42962&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;然后随机序列号&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;其他都不用改动，然后&lt;/span&gt; &lt;span class="err"&gt;选择&lt;/span&gt; &lt;span class="n"&gt;build&lt;/span&gt; &lt;span class="n"&gt;the&lt;/span&gt; &lt;span class="n"&gt;loader&lt;/span&gt; &lt;span class="err"&gt;会自动编译&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;恢复引导&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qm&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="mi"&gt;5000&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Synology&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;arpl&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;beta13a&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# http://10.1.1.70:7681/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;清理引导和系统 到空白&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qm&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="mi"&gt;7000&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;arpl&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.0&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;beta13a&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;rm&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;rf&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;temp&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;120&lt;/span&gt;&lt;span class="n"&gt;g&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;查看核显&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ls /dev/dri
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;系统和引导备份&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;5000&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;=/&lt;/span&gt;&lt;span class="n"&gt;exfat&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;cnf&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="ow"&gt;and&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vdisk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;Synology&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;date&lt;/span&gt; &lt;span class="o"&gt;+%&lt;/span&gt;&lt;span class="n"&gt;Y&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;m&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt;&lt;span class="o"&gt;-%&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;mkdir&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qm&lt;/span&gt; &lt;span class="n"&gt;stop&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;0.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nb"&gt;load&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;qemu&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;img&lt;/span&gt; &lt;span class="nb"&gt;convert&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;f&lt;/span&gt; &lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;O&lt;/span&gt; &lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vz&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;images&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;-$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;disk&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mf"&gt;1.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;sys&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;qcow2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;pve&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;qemu&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;server&lt;/span&gt;&lt;span class="o"&gt;/$&lt;/span&gt;&lt;span class="n"&gt;pvevmid&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt; &lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="n"&gt;backuppath&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;pve&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;vm&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/qunhui" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/qunhui&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;‍&lt;/p&gt;</description></item><item><title>常见all in one 系统的一些问题</title><link>https://dev.leiyanhui.com/all-in-one/other-os/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/other-os/</guid><description>&lt;p&gt;我选择 arch-aio的理由&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;arch-aio的简介 &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/diy/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/diy/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h5 id="pve"&gt;pve
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;磁盘分区 需要12-20G左右，备份起来不方便 ，虚拟磁盘名称不方便自定义&lt;/li&gt;
+&lt;li&gt;多了不太常用的lxc，没有原生docker 需要自己处理&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="hyper-v"&gt;hyper-v
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;宿主机占用资源偏多&lt;/li&gt;
+&lt;li&gt;部分硬件的直通存在一些问题&lt;/li&gt;
+&lt;li&gt;hyper-v 虽然免费，但win是收费的 破解版不适合商用&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="esxi"&gt;esxi
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;个人免费，商用收费&lt;/li&gt;
+&lt;li&gt;非原生linux，功能限制太多。&lt;/li&gt;
+&lt;li&gt;硬件要求尤其是网卡要求多&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="unraid"&gt;unraid
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;占用一个usb口&lt;/li&gt;
+&lt;li&gt;需要一个非常靠谱的u盘&lt;/li&gt;
+&lt;li&gt;墙内使用麻烦，需要梯子&lt;/li&gt;
+&lt;li&gt;会破坏一块硬盘的数据&lt;/li&gt;
+&lt;li&gt;收费，破解版多数有挖矿后台&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="爱快"&gt;爱快
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;这个怎么说呢&amp;hellip;也就比较适合不折腾的用户吧&lt;/li&gt;
+&lt;li&gt;虽然支持docker，但是没有shell 扩展性太差，简直可以说是垃圾中的战斗机&lt;/li&gt;
+&lt;li&gt;但是他的dhcp 以及流控 都很简单易用&lt;/li&gt;
+&lt;li&gt;有黑历史 慎重&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="群晖"&gt;群晖
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;要么硬件买，钱多可以&lt;/li&gt;
+&lt;li&gt;黑群晖 有一些莫名其妙的问题，有时候可能是致命性的，不少人出现一段时间后无法启动需要接上显示器处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h5 id="openwrt"&gt;openwrt
+&lt;/h5&gt;&lt;ul&gt;
+&lt;li&gt;路由器系统，不太适合宿主机折腾&lt;/li&gt;
+&lt;/ul&gt;</description></item><item><title>旧版本 arch-aio all in one系统的，docker和kvm 与挂载磁盘顺序的一个小地方需要自己处理以下</title><link>https://dev.leiyanhui.com/all-in-one/server-after/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/server-after/</guid><description>&lt;p&gt;为了灵活管理，arch-aio 单独创建一个了rc-local服务，用来添加开机自动启动的脚本。 同时也是这个原因，建议在rc-local 里面处理自动挂载脚本。&lt;/p&gt;
+&lt;p&gt;仅限2022-12-29 版本&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /usr/lib/systemd/system/
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;分别编辑 &lt;code&gt;sudo nano libvirtd.service&lt;/code&gt; 和 &lt;code&gt;sudo nano docker.service&lt;/code&gt; 在&lt;code&gt;[Unit]&lt;/code&gt; 段 增加一行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;After=rc-local.service
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这行是为了让docker和libvirtd 在rc-local这个服务之后启动，方便我们在 rc-local 内先挂载好磁盘
+最后这两个服务设置为自动启动&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl enable libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl enable docker
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;关于和自动挂载其他分区配合的方法，可以参考这里：&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto--dock-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto&amp;ndash;dock-kvm/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>选择arch-aio，彻底抛弃pve esxi unraid</title><link>https://dev.leiyanhui.com/all-in-one/diy/</link><pubDate>Thu, 29 Dec 2022 17:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/diy/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;本文停止更新，新版查看 &lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="前言"&gt;前言
+&lt;/h2&gt;&lt;h3 id="经历"&gt;经历
+&lt;/h3&gt;&lt;p&gt;前前后后用过很多 all in one 系统，hyper-v pve6-7.3 unraid，esxi 还有 群晖 爱快，感觉到很多不方便的地方。所以自己做了一个基于arch 和 ventoy的all in one 母系统。&lt;/p&gt;
+&lt;p&gt;缺点：门槛略微高一点点。你需要会用linux的基本命令。包括不限&lt;code&gt;ln mount &lt;/code&gt;&lt;br&gt;
+优点：灵活，免费,不占用额外分区，强大扩展，较新并非常稳定的内核&lt;/p&gt;
+&lt;h3 id="使用方法"&gt;使用方法
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://www.123pan.com/s/EqorVv-K2nPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-K2nPA&lt;/a&gt; 提取码:arch&lt;br&gt;
+下载后解压，然后用ventoy，用支持x11转发的ssh客户端（例如 &lt;code&gt;MobaXterm&lt;/code&gt;） 登录 用户名&lt;code&gt;yanhui&lt;/code&gt; 密码 &lt;code&gt;1&lt;/code&gt;
+root 密码也是 &lt;code&gt;1&lt;/code&gt; 但是root默认禁止登录。&lt;/p&gt;
+&lt;p&gt;简明使用方法：&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="虚拟机"&gt;虚拟机
+&lt;/h4&gt;&lt;p&gt;先挂载分区，并 &lt;code&gt; ln -s /var/lib/libvirt/images /目录&lt;/code&gt; 或者直接把这个目录挂载到分区
+MobaXterm 中运行 &lt;code&gt;virt-manager&lt;/code&gt; 会弹出&lt;code&gt;virt-manager&lt;/code&gt;界面&lt;br&gt;
+如果你只想用命令行，也可以卸载掉它。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;在不支持x11 转发的设备上管理虚拟机，请继续看后面&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="docker"&gt;docker
+&lt;/h4&gt;&lt;p&gt;先挂载分区，并ln /var/lib/docker 目录 或者直接把这个目录挂载到分区
+如果要图形界面，可以安装portainer&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;8000&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;8000&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;9443&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;9443&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="n"&gt;portainer&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;restart&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;always&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;run&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sock&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;portainer&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;portainer&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;ce&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="n"&gt;latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;然后浏览器访问：https://ip:9443&lt;/p&gt;
+&lt;h4 id="新建用户"&gt;新建用户
+&lt;/h4&gt;&lt;p&gt;新建用户请 添加到wheel组 和 libvirt 组，例如用户名 xiaolei&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo useradd -m -G wheel -s /bin/bash xiaolei
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo usermod -a -G libvirt xiaolei
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;然后设置密码&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo passwd xiaolei
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="清理日志和缓存文件"&gt;清理日志和缓存文件
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh /root/del-log.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="扩容"&gt;扩容
+&lt;/h4&gt;&lt;p&gt;如果默认容量不够，需要扩容。请参考
+&lt;a class="link" href="https://dev.leiyanhui.com/arch/ventoy-vdisk-resize" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/ventoy-vdisk-resize&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="exfat4-和ntfs支持"&gt;exfat4 和ntfs支持
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S exfat-utils
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S ntfs-3g
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;exfat 和 ntfs 在linux下性能一般，ntfs稳定性更是一般，不建议高强度使用&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="关于sudo-和-vi-vim"&gt;关于sudo 和 vi vim
+&lt;/h4&gt;&lt;p&gt;用doas 和nano替代的 软连接对应的sudo 和 vi vim&lt;/p&gt;
+&lt;h4 id="运行浏览器和其他软件"&gt;运行浏览器和其他软件
+&lt;/h4&gt;&lt;p&gt;请尽量挂载到其他分区后用appimages
+例如火狐&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;pacman&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt; &lt;span class="n"&gt;fuse&lt;/span&gt; &lt;span class="c1"&gt;#AppImage 依赖&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;pacman&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt; &lt;span class="n"&gt;dbus&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;glib&lt;/span&gt; &lt;span class="c1"&gt;# 火狐依赖&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="err"&gt;挂载目录&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;apprepo&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;de&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;appimage&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;download&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;firefox&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;output&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;document&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;Firefox&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;AppImage&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;chmod&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;x&lt;/span&gt; &lt;span class="o"&gt;./*.&lt;/span&gt;&lt;span class="n"&gt;AppImage&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;./&lt;/span&gt;&lt;span class="n"&gt;Firefox&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;AppImage&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;火狐在x11转发下首次启动很卡，等一会关掉再次打开就流畅很多
+中文字体支持&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S wqy-zenhei
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;中文输入法：&lt;a class="link" href="https://wiki.archlinuxcn.org/wiki/Fcitx5" target="_blank" rel="noopener"
+&gt;https://wiki.archlinuxcn.org/wiki/Fcitx5&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="开机自动启动脚本"&gt;开机自动启动脚本
+&lt;/h4&gt;&lt;p&gt;rc-local服务：&lt;code&gt;/usr/lib/systemd/system/rc-local.service&lt;/code&gt; 和 &lt;code&gt;/etc/rc.local&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;sh脚本放到 /etc/rc.local.d 目录&lt;/p&gt;
+&lt;h4 id="开机自动挂载"&gt;开机自动挂载
+&lt;/h4&gt;&lt;p&gt;建议放到 /etc/rc.local.d目录。
+参考编辑文件&lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt;&lt;br&gt;
+详细说明参考这里：&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto-mount-dock-kvm" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto-mount-dock-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="开机自动启动其他分区的vm-或者docker"&gt;开机自动启动其他分区的vm 或者docker
+&lt;/h4&gt;&lt;p&gt;参考编辑文件&lt;code&gt;sudo nano /etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt;&lt;br&gt;
+详细说明参考这里：&lt;a class="link" href="https://dev.leiyanhui.com/arch/auto-mount-dock-kvm" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/auto-mount-dock-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="桥接虚拟机网络"&gt;桥接虚拟机网络
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/arch-aio-use-bridge-network/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="关于远程访问虚拟机"&gt;关于远程访问虚拟机
+&lt;/h4&gt;&lt;p&gt;如果客户端非ios设备，网络尚可 直接用支持x11转发的ssh客户端管理&lt;br&gt;
+如果是ios设备，因为没有可用的客户端，建议kvm 或者docker中运行一个 有桌面的win 或者linux，再远程过去.再套娃访问宿主机&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;docker 运行linux桌面参考 &lt;a class="link" href="https://dev.leiyanhui.com/docker/run-deskto-gpu-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/docker/run-deskto-gpu-usb/&lt;/a&gt;&lt;br&gt;
+上文中的docker 支持网页vnc和xrdp微软远程链接，你甚至可以v挂载虚拟磁盘目录进去，里面有一些基本的软件，包括浏览器完成网盘备份等操作。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;当然，你也可以直接在宿主系统上安装一个gnome kde等桌面系统，然后开xrdp或者vnc 或者 向日葵 rustdesk 等等 尽情想想&amp;hellip;&lt;/p&gt;
+&lt;h4 id="关于winwinpe下访问"&gt;关于win/winpe下访问
+&lt;/h4&gt;&lt;p&gt;因为镜像是vhd格式的，在win系统和多数winpe下可以直接挂载。 brtfs分区的访问请安装驱动，&lt;a class="link" href="https://dev.leiyanhui.com/win/winbtrfs/" target="_blank" rel="noopener"
+&gt;详情&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="系统内软件包"&gt;系统内软件包
+&lt;/h3&gt;&lt;h4 id="母盘"&gt;母盘
+&lt;/h4&gt;&lt;p&gt;archlinux-2022.12.01-x86_64.iso arch滚动更新，我用的母盘的版本不影响你 你可随意随时升级到最新版&lt;br&gt;
+用archinstall 直接安装的 minimal 模式&lt;br&gt;
+源 改为清华源，未开启archlinuxcn源，如果你需要aur软件包自行开启 &lt;a class="link" href="https://mirrors.tuna.tsinghua.edu.cn/help/archlinuxcn/" target="_blank" rel="noopener"
+&gt;https://mirrors.tuna.tsinghua.edu.cn/help/archlinuxcn/&lt;/a&gt; &lt;br&gt;
+内核考虑到安卓x86 选择 linux-zen&lt;/p&gt;
+&lt;h4 id="额外的软件包和配置"&gt;额外的软件包和配置
+&lt;/h4&gt;&lt;h5 id="基本"&gt;基本
+&lt;/h5&gt;&lt;p&gt;开启了非root用户的x11转发，依赖&lt;code&gt;xorg-xauth&lt;/code&gt;
+基本包： &lt;code&gt;openssh dhcpcd nano doas&lt;/code&gt;&lt;br&gt;
+ventoy依赖：&lt;code&gt;which lvm2&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;sudo用doas替换了，但是同时ln到/bin/sudo&lt;br&gt;
+vi 未安装 如果不喜欢用nano自行处理&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h5 id="kvm和docker相关"&gt;kvm和docker相关
+&lt;/h5&gt;&lt;p&gt;&lt;code&gt;exfat-utils rsync &lt;/code&gt; &lt;code&gt;qemu-base samba dnsmasq dmidecode iptables-nft bridge-utils openbsd-netcat libvirt virt-manager docker&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="开机自定启动的额外服务"&gt;开机自定启动的额外服务
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;sshd dhcpcd&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注意 docker 和 kvm的libvirt 默认是通过 &lt;code&gt;/etc/rc.local.d/auto-mount-and-start-aio.sh&lt;/code&gt; 启动的&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="我对all-in-one的一点要求"&gt;我对all in one的一点要求
+&lt;/h3&gt;&lt;p&gt;自定义、灵活、内核新，不破坏原来硬盘。&lt;/p&gt;
+&lt;h3 id="简单说一下各个系统的缺陷"&gt;简单说一下各个系统的缺陷
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/all-in-one/other-os/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/all-in-one/other-os/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="为什么选择arch"&gt;为什么选择arch
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;只使用qemu 等几个软件的情况下，也不存在滚挂的可能性。除非你真的大半年不更新。&lt;/li&gt;
+&lt;li&gt;相对 debian centos系，内核新，很多新特性都可以支持&lt;/li&gt;
+&lt;li&gt;wiki资料丰富，扩展容易&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="为什么选择ventoy引导"&gt;为什么选择ventoy引导
+&lt;/h3&gt;&lt;p&gt;ventoy新版已经有限的支持无损安装到硬盘，同时也兼容grub4dos&lt;/p&gt;
+&lt;h3 id="磁盘容量的纠结"&gt;磁盘容量的纠结
+&lt;/h3&gt;&lt;p&gt;控制到3.7G 以内是最好的选择，但是可用空间实在是太少了。安装qemu的常用依赖后，剩余空间只有几百M。无法满足正常使用的需求。
+考虑许久后，决定抛弃兼容fat32和4G U盘的不实际的想法，改为7.3G。 即便是要安装一个桌面系统 应该也勉强够用。
+另外 home opt等目录都可以挂载出来。&lt;/p&gt;
+&lt;h3 id="磁盘格式的选择"&gt;磁盘格式的选择
+&lt;/h3&gt;&lt;p&gt;ventoy只支持 固定大小的vhd vdi raw/img 三种格式 虚拟磁盘启动linux。kvm只支持其中raw，vbox支持前两者，win可以直接挂载vhd&lt;br&gt;
+linux可以用qemu-img随意转换其他格式，vhd文件也可以转换成raw/img后挂载。
+综合考虑，还是选择了vhd格式&lt;/p&gt;
+&lt;h3 id="vdisk内efi分区的大小"&gt;vdisk内efi分区的大小
+&lt;/h3&gt;&lt;p&gt;考虑到换内核的可能性和内核更新的情况，还是用多数情况适用的512M（正常只占用60m左右）&lt;/p&gt;
+&lt;h3 id="vdisk内根分区文件系统的选择"&gt;vdisk内根分区文件系统的选择
+&lt;/h3&gt;&lt;p&gt;我这里选择brtfs，支持压缩和快照。并且几乎所有winpe下都可以 右键加载驱动后访问，虽然不够稳定但是要比其他文件系统简单一些。&lt;/p&gt;
+&lt;h3 id="swap的选择"&gt;swap的选择
+&lt;/h3&gt;&lt;p&gt;默认不开启，如果需要自行创建swap文件即可&lt;/p&gt;</description></item><item><title>基于ventoy启动的linux虚拟磁盘的扩容</title><link>https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/</link><pubDate>Thu, 29 Dec 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/</guid><description>&lt;p&gt;这里以 archlinux 和 vhd格式 为例，raw格式 可以用qemu-img 扩容。&lt;/p&gt;
+&lt;p&gt;一个可以正常启动的linux镜像&lt;code&gt;archinstall-ext4.vhd.vtoy&lt;/code&gt; 如果不会弄，参考：https://dev.leiyanhui.com/arch/boot-vhd-ventoy/&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;ventoy启动的linux 扩容比较麻烦&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="虚拟磁盘扩容"&gt;虚拟磁盘扩容
+&lt;/h2&gt;&lt;p&gt;先关掉系统，然后重启到另外一个带虚拟机的系统，linux 或者win 都可以
+linux下 建议用qemu-img 转换到ram后扩容 过程掠过&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mv archinstall-ext4.vhd.vtoy archinstall-ext4.vhd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pacman -S qemu-img
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# vpc 是vhd格式
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img convert -p -f vpc -O raw archinstall-ext4.vhd archinstall-ext4.raw
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img resize archinstall-ext4.raw +5G
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mv archinstall-ext4.raw archinstall-ext4.raw.vtoy
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;win下 可以直接使用diskpart 或者 第三方工具扩容。比如&lt;code&gt;Bootice.exe&lt;/code&gt; 一般pe都有，在磁盘信息的地方输入新容量即可&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;缩小镜像，会导致不可以预料的文件丢失 ，轻易不要尝试&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="新虚拟磁盘文件挂载到虚拟机"&gt;新虚拟磁盘文件挂载到虚拟机
+&lt;/h2&gt;&lt;p&gt;可以用virtualbox或者kvm,root用户登录&lt;/p&gt;
+&lt;h2 id="在系统内部处理"&gt;在系统内部处理
+&lt;/h2&gt;&lt;p&gt;用ventoy启动扩容好的虚拟磁盘系统，ssh登录&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cfdisk /dev/sdXXX
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;resize需要处理的分区，我这里是/dev/sda2，然后write写入 yes确认 退出&lt;/p&gt;
+&lt;h3 id="ext4-格式"&gt;ext4 格式
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;resize2fs /dev/sdXXX
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="btrfs格式-操作根目录"&gt;btrfs格式 操作根目录
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;btrfs filesystem resize max /
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="然后重新执行vtoyboot"&gt;然后重新执行vtoyboot
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /root/vtoyboot*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sh vtoyboot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="准备重启"&gt;准备重启
+&lt;/h2&gt;&lt;p&gt;虚拟磁盘文件重命名为 XX.vtoy ，重新用ventoy引导 完毕。&lt;/p&gt;</description></item><item><title>一个可以不动硬盘分区，直接从一个文件启动的proxmox（pve） 打造all in one</title><link>https://dev.leiyanhui.com/all-in-one/pve-ventoy-vdisk/</link><pubDate>Thu, 22 Dec 2022 03:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/all-in-one/pve-ventoy-vdisk/</guid><description>&lt;h2 id="有什么用"&gt;有什么用
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;可以在不修改你磁盘分区的情况下，只占用5G的硬盘空间(新版占用12G，剩余7G+)，使用vhd虚拟磁盘的方式 启动一个性能和功能完全不受影响在物理机运行的pve系统。&lt;/li&gt;
+&lt;li&gt;可以和其他系统共存并不需要额外的分区&lt;/li&gt;
+&lt;li&gt;可以同时存在多个pve系统 自由切换，例如一个开启gvt-g的一个开启核显直通的&lt;/li&gt;
+&lt;li&gt;可以很方便的整个系统备份和恢复&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="开始使用"&gt;开始使用
+&lt;/h2&gt;&lt;p&gt;1、准备一个空白U盘，或者硬盘安装好 ventoy,下载 解压 pve.vhd 文件到 任意一个分区（exFAT/NTFS/UDF/XFS/Ext2(3)(4)格式的分区），重命名为 pve.vhd.vtoy &lt;br&gt;
+2、开机用ventoy磁盘引导，按下F2 浏览，找到 pve.vhd.vtoy，正常启动 用户名root 密码root &lt;br&gt;
+3、配置网卡和ip等 重启，&lt;a class="link" href="https://dev.leiyanhui.com/pve/changip-and-netcard" target="_blank" rel="noopener"
+&gt;详细说明看这里&lt;/a&gt; &lt;br&gt;
+4、挂载其他磁盘修改虚拟机和ct容器目录 详细说明看后文&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;只是修改了pve内部的引导挂载路径,使用方法 和正常安装的pve一样 ，不影响直通和其他任何功能。更不影响任何性能。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="进阶"&gt;进阶
+&lt;/h2&gt;&lt;p&gt;1、扩容方法（以后补 剩余7G其实足够了&amp;hellip; 先用工具扩容vhd，然后在从pve内部处理lvm即可） &lt;br&gt;
+2、配置开机启动启动pve &lt;a class="link" href="https://dev.leiyanhui.com/os/ventoy-auto-boot" target="_blank" rel="noopener"
+&gt;查看这里&lt;/a&gt; &lt;br&gt;
+3、不使用ventoy的启动（整理中..）&lt;/p&gt;
+&lt;h2 id="pve通用进阶教程"&gt;pve通用进阶教程
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/igpu-pass/" target="_blank" rel="noopener"
+&gt;开启pci直通简明教程&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/pve-vm-esxi" target="_blank" rel="noopener"
+&gt;开启虚拟化嵌套&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/install-macos-ventura" target="_blank" rel="noopener"
+&gt;安装macos&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="更新说明"&gt;更新说明
+&lt;/h2&gt;&lt;p&gt;2022-12-23&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;更新为12G 容量，剩余空间7G左右，放弃5G镜像，之所以做一个容量大一些的，是发现1.3G的剩余空间在安装几个常用软件后经常就占满了，再次去扩容过于折腾。而7G容量足够安装常用软件，甚至可以安装上一个桌面系统。&lt;/li&gt;
+&lt;li&gt;&lt;del&gt;安装firefox 和 hrub&lt;/del&gt;&lt;/li&gt;
+&lt;li&gt;为了减少体积，网盘包改为 7zip 格式 linux解压命令，debian/ubuntu:&lt;code&gt;apt-get install p7zip &amp;amp;&amp;amp; 7z x pve20221223.vhd.vtoy.7z -r -o /目标路径 &lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="概述"&gt;概述
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;基于 Virtual Environment 7.3-3 内核最新版（目前是 5.15.74-1）&lt;/li&gt;
+&lt;li&gt;基于vtoyboot-1.0.25（ventoy） 支持硬盘/U盘安装的 vtoyboot，也支持grub4dos插件启动，推荐用vtoyboot&lt;/li&gt;
+&lt;li&gt;硬盘占用空间5G 剩余空间1.1G 左右（可扩容）&lt;/li&gt;
+&lt;li&gt;默认ip：5G版：10.0.0.8 12G初始版：10.0.0.120&lt;/li&gt;
+&lt;li&gt;默认用户名root 密码 root&lt;/li&gt;
+&lt;li&gt;Local-lvm 默认没有启用(低容量会默认禁用)Local开启全功能&lt;/li&gt;
+&lt;li&gt;开启x11 转发，方便在上面运行图形化软件，支持浏览器 文件管理等所有linux图形化软件&lt;/li&gt;
+&lt;li&gt;开启了sftp 可以用alist rclone之类的软件挂载 &lt;a class="link" href="https://dev.leiyanhui.com/pve/open-sftp" target="_blank" rel="noopener"
+&gt;详情&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;修改为国内源&lt;/li&gt;
+&lt;li&gt;&lt;del&gt;显示cpu主频 cpu温度 nvme硬盘温度 sata硬盘温度&lt;/del&gt;&lt;/li&gt;
+&lt;li&gt;&lt;del&gt;去掉订阅弹窗&lt;/del&gt;&lt;/li&gt;
+&lt;li&gt;支持升级&lt;/li&gt;
+&lt;li&gt;不影响pci直通等操作&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;绝对没有后门，所有修改过的文件，都备份了一份在 /root/bak-sources, 所有的历史命令和操作记录 都保留，&lt;a class="link" href="https://dev.leiyanhui.com/pve/del-log" target="_blank" rel="noopener"
+&gt;你可以自行删除&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="计划中的功能"&gt;计划中的功能
+&lt;/h2&gt;&lt;p&gt;精简到4G 以内 方便fat32 分区使用&lt;/p&gt;
+&lt;h2 id="已经处理的步骤和常见问题"&gt;已经处理的步骤和常见问题
+&lt;/h2&gt;&lt;h3 id="挂载其他分区"&gt;挂载其他分区
+&lt;/h3&gt;&lt;p&gt;查看所有磁盘和分区&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;fdisk -l
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;挂载一个分区到/mnt/nvme1&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir /mnt/nvme1
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mount /dev/nvmen0p2 /mnt/nvme1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;开机自动挂载，修改fstab 或者 添加开机自动执行脚本。
+查看本文 &lt;a class="link" href="https://dev.leiyanhui.com/pve/auto-mount-exfat" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/auto-mount-exfat&lt;/a&gt;
+更多内容请自行google &amp;ldquo;linux 挂载分区&amp;quot;关键词&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;pve 可以挂载ntfs分区，但是不建议长期使用，性能和稳定性都有问题。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="修改ct和虚拟机主机的路径"&gt;修改ct和虚拟机主机的路径
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/pve-mv-dir" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/pve-mv-dir&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="国内源"&gt;国内源
+&lt;/h3&gt;&lt;p&gt;已经更换到清华源 &lt;a class="link" href="https://dev.leiyanhui.com/pve/guonei" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/guonei&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="显示温度"&gt;&lt;del&gt;显示温度&lt;/del&gt;
+&lt;/h3&gt;&lt;p&gt;&lt;del&gt;已经处理过，不需要你再处理&lt;/del&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /usr/share/perl5/PVE/API2/Nodes.pm /root/bak-sources
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp /usr/share/pve-manager/js/pvemanagerlib.js /root/bak-sources
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#覆盖文件后 执行下面命令
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt-get install lm-sensors &amp;amp;&amp;amp; apt-get install nvme-cli &amp;amp;&amp;amp; apt-get install hddtemp &amp;amp;&amp;amp; chmod +s /usr/sbin/nvme &amp;amp;&amp;amp; chmod +s /usr/sbin/hddtemp &amp;amp;&amp;amp; chmod +s /usr/sbin/smartctl &amp;amp;&amp;amp; systemctl restart pveproxy
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="订阅弹出窗口"&gt;&lt;del&gt;订阅弹出窗口&lt;/del&gt;
+&lt;/h3&gt;&lt;p&gt;&lt;del&gt;已经处理过，不需要你再处理&lt;/del&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cp&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;share&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;javascript&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;proxmox&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;widget&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;toolkit&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;proxmoxlib&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;js&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;sources&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sed&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Ezi&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;bak&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;s/(Ext.Msg.show\(\{\s+title: gettext\(&amp;#39;No valid sub)/void\(\{ \/\/&lt;/span&gt;&lt;span class="se"&gt;\1&lt;/span&gt;&lt;span class="s2"&gt;/g&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;share&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;javascript&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;proxmox&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;widget&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;toolkit&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;proxmoxlib&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;js&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;pveproxy&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;service&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可能需要清理缓存&lt;/p&gt;
+&lt;h3 id="x11-转发"&gt;X11 转发
+&lt;/h3&gt;&lt;p&gt;已经处理过，不需要你再处理：&lt;a class="link" href="https://dev.leiyanhui.com/pve/x11" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/x11&lt;/a&gt;
+用 Xming 或者MobaXterm 连接上，安装一个图形界面软件 测试，比如 &lt;code&gt;apt install firefox-esr thunar&lt;/code&gt; 然后执行firefox 即可打开火狐，thunar 也是一个简单的文件管理工具。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注意：x11 转发 只适合简单的场景使用。如果你要流畅，还是考虑 扩容后安装一个完整的桌面系统kde gnome等，然后xrdp vnc或者todesk之类的连接上使用。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="清理日志和历史命令"&gt;清理日志&lt;del&gt;和历史命令&lt;/del&gt;
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/pve/del-log/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/pve/del-log/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="系统升级到最新版"&gt;系统升级到最新版
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apt update &amp;amp;&amp;amp; apt full-upgrade
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /root/vtoyboot-*/ &amp;amp;&amp;amp; sh vtoyboot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="更新vtoyboot"&gt;更新vtoyboot
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /root/vtoyboot-*/ &amp;amp;&amp;amp; sh vtoyboot.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;应该在系统更新和修改grub后，重启之前执行一次，详情参考 &lt;a class="link" href="https://www.ventoy.net/cn/plugin_vtoyboot.html" target="_blank" rel="noopener"
+&gt;https://www.ventoy.net/cn/plugin_vtoyboot.html&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="怎么访问-vhd所在的分区"&gt;怎么访问 vhd所在的分区
+&lt;/h3&gt;&lt;p&gt;参考 &lt;a class="link" href="https://www.ventoy.net/cn/faq.html" target="_blank" rel="noopener"
+&gt;ventoy faq手册&lt;/a&gt; 启动类问题的说明第四条 &lt;code&gt;默认情况下，Linux系统启动之后，存放ISO文件的分区无法挂载（会提示 Busy）。如果确实需要挂载，请使用 全局控制插件 中的 VTOY_LINUX_REMOUNT 选项。&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/os/ventoy-auto-boot" target="_blank" rel="noopener"
+&gt;也可以查看本文 关于自动启动的说明&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="winpewin下如何备份和配置pve"&gt;winpe/win下如何备份和配置pve
+&lt;/h3&gt;&lt;h4 id="备份"&gt;备份
+&lt;/h4&gt;&lt;p&gt;直接复制压缩 XXX.vtoy 文件&lt;/p&gt;
+&lt;h4 id="配置ventoy"&gt;配置ventoy
+&lt;/h4&gt;&lt;p&gt;建议用完整win，或者firpe，然后 用它自带的工具 VentoyPlugson.exe ，默认地址是 http://127.0.0.1:24681&lt;/p&gt;
+&lt;h4 id="修改pve内部文件"&gt;修改pve内部文件
+&lt;/h4&gt;&lt;p&gt;重命名为 .vhd，然后挂载到Windows，而后用支持ext4分区的软件来操作 推荐 ExtFS 最稳定，免费10天，也有XXX的版本&lt;br&gt;
+&lt;a class="link" href="https://china.paragon-software.com/home-windows/extfs-for-windows/download.html" target="_blank" rel="noopener"
+&gt;https://china.paragon-software.com/home-windows/extfs-for-windows/download.html&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="ventoy和pve的使用需要注意"&gt;ventoy和pve的使用需要注意
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;ventoy 不支持差分vhd磁盘，不要尝试改为vhd文件后再次差分，但是可以自己转换为vdi或者img格式&lt;/li&gt;
+&lt;li&gt;修改grub后或者内核升级后记得运行一次 vtoyboot.sh 再重启。平时不需要&lt;/li&gt;
+&lt;li&gt;vhd.vtoy文件可以放在ntfs分区，不影响使用。但不建议pve内的虚拟机放在ntfs分区，所有的非win系统，对ntfs的支持都不够稳定。&lt;/li&gt;
+&lt;li&gt;记得修改密码！！！！！&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="下载地址"&gt;下载地址
+&lt;/h2&gt;&lt;p&gt;如果失效，请联系 &lt;a class="link" href="mailto:joyanhui@qq.com" &gt;joyanhui@qq.com&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://www.123pan.com/s/EqorVv-fPnPA" target="_blank" rel="noopener"
+&gt;https://www.123pan.com/s/EqorVv-fPnPA&lt;/a&gt; 提取码:0pve&lt;/p&gt;
+&lt;p&gt;其他未尽事宜 请参考ventoy手册：&lt;a class="link" href="https://www.ventoy.net/cn/doc_news.html" target="_blank" rel="noopener"
+&gt;https://www.ventoy.net/cn/doc_news.html&lt;/a&gt;&lt;/p&gt;</description></item><item><title>docker运行 官方宝塔</title><link>https://dev.leiyanhui.com/docker/baota/</link><pubDate>Sun, 27 Nov 2022 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/baota/</guid><description>&lt;p&gt;宝塔 终于出官方docker了 基于&lt;code&gt;CentOS 7.9.2009 x86_64&lt;/code&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a class="link" href="https://hub.docker.com/r/btpanel/baota" target="_blank" rel="noopener"
+&gt;https://hub.docker.com/r/btpanel/baota&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class="link" href="https://www.bt.cn/bbs/thread-79499-1-1.html" target="_blank" rel="noopener"
+&gt;https://www.bt.cn/bbs/thread-79499-1-1.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;LNMP镜像大小大概 733.3MB 解压后大概3006.51MB 。。。没得办法，宝塔的依赖项真的是太多了。。。
+在软路由上搞起来先&lt;/p&gt;
+&lt;h2 id="先整理端口"&gt;先整理端口
+&lt;/h2&gt;&lt;p&gt;不打算映射数据出来，方便转移，并预留ssh 和常用端口&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#宝塔面板 22 ssl http phpmyadmin
+-p 51888:8888 -p 51022:22 -p 51443:443 -p 51080:80 -p 51188:888 \
+# 路由器封80 443自定义web端口 以及22重复
+-p 51081:51081 -p 51444:51444 -p 51000:22 \
+# mysql
+-p 51306:3306 \
+# redis
+-p 51379:6379 \
+# pgsql
+-p 51432:5432 \
+# MongoDB
+-p 51017:27017 \
+# 备用端口
+-p 51200-51299:51200-51299 \
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;你问我为啥开这么多端口。。我开心我乐意，反正外网又访问不到。。。&lt;/p&gt;
+&lt;h2 id="镜像和标签的选择"&gt;镜像和标签的选择
+&lt;/h2&gt;&lt;p&gt;latest 标签拉取的是lib标签，安装了面板并且安装集成依赖包，安装每个软件都会快一点。&lt;br&gt;
+fresh 标签表示安装了面板但是没有安装集成依赖包，安装第一个软件会比较慢，因为需要装依赖包。&lt;br&gt;
+lib 标签表示安装了面板并且安装集成依赖包，安装每个软件都会快一点。&lt;br&gt;
+lnmp 标签表示安装了面板、集成包并且集成LNMP【Nginx1.22+MySQL5.7+PHP7.4】arm标签是MySQL5.6&lt;br&gt;
+lamp 标签表示安装了面板、集成包并且集成LAMP【Apache2.4+MySQL5.7+PHP7.4】arm标签是MySQL5.6&lt;br&gt;
+我这里选择&lt;code&gt;lnmp&lt;/code&gt; 经过测试发现，其实还集成了ftp&lt;/p&gt;
+&lt;h2 id="目录的挂载"&gt;目录的挂载
+&lt;/h2&gt;&lt;p&gt;/www/server/data 数据库&lt;br&gt;
+/www/wwwroot 网站目录 或者说 静态文件目录&lt;br&gt;
+/www/server/panel/vhost 虚拟机主机配置文件&lt;br&gt;
+其他目录参考宝塔官网&lt;br&gt;
+我不打算映射出来，因为可以在宝塔内挂载oss之类的网盘自动备份。&lt;br&gt;
+而且不映射任何目录的话，docker的备份和迁移更为简单简单一些。&lt;/p&gt;
+&lt;h2 id="最终命令的整理"&gt;最终命令的整理
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d --restart unless-stopped --name baota \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51888:8888 -p 51022:22 -p 51443:443 -p 51080:80 -p 51188:888 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51081:51081 -p 51444:51444 -p 51000:22 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51306:3306 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51379:6379 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51432:5432 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51017:27017 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-p 51200-51299:51200-51299 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;btpanel/baota:lnmp
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="默认账户名密码-和登录地址"&gt;默认账户名密码 和登录地址
+&lt;/h2&gt;&lt;p&gt;现在，您可以在浏览器访问默认地址 http://您的ip地址:8888/btpanel 上的宝塔面板。
+默认用户：btpanel
+默认密码：btpaneldocker
+默认SSH密码：用户名 root 密码 btpaneldocker&lt;/p&gt;
+&lt;p&gt;默认用户：btpanel&lt;br&gt;
+默认密码：btpaneldocker&lt;br&gt;
+容器默认SSH密码：btpaneldocker&lt;/p&gt;
+&lt;h2 id="其他"&gt;其他
+&lt;/h2&gt;&lt;h3 id="容器内的服务处理"&gt;容器内的服务处理
+&lt;/h3&gt;&lt;p&gt;是使用的&lt;code&gt;/bt.sh&lt;/code&gt; 这个文件，除了默认服务之外，其他服务需要自行添加默认内容&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#!/bin/bash
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+export PATH
+init_path=/etc/init.d
+Root_Path=`cat /var/bt_setupPath.conf`
+Setup_Path=$Root_Path/server/mysql
+Data_Path=$Root_Path/server/data
+soft_start(){
+${init_path}/nginx start
+${init_path}/php-fpm-74 start
+${init_path}/pure-ftpd start
+${init_path}/bt restart
+pkill crond
+/sbin/crond
+/usr/sbin/sshd -D &amp;amp;
+}
+is_empty_Data(){
+return `ls -A ${Data_Path}/|wc -w`
+}
+init_mysql(){
+# initialize_mysql
+if [ -f /init_mysql.sh ];then
+sh /init_mysql.sh
+rm -f /init_mysql.sh
+fi
+}
+start_mysql(){
+chown -R mysql:mysql ${Data_Path}
+chgrp -R mysql ${Setup_Path}/.
+${init_path}/mysqld start
+rm -f /init_mysql.sh
+}
+soft_start &amp;gt; /dev/null
+is_empty_Data &amp;gt; /dev/null
+if [ $? == 0 ];then
+init_mysql &amp;gt; /dev/null
+else
+start_mysql &amp;gt; /dev/null
+fi
+tail -f /dev/null
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="计划任务的bug"&gt;计划任务的bug
+&lt;/h3&gt;&lt;p&gt;宿主机运行&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; docker exec -it 容器名称baota bash
+pkill crond &amp;amp;&amp;amp; /sbin/crond
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;然后重新添加计划任务&lt;/p&gt;
+&lt;h3 id="容器内的ssh的bug"&gt;容器内的ssh的bug
+&lt;/h3&gt;&lt;p&gt;已经默认安装了openssh，但是可能还需要处理一下才可以连接，注意 复制的时候 要看一下宿主机的情况。如果不是host模式的话不存在这个问题&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#获取容器ID
+docker ps|awk 'NR &amp;gt; 1{print$1}'
+#复制必要密钥文件到容器内
+\cp -r /etc/ssh/ssh_host_* /home/
+chmod 600 /home/ssh_host_*
+docker cp /home/ssh_host_rsa_key 容器ID:/etc/ssh/
+docker cp /home/ssh_host_ecdsa_key 容器ID:/etc/ssh/
+docker cp /home/ssh_host_ed25519_key 容器ID:/etc/ssh/
+#给容器设置一个root密码，qqwwee123替换成自己想要的密码
+docker exec -it 容器ID /bin/bash -c &amp;quot;echo 'qqwwee123'|passwd --stdin root&amp;quot;
+#让sshd运行起来
+docker exec 容器ID /usr/sbin/sshd -D &amp;amp;
+rm -rf /home/ssh_host_*
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="问题和其他bug"&gt;问题和其他bug
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;docker版本更新滞后，也不算大事，宝塔新版问题更多哈哈&lt;/li&gt;
+&lt;li&gt;web控制面板卡顿，web终端卡顿 甚至打不开，不缺点是宝塔新版的问题，还是软路由器性能问题&lt;/li&gt;
+&lt;li&gt;宝塔内置系统防火墙不可用（docker的限制。不过确实没必要）&lt;/li&gt;
+&lt;li&gt;ssl的证书夹在某些特定情况下 无法保存的问题。这个应该是宝塔自己的bug，月经bug 宝塔反反复复，经常间隔几个版本就出现一次 .重新登录一次面板，然后续签一次证书，或者重新部署一次。运气好的话 就好了，或者整个站点都删掉重新添加，运气不好的话，。。。。删了宝塔吧。。&lt;/li&gt;
+&lt;li&gt;innodb_log_buffer_size 的bug，这个以及是宝塔本身的月经bug 反复出现，手动设置一下就好&lt;/li&gt;
+&lt;li&gt;web面板 配置mysql的界面 mysql状态不显示，这个应该也是宝塔自己的bug，月经bug&lt;/li&gt;
+&lt;li&gt;web面板 终端偶尔打不开 应该是xterm和bug，宝塔本身也或许有问题，退出重新登录就好，或者清理浏览器缓存 重新登录&lt;/li&gt;
+&lt;li&gt;通知模块偶尔显示 名称：undefined xxx，无配置。。这个也是宝塔的月经bug&lt;/li&gt;
+&lt;li&gt;不算是问题，但一定注意第一时间修改 面板用户名密码以及ssh的root密码&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="题外话"&gt;题外话
+&lt;/h2&gt;&lt;p&gt;其实已经很久没有新装过宝塔了，然后发现 现在的宝塔 是bug成堆。。。硬硬把用户当作实验台，略有能力的情况下能不用就不用了吧&lt;br&gt;
+以前会去宝塔论坛 认真截图 说复现步骤，反馈，然后论坛客服 除了一堆毫无意义的机械回复，也没啥，有时候反馈一个bug 竟然要回帖数次。。。
+基本上 修补了上一个bug 然后出现新bug&lt;/p&gt;
+&lt;p&gt;正经的生产环境，真的不怎么建议用宝塔。。。毕竟现在docker环境可选多部署一个新环境也不难&lt;/p&gt;</description></item><item><title>docker运行nginx 并反代内网的一些服务，</title><link>https://dev.leiyanhui.com/docker/nginx-proxy-manage/</link><pubDate>Sun, 27 Nov 2022 08:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/nginx-proxy-manage/</guid><description>&lt;p&gt;本文停止更新，建议使用 nginxwebui ：https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl&lt;/p&gt;
+&lt;p&gt;支持中文，也支持静态站，甚至可以转发php之类的。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;nginx-proxy-manage&lt;/code&gt; 是一个有web管理解决的 纯nginx管理工具，基于node开发的。类似宝塔。。自带了ssl证书管理（基于Let’s Encrypt的）&lt;/p&gt;
+&lt;p&gt;适合 在轻量的主机上运行，例如 软路由。。。&lt;/p&gt;
+&lt;p&gt;比宝塔来说优势有&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;支持更多dns验证api，几乎支持所有的常见国内外域名和dns商，并且支持 acmedns_api&lt;/li&gt;
+&lt;li&gt;更加轻量简单
+缺点嘛，，就是没有别的功能了。只有nginx 和 ssl 。所以很适合 路由上使用&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;要求多的话，还是建议使用宝塔，&lt;a class="link" href="https://dev.leiyanhui.com/docker/baota" target="_blank" rel="noopener"
+&gt;现在宝塔官网已经发布docker&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="基本命令"&gt;基本命令
+&lt;/h2&gt;&lt;p&gt;参考：https://hub.docker.com/r/jlesage/nginx-proxy-manager
+改动一下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --name=nginx-proxy-manager \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 50181:8181 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 50080:8080 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -p 50443:4443 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; jlesage/nginx-proxy-manager
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;web访问端口 是 50080:8080 ssl 50443:4443 管理端口 50181:8181
+默认用户名密码 &lt;code&gt;admin@example.com&lt;/code&gt; &lt;code&gt;changeme&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="后续我发现真正的官网镜像实际不是这个"&gt;后续我发现真正的官网镜像实际不是这个！
+&lt;/h3&gt;&lt;p&gt;而是 &lt;code&gt;jc21/nginx-proxy-manager:latest&lt;/code&gt; 文档地址：https://nginxproxymanager.com/setup/#using-mysql-mariadb-database
+并且官网文档是明确支持ipv6的 只是默认禁用&lt;/p&gt;
+&lt;h2 id="基本使用"&gt;基本使用
+&lt;/h2&gt;&lt;h3 id="修改用户密码"&gt;修改用户密码
+&lt;/h3&gt;&lt;p&gt;登录后就会自动提示修改，按照提示修改一下&lt;/p&gt;
+&lt;h3 id="试着申请个域名ssl"&gt;试着申请个域名ssl
+&lt;/h3&gt;&lt;p&gt;很简单 不用多说，看不懂 自己开翻译软件（吐槽：软路由圈子 英语不好 还不肯开翻译软件的人。。多好。。）&lt;/p&gt;
+&lt;h2 id="这个工具存在的问题"&gt;这个工具存在的问题
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;只支持LE的证书，我本想和acme.sh的配合 使用，发现。。。这货好像把证书放在了数据库里面，，服了。。。然后自定义证书 也只能是上传。。。
+&lt;ul&gt;
+&lt;li&gt;后续发现存放到了/etc/letsencrypt ，但是格式和acme.sh 不能完全兼容。。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;dns api的配置记录不能自动保存，添加多个证书的时候 需要每次都输入一次 api接口的key信息&lt;/li&gt;
+&lt;li&gt;下载回来的证书，只有nginx格式&lt;/li&gt;
+&lt;li&gt;面板本身好像不可以直接启用ssl，应该需要sh进去改配置文件，或者自己代理自己一次&lt;/li&gt;
+&lt;li&gt;没有中文界面&lt;/li&gt;
+&lt;li&gt;镜像体积不小， 182.90MB 左右&lt;/li&gt;
+&lt;li&gt;在主机列表页面直接打开对应的域名，是使用默认端口打开。不会帮你跳到&lt;code&gt;50080:8080 ssl 50443:4443&lt;/code&gt;,我node 水平一般也没有找打 队以ing的文件&lt;/li&gt;
+&lt;li&gt;同时 在反代 pve 或 openwrt等应用的适合，会导致 vnc或者终端控制台打不开。（这个好像是 noVNC 以及xterm.js的问题）
+&lt;ul&gt;
+&lt;li&gt;pve可以用 /etc/pve/local/qemu-server/&lt;!-- raw HTML omitted --&gt;.conf &lt;a class="link" href="https://pve.proxmox.com/wiki/VNC_Client_Access" target="_blank" rel="noopener"
+&gt;添加vnc配置的方法用客户端链接&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;oc的控制docker台 可以用shell登录后 &lt;code&gt; docker exec -it 容器名 /bin/bash&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;或者docker 另外跑一个浏览器 来访问内网的这个web，然后nginx-proxy-manager再套上ssl 就可以了&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;其他暂未发现&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="结论"&gt;结论
+&lt;/h2&gt;&lt;p&gt;很适合要求不高的情况下使用，也适合小白。
+其实 还是建议直接docker跑一个宝塔算了，自己用debian、centos基础做也行，现在宝塔官方也支持docker了&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/docker/baota" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/docker/baota&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="另外一个替代项目"&gt;另外一个替代项目
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://www.nginxwebui.cn/" target="_blank" rel="noopener"
+&gt;https://www.nginxwebui.cn/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;简单看了一下 国产的，支持中文，支持负载均衡，但是证书虽然是用 acme.sh ,但是同样也是 只支持 LE的自动续期和申请。。&lt;/p&gt;
+&lt;p&gt;使用说明 ：https://dev.leiyanhui.com/openwrt/nginx-proxy-ssl&lt;/p&gt;
+&lt;p&gt;官网：https://github.com/cym1102/nginxWebUI#docker%E5%AE%89%E8%A3%85%E8%AF%B4%E6%98%8E&lt;/p&gt;</description></item><item><title>docker 运行证书管理工具acme.sh</title><link>https://dev.leiyanhui.com/docker/acme-sh/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/acme-sh/</guid><description>&lt;p&gt;支持在所有运行docker的设备上 linux系统 windows macos openwrt unraid pve等 自动申请签发证书（爱快这种畸形的除外）&lt;/p&gt;
+&lt;h2 id="简单的运行"&gt;简单的运行
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;docker run --rm -itd \
+-v &amp;quot;$(pwd)/out&amp;quot;:/acme.sh \
+--net=host \
+--name=acme.sh \
+neilpang/acme.sh daemon
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="使用方法"&gt;使用方法
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;docker exec acme.sh --help
+docker exec acme.sh --issue --dns dns_cf -d *.example.com -d example.com
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="指定dns的api"&gt;指定dns的api
+&lt;/h2&gt;&lt;p&gt;走dns验证的，例如cf家的&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;docker run --rm -itd \
+-v &amp;quot;$(pwd)/ssl_out&amp;quot;:/acme.sh \
+-e CF_Email=&amp;quot;example@example.com&amp;quot; \
+-e CF_Key=&amp;quot;asasasasasadasasas&amp;quot; \
+--net=host \
+--name=acme.sh \
+neilpang/acme.sh daemon
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;如果是 dnspod&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;export DP_Key=&amp;quot;sADDsdasdgdsf&amp;quot;
+docker run --rm -itd \
+-v &amp;quot;$(pwd)/ssl_out&amp;quot;:/acme.sh \
+-e DP_Id=&amp;quot;1234&amp;quot; \
+-e DP_Key=&amp;quot;sADDsdasdgdsf&amp;quot; \
+--net=host \
+--name=acme.sh \
+neilpang/acme.sh daemon
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;其他的dns 的api参考 &lt;a class="link" href="https://github.com/acmesh-official/acme.sh/wiki/dnsapi" target="_blank" rel="noopener"
+&gt;https://github.com/acmesh-official/acme.sh/wiki/dnsapi&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;如果不支持自动api的话，参考他官网的别名解析验证 &lt;a class="link" href="https://github.com/acmesh-official/acme.sh/wiki/DNS-alias-mode" target="_blank" rel="noopener"
+&gt;https://github.com/acmesh-official/acme.sh/wiki/DNS-alias-mode&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="进阶"&gt;进阶
+&lt;/h2&gt;&lt;p&gt;可以和其他容器 包括 宝塔 或者 nginx-proxy-manager 配合使用（这两个只支持LE的免费域名，兼容性极差）&lt;/p&gt;
+&lt;h2 id="其他资源"&gt;其他资源
+&lt;/h2&gt;&lt;p&gt;支持180天的 （半年的）泛域名 以及 ip申请 ，应该 还是不支持内网ip的&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://hostloc.com/forum.php?mod=viewthread&amp;amp;tid=1050449" target="_blank" rel="noopener"
+&gt;https://hostloc.com/forum.php?mod=viewthread&amp;tid=1050449&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;作者主页：https://github.com/Neilpang&lt;/p&gt;</description></item><item><title>docker5.7</title><link>https://dev.leiyanhui.com/docker/mysql5-7/</link><pubDate>Sat, 26 Nov 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/docker/mysql5-7/</guid><description>&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;docker&lt;/span&gt; &lt;span class="n"&gt;run&lt;/span&gt; &lt;span class="o"&gt;--&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt; &lt;span class="n"&gt;mysql5&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="mi"&gt;3306&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;3306&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt; &lt;span class="n"&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;123456&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker_data&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker_data&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;conf&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;local&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;docker_data&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;logs&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;var&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="nb"&gt;log&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mysql&lt;/span&gt; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;mysql&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mf"&gt;5.7&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>输入法的选择，win linux macos 安卓 ios</title><link>https://dev.leiyanhui.com/c/inputexe/</link><pubDate>Sat, 22 Oct 2022 06:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/c/inputexe/</guid><description>&lt;h1 id="输入法的选择"&gt;输入法的选择
+&lt;/h1&gt;&lt;h2 id="输入法的选择-1"&gt;输入法的选择
+&lt;/h2&gt;&lt;h2 id="先说结论"&gt;先说结论
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;rime为主，独立帐号的百度输入法 辅助&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="本文最后一次更新2022年11月29日"&gt;本文最后一次更新2022年11月29日。
+&lt;/h2&gt;&lt;p&gt;win linux 已经 全部切换到 rime。安卓有客户端，但是研究过怎么用，我安卓是备用电话机。。
+ios 暂时还是用的百度输入法。 美区有&lt;code&gt;iRime&lt;/code&gt; (没开源国区下架了)1.99刀，可以用。
+linux下偶尔也用&lt;code&gt;fcitx-googlepinyin&lt;/code&gt; 比较轻量&lt;/p&gt;
+&lt;p&gt;优点:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;流畅 非常非常流畅，哪怕momo7w这种N年前都百元平板上都可以流畅输入&lt;/li&gt;
+&lt;li&gt;无隐私问题&lt;/li&gt;
+&lt;li&gt;字库可以自己git 或者 坚果云 备份&lt;/li&gt;
+&lt;li&gt;除了ios之外所有平台可用&lt;/li&gt;
+&lt;li&gt;皮肤可以自定义 可以自行配置&lt;/li&gt;
+&lt;li&gt;扩展性很强&lt;/li&gt;
+&lt;li&gt;开源 快平台&lt;/li&gt;
+&lt;li&gt;标准词库格式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;缺点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;新人初次上手难度大 需要设置的地方多 部分配置需要自行修改配置文件&lt;/li&gt;
+&lt;li&gt;没有云输入，也就是新鲜热词词库是没有的&lt;/li&gt;
+&lt;li&gt;linux不支持&lt;code&gt;fcitx-cloudpinyin&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;官网地址：https://rime.im 下载链接：&lt;a class="link" href="https://rime.im/download/" target="_blank" rel="noopener"
+&gt;https://rime.im/download/&lt;/a&gt;
+win下叫做 小狼毫 linux下可选 fcitx-rime(第三方) 或者 ibus-rime
+===========以下是旧文章================&lt;/p&gt;
+&lt;h2 id="再说原因"&gt;再说原因
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;win mac ios 安卓 部分Linux桌面版可以用 词库过得去 ios下基本完美 语音识别准确率过得去&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="不选择其他的原因"&gt;不选择其他的原因
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;· QQ拼音 不支持非Linux 和mac 不考虑 · 搜狗拼音且不说广告【百度拼音可以说没有】，ios下频繁消失的问题频繁出现 · 讯飞 mac和linux支持不好 · 搜狗 另外在多数linux发行版上面没有词库同步&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;#再说缺点&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;· 李彦宏家的 这货&amp;hellip; 隐私问题 独立账号登陆吧 · 设置同步 好像有逻辑问题，比如候选词9个，就不行 · 有时候按错键莫名其妙插入emjo表情，在一些在线编辑器就成了上传图片 · 没有错键识别纠正，比如 jiuzheng 我如果按成kiuzheng 不会自动纠正&lt;/p&gt;
+&lt;/blockquote&gt;</description></item></channel></rss>
