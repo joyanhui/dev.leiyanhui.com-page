@@ -1,0 +1,246 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content=' 本文假定，你已经装了一个系统，机型是 q35 efi启动。\n目标，再q35 机型上 用efi 启动win 以及 opencore efi 启动的macos 可以点亮HDMI\nmacos安装请查看在pve上直接安装macos13 Ventura 初步优化\n本文基于 efi grub pve7.2.11 更多环境参数查看 本文末尾\n首先搞定相对比较简单的win10的显卡直通，以便后续调试macos\n显卡直通 vbois文件 因为是efi启动，所以必须提取显卡的vbois，如果你是独立显卡可以去这里下载 https://www.techpowerup.com/vgabios/\n如果是核显，可以网上搜一下你的核显型号，看能不能找到可用的vbios，如果 依旧没有，就需要自己提取编译，具体网上搜一下教程我这里就不重复\n我的是uhd630 ， 网上找到了一份 在unraid下测试没问题的。https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/vbios_gvt_uefi.rom\n下载到pve里面 备用\ncd /usr/share/kvm/ wget https://file.leiyanhui.com/pve-unraid-kvm/vbios_gvt_uefi.rom 开启pve的显卡直通 grub的处理 开启IOMMU支持 cp /etc/default/grub /etc/default/grub-bak nano /etc/default/grub 修改GRUB_CMDLINE_LINUX_DEFAULT这行为\nGRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on" 如果是amd的cpu 前面intel_iommu=on改为 amd_iommu=on\n如果多显卡，可能还需要再这里做一下屏蔽处理 就是 羡慕的 =on 后面添加空格 video=efifb:off\nGRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on video=efifb:off" 解释：\niommu开启直通分组 efifb:off 禁用efi启动的显示设备 vesafb:off 禁用legacy启动的显示设备 modprobe的处理 VT-D功能的内核模块 cp /etc/modules /etc/modules-bak nano /etc/modules 添加\n'><title>在pve上 efi q35 直通显卡显示，以及声卡和蓝牙 wifi等的直通 win/macos</title><link rel=canonical href=https://dev.leiyanhui.com/pve/win-gpu/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="在pve上 efi q35 直通显卡显示，以及声卡和蓝牙 wifi等的直通   win/macos"><meta property='og:description' content=' 本文假定，你已经装了一个系统，机型是 q35 efi启动。\n目标，再q35 机型上 用efi 启动win 以及 opencore efi 启动的macos 可以点亮HDMI\nmacos安装请查看在pve上直接安装macos13 Ventura 初步优化\n本文基于 efi grub pve7.2.11 更多环境参数查看 本文末尾\n首先搞定相对比较简单的win10的显卡直通，以便后续调试macos\n显卡直通 vbois文件 因为是efi启动，所以必须提取显卡的vbois，如果你是独立显卡可以去这里下载 https://www.techpowerup.com/vgabios/\n如果是核显，可以网上搜一下你的核显型号，看能不能找到可用的vbios，如果 依旧没有，就需要自己提取编译，具体网上搜一下教程我这里就不重复\n我的是uhd630 ， 网上找到了一份 在unraid下测试没问题的。https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/vbios_gvt_uefi.rom\n下载到pve里面 备用\ncd /usr/share/kvm/ wget https://file.leiyanhui.com/pve-unraid-kvm/vbios_gvt_uefi.rom 开启pve的显卡直通 grub的处理 开启IOMMU支持 cp /etc/default/grub /etc/default/grub-bak nano /etc/default/grub 修改GRUB_CMDLINE_LINUX_DEFAULT这行为\nGRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on" 如果是amd的cpu 前面intel_iommu=on改为 amd_iommu=on\n如果多显卡，可能还需要再这里做一下屏蔽处理 就是 羡慕的 =on 后面添加空格 video=efifb:off\nGRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on video=efifb:off" 解释：\niommu开启直通分组 efifb:off 禁用efi启动的显示设备 vesafb:off 禁用legacy启动的显示设备 modprobe的处理 VT-D功能的内核模块 cp /etc/modules /etc/modules-bak nano /etc/modules 添加\n'><meta property='og:url' content='https://dev.leiyanhui.com/pve/win-gpu/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Pve'><meta property='article:published_time' content='2022-10-28T17:14:20+08:00'><meta property='article:modified_time' content='2022-10-28T17:14:20+08:00'><meta name=twitter:title content="在pve上 efi q35 直通显卡显示，以及声卡和蓝牙 wifi等的直通   win/macos"><meta name=twitter:description content=' 本文假定，你已经装了一个系统，机型是 q35 efi启动。\n目标，再q35 机型上 用efi 启动win 以及 opencore efi 启动的macos 可以点亮HDMI\nmacos安装请查看在pve上直接安装macos13 Ventura 初步优化\n本文基于 efi grub pve7.2.11 更多环境参数查看 本文末尾\n首先搞定相对比较简单的win10的显卡直通，以便后续调试macos\n显卡直通 vbois文件 因为是efi启动，所以必须提取显卡的vbois，如果你是独立显卡可以去这里下载 https://www.techpowerup.com/vgabios/\n如果是核显，可以网上搜一下你的核显型号，看能不能找到可用的vbios，如果 依旧没有，就需要自己提取编译，具体网上搜一下教程我这里就不重复\n我的是uhd630 ， 网上找到了一份 在unraid下测试没问题的。https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/vbios_gvt_uefi.rom\n下载到pve里面 备用\ncd /usr/share/kvm/ wget https://file.leiyanhui.com/pve-unraid-kvm/vbios_gvt_uefi.rom 开启pve的显卡直通 grub的处理 开启IOMMU支持 cp /etc/default/grub /etc/default/grub-bak nano /etc/default/grub 修改GRUB_CMDLINE_LINUX_DEFAULT这行为\nGRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on" 如果是amd的cpu 前面intel_iommu=on改为 amd_iommu=on\n如果多显卡，可能还需要再这里做一下屏蔽处理 就是 羡慕的 =on 后面添加空格 video=efifb:off\nGRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on video=efifb:off" 解释：\niommu开启直通分组 efifb:off 禁用efi启动的显示设备 vesafb:off 禁用legacy启动的显示设备 modprobe的处理 VT-D功能的内核模块 cp /etc/modules /etc/modules-bak nano /etc/modules 添加\n'></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#显卡直通>显卡直通</a><ol><li><a href=#vbois文件>vbois文件</a></li></ol></li><li><a href=#开启pve的显卡直通>开启pve的显卡直通</a><ol><li><a href=#grub的处理-开启iommu支持>grub的处理 开启IOMMU支持</a></li><li><a href=#modprobe的处理-vt-d功能的内核模块>modprobe的处理 VT-D功能的内核模块</a></li><li><a href=#检查黑名单>检查黑名单</a></li></ol></li><li><a href=#处理一个kvm的配置项可以避免一些特殊问题>处理一个kvm的配置项，可以避免一些特殊问题</a><ol><li><a href=#允许不安全的中断>允许不安全的中断</a></li></ol></li><li><a href=#添加显卡到直通设备中-写入vfio>添加显卡到直通设备中 写入vfio</a><ol><li><a href=#查看pci设备>查看pci设备</a></li><li><a href=#重启>重启</a><ol><li><a href=#我的检查-执行结果>我的检查 执行结果</a></li></ol></li></ol></li><li><a href=#检查没问题后-重启>检查没问题后 重启</a></li><li><a href=#查看模块是否有问题>查看模块是否有问题</a></li><li><a href=#虚拟机添加显卡>虚拟机添加显卡</a></li><li><a href=#其他设备的直通>其他设备的直通</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><div class=article-title-wrapper><h2 class=article-title><a href=/pve/win-gpu/>在pve上 efi q35 直通显卡显示，以及声卡和蓝牙 wifi等的直通 win/macos</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2022-10-28T17:14:20+08:00>2022-10-28</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><blockquote><p>本文假定，你已经装了一个系统，机型是 q35 efi启动。</p></blockquote><blockquote><p>目标，再q35 机型上 用efi 启动win 以及 opencore efi 启动的macos 可以点亮HDMI</p></blockquote><p>macos安装请查看<a class=link href=https://dev.leiyanhui.com/pve/install-macos-ventura/ target=_blank rel=noopener>在pve上直接安装macos13 Ventura 初步优化</a></p><p>本文基于 efi grub pve7.2.11 更多环境参数查看 <a class=link href=https://dev.leiyanhui.com/pve/mac-bak/ target=_blank rel=noopener>本文末尾</a></p><p>首先搞定相对比较简单的win10的显卡直通，以便后续调试macos</p><h2 id=显卡直通>显卡直通</h2><h3 id=vbois文件>vbois文件</h3><p>因为是efi启动，所以必须提取显卡的vbois，如果你是独立显卡可以去这里下载 <a class=link href=https://www.techpowerup.com/vgabios/ target=_blank rel=noopener>https://www.techpowerup.com/vgabios/</a></p><p>如果是核显，可以网上搜一下你的核显型号，看能不能找到可用的vbios，如果 依旧没有，就需要自己提取编译，具体网上搜一下教程我这里就不重复</p><p>我的是uhd630 ， 网上找到了一份 在unraid下测试没问题的。https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/vbios_gvt_uefi.rom</p><p>下载到pve里面 备用</p><pre><code>cd /usr/share/kvm/
+wget https://file.leiyanhui.com/pve-unraid-kvm/vbios_gvt_uefi.rom
+</code></pre><h2 id=开启pve的显卡直通>开启pve的显卡直通</h2><h3 id=grub的处理-开启iommu支持>grub的处理 开启IOMMU支持</h3><pre><code>cp /etc/default/grub /etc/default/grub-bak
+nano /etc/default/grub
+</code></pre><p>修改GRUB_CMDLINE_LINUX_DEFAULT这行为</p><pre><code> GRUB_CMDLINE_LINUX_DEFAULT=&quot;quiet intel_iommu=on&quot;
+</code></pre><p>如果是amd的cpu 前面intel_iommu=on改为 amd_iommu=on<br>如果多显卡，可能还需要再这里做一下屏蔽处理 就是 羡慕的 =on 后面添加空格 <code>video=efifb:off</code></p><pre><code>GRUB_CMDLINE_LINUX_DEFAULT=&quot;quiet intel_iommu=on  video=efifb:off&quot;
+</code></pre><p>解释：</p><pre><code>iommu开启直通分组
+efifb:off 禁用efi启动的显示设备
+vesafb:off 禁用legacy启动的显示设备
+</code></pre><h3 id=modprobe的处理-vt-d功能的内核模块>modprobe的处理 VT-D功能的内核模块</h3><pre><code>cp /etc/modules /etc/modules-bak
+nano  /etc/modules 
+</code></pre><p>添加</p><pre><code>vfio
+vfio_iommu_type1
+vfio_pc
+vfio_virqfd
+</code></pre><h3 id=检查黑名单>检查黑名单</h3><p>因为pve启动时会尝试加载显卡驱动，为了避免pve占用显卡，需要阻止pve的显卡驱动加载。只有显卡直通才需要这个
+模块（驱动）黑名单，即让GPU设备在下次系统启动之后不使用这些驱动，把设备腾出来给vfio驱动用：
+/etc/modprobe.d/pve-blacklist.conf 看看有没有下面的内容，如果你后面要用钩子函数，就需要删除下面的内容，不用的话，最好是添加进去</p><pre><code>cp /etc/modprobe.d/pve-blacklist.conf  /etc/modprobe.d/pve-blacklist.conf-bak
+nano /etc/modprobe.d/pve-blacklist.conf
+</code></pre><p>内容</p><pre><code>blacklist i915
+blacklist snd_hda_intel
+blacklist snd_hda_codec_hdmi
+</code></pre><p>其他显卡</p><pre><code># block AMD driver
+blacklist radeon
+blacklist amdgpu
+
+# block NVIDIA driver
+blacklist nouveau
+blacklist nvidia
+blacklist nvidiafb
+</code></pre><h2 id=处理一个kvm的配置项可以避免一些特殊问题>处理一个kvm的配置项，可以避免一些特殊问题</h2><p>如果是N卡还需要加入下面的配置到kvm.conf（据老外说是避免一些莫名其妙的错误）,</p><p>如果你要跑macos的话 最好也添加一下,据说也可以避免macos无限重启</p><pre><code>echo &quot;options kvm ignore_msrs=Y&quot; &gt; /etc/modprobe.d/kvm.conf
+</code></pre><p>也有国外教程是</p><pre><code>echo &quot;options kvm ignore_msrs=1&quot; &gt; /etc/modprobe.d/kvm.conf
+</code></pre><p>不清楚那个是最合适的，我用第一个，只添加这行的话，会却会导致pve的母鸡控制台刷屏<code>kvm [2205]: vcpu0 ignored RDMSR: 0x1b8</code>类似的代码，你如果觉得烦躁。
+你可以 修改成 <code>options kvm ignore_msrs=Y report_ignored_msrs=N</code></p><p>重启生效，或者 <code>echo 0 > /sys/module/kvm/parameters/report_ignored_msrs</code> 强制生效</p><h3 id=允许不安全的中断>允许不安全的中断</h3><pre><code>echo &quot;options vfio_iommu_type1 allow_unsafe_interrupts=1&quot; &gt; /etc/modprobe.d/iommu_unsafe_interrupts.conf
+</code></pre><h2 id=添加显卡到直通设备中-写入vfio>添加显卡到直通设备中 写入vfio</h2><h3 id=查看pci设备>查看pci设备</h3><pre><code>lspci -nn  | grep 显卡名称
+</code></pre><p>例如</p><pre><code>lspci -nn  | grep UHD
+00:02.0 VGA compatible controller [0300]: Intel Corporation CoffeeLake-H GT2 [UHD Graphics 630] [8086:3e9b]
+</code></pre><p>记住前面和最后的地址 <code>00:02</code> 和 <code>8086:3e9b</code></p><p>由于我们需要让设备直通虚拟机, 那就不能让宿主机的驱动去接管这些硬件, 我们需要一个 dummy 驱动模块去接管这些要被直通的硬件.
+找到你想要直通的设备的 ID, 并且注意每个设备所在组的其他设备(编辑文件 /etc/modprobe.d/vfio.conf.</p><pre><code>echo &quot;options vfio-pci ids=8086:3e9b&quot; &gt; /etc/modprobe.d/vfio.conf
+</code></pre><p>ps：执行此操作后可能无法输出到外接显示器，若出现此情况，请撤回该步骤</p><p>另外有一个 参数 <code>disable_vga=1</code> 也可能会影响</p><pre><code>echo &quot;options vfio-pci ids=8086:3e9b disable_vga=1&quot; &gt; /etc/modprobe.d/vfio.conf
+</code></pre><p>但是为了避免 initrd 引入的内核模块中 vfio 位于物理驱动的后面, 这里有两套方案：
+根据 lspci &ndash;nnk 的内容, 找到每个设备对应的驱动,
+修改 （arch） /etc/blacklist.conf 或者（pve）/etc/modprobe.d/pve-blacklist.conf 我们前面已经处理过</p><p>另外有一个usb控制器 可能后面也要用到</p><pre><code>lspci -nn  | grep USB
+00:14.0 USB controller [0c03]: Intel Corporation 100 Series/C230 Series Chipset Family USB 3.0 xHCI Controller [8086:a12f] (rev 31)
+</code></pre><p>我主板只有一个usb控制器，直通其他usb设备没问题，pcie板载蓝牙的话，是不行的</p><h3 id=重启>重启</h3><p>重启之前 需要更新一下 grub和 update-initramfs -u</p><pre><code>update-grub
+update-initramfs -u
+</code></pre><p>执行结果</p><pre><code>update-grub
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-5.15.64-1-pve
+Found initrd image: /boot/initrd.img-5.15.64-1-pve
+Found linux image: /boot/vmlinuz-5.15.30-2-pve
+Found initrd image: /boot/initrd.img-5.15.30-2-pve
+Found memtest86+ image: /boot/memtest86+.bin
+Found memtest86+ multiboot image: /boot/memtest86+_multiboot.bin
+Adding boot menu entry for UEFI Firmware Settings ...
+done
+
+update-initramfs -u
+update-initramfs: Generating /boot/initrd.img-5.15.64-1-pve
+Running hook script 'zz-proxmox-boot'..
+Re-executing '/etc/kernel/postinst.d/zz-proxmox-boot' in new private mount namespace..
+No /etc/kernel/proxmox-boot-uuids found, skipping ESP sync.
+</code></pre><p>如果你和我一样是 ventoy引导的pve 还需要执行一下，不然就启动不起来了</p><pre><code> cd /root/vtoyboot-1.0.24/
+ sh vtoyboot.sh
+</code></pre><p>执行结果</p><pre><code>**********************************************
+      vtoyboot 1.0.24
+      longpanda admin@ventoy.net
+      https://www.ventoy.net
+**********************************************
+
+Current system use initramfstool as initramfs tool
+updating the initramfs, please wait ...
+update-initramfs: Generating /boot/initrd.img-5.15.64-1-pve
+
+
+
+
+Running hook script 'zz-proxmox-boot'..
+Re-executing '/etc/kernel/postinst.d/zz-proxmox-boot' in new private mount namespace..
+No /etc/kernel/proxmox-boot-uuids found, skipping ESP sync.
+grub mkconfig ...
+PROBE_PATH=/usr/sbin/grub-probe MKCONFIG_PATH=/usr/sbin/grub-mkconfig
+/usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-5.15.64-1-pve
+Found initrd image: /boot/initrd.img-5.15.64-1-pve
+Found linux image: /boot/vmlinuz-5.15.30-2-pve
+Found initrd image: /boot/initrd.img-5.15.30-2-pve
+Found memtest86+ image: /boot/memtest86+.bin
+Found memtest86+ multiboot image: /boot/memtest86+_multiboot.bin
+Adding boot menu entry for UEFI Firmware Settings ...
+done
+This is ventoy enviroment
+replace shim efi ...
+shimx64.efi no need 0
+
+vtoyboot process successfully finished.
+</code></pre><p>重启之前，检查一下每一个文件，可以参考我的结果</p><p><code>cat /etc/default/grub</code></p><p><code>cat /etc/modules</code></p><p><code>cat /etc/modprobe.d/pve-blacklist.conf</code></p><p><code>cat /etc/modprobe.d/kvm.conf</code></p><p><code>cat /etc/modprobe.d/iommu_unsafe_interrupts.conf</code></p><p><code>cat /etc/modprobe.d/vfio.conf</code></p><h4 id=我的检查-执行结果>我的检查 执行结果</h4><pre><code>cat /etc/default/grub
+# If you change this file, run 'update-grub' afterwards to update
+# /boot/grub/grub.cfg.
+# For full documentation of the options in this file, see:
+#   info -f grub -n 'Simple configuration'
+
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR=`lsb_release -i -s 2&gt; /dev/null || echo Debian`
+GRUB_CMDLINE_LINUX_DEFAULT=&quot;quiet intel_iommu=on&quot;
+GRUB_CMDLINE_LINUX=&quot;&quot;
+
+# Uncomment to enable BadRAM filtering, modify to suit your needs
+# This works with Linux (no patch required) and with any kernel that obtains
+# the memory map information from GRUB (GNU Mach, kernel of FreeBSD ...)
+#GRUB_BADRAM=&quot;0x01234567,0xfefefefe,0x89abcdef,0xefefefef&quot;
+
+# Uncomment to disable graphical terminal (grub-pc only)
+#GRUB_TERMINAL=console
+
+# The resolution used on graphical terminal
+# note that you can use only modes which your graphic card supports via VBE
+# you can see them in real GRUB with the command `vbeinfo'
+#GRUB_GFXMODE=640x480
+
+# Uncomment if you don't want GRUB to pass &quot;root=UUID=xxx&quot; parameter to Linux
+#GRUB_DISABLE_LINUX_UUID=true
+
+# Uncomment to disable generation of recovery mode menu entries
+#GRUB_DISABLE_RECOVERY=&quot;true&quot;
+
+# Uncomment to get a beep at grub start
+#GRUB_INIT_TUNE=&quot;480 440 1&quot;
+-----------------------------------
+cat /etc/modules
+# /etc/modules: kernel modules to load at boot time.
+#
+# This file contains the names of kernel modules that should be loaded
+# at boot time, one per line. Lines beginning with &quot;#&quot; are ignored.
+vfio
+vfio_iommu_type1
+vfio_pc
+vfio_virqfd
+-----------------------------------
+cat /etc/modprobe.d/pve-blacklist.conf
+# This file contains a list of modules which are not supported by Proxmox VE
+
+# nidiafb see bugreport https://bugzilla.proxmox.com/show_bug.cgi?id=701
+blacklist nvidiafb
+blacklist i915
+blacklist snd_hda_intel
+blacklist snd_hda_codec_hdmi
+-----------------------------------
+cat /etc/modprobe.d/kvm.conf
+options kvm ignore_msrs=Y
+-----------------------------------
+cat /etc/modprobe.d/iommu_unsafe_interrupts.conf
+options vfio_iommu_type1 allow_unsafe_interrupts=1
+-----------------------------------
+cat /etc/modprobe.d/vfio.conf
+cat: /etc/modprobe.d/vfio.conf: No such file or directory
+</code></pre><h2 id=检查没问题后-重启>检查没问题后 重启</h2><p><code>reboot</code></p><h2 id=查看模块是否有问题>查看模块是否有问题</h2><pre><code>lsmod | grep vfio
+</code></pre><p>结果</p><pre><code>vfio_virqfd            16384  0
+vfio_iommu_type1       40960  0
+vfio                   45056  1 vfio_iommu_type1
+</code></pre><h2 id=虚拟机添加显卡>虚拟机添加显卡</h2><p>再这里可以直接在虚拟机里面添加硬件 选择这个显卡了。但是如果是efi启动的 虚拟机能找到设备，但是显卡输出黑屏的。
+可以先进去win 用vnc或者 远程桌面 装好直通进去的显卡的驱动。
+所以我们还需要手动处理一下虚拟配置文件。我要操作的虚拟机 是macos+win的这双系统主机 102。</p><pre><code> cp  /etc/pve/qemu-server/102.conf  /etc/pve/qemu-server/102.conf-bak
+ nano /etc/pve/qemu-server/102.conf
+</code></pre><p>在显卡那条hostpci的最后加上,romfile=vbios_gvt_uefi.rom ,如果其他显卡 前面的地址可能不太一样</p><pre><code>hostpci0: 0000:00:02.0,pcie=1,romfile=vbios_gvt_uefi.rom
+</code></pre><p>如果上面的方法不行，那就删掉hostpci0那行，在文件最上面加上这行，并且把 显示 设置成 无，不加romfile有可能也能用，可以先试试</p><pre><code>args: -device vfio-pci,host=00:02.0,addr=0x02,x-igd-gms=1,romfile=vbios_gvt_uefi.rom
+</code></pre><p>还有一种写法 是</p><pre><code>args: -device vfio-pci,host=00:02.0,addr=0x02,x-igd-opregion=on,romfile=vbios_gvt_uefi.rom
+</code></pre><p>经过我的测试，后者写法可以再q35 efi模式下 顺利点亮，另外 虚拟显卡 可以保留，但是win10直通的鼠标不显示指针</p><p>如果你和我一样 要装黑苹果，可能已经有args这行，那就大概改成 下面这样</p><pre><code>args: -device vfio-pci,host=00:02.0,addr=0x02,x-igd-opregion=on,romfile=vbios_gvt_uefi.rom -device isa-applesmc,osk=&quot;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&quot; -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -global nec-usb-xhci.msi=off -global&gt;
+</code></pre><p>另外你可能需要把显示 设置成 无 多试试</p><p>如果启动的时候，提示 failed to open /dev/vfio/1: No such file or directory
+那是因为 我们用args的时候 系统没有自动将设备重新绑定到vfio-pci模块，</p><p>就需要我们</p><p>1、删除或注释/etc/modprobe.d中绑定显卡id到vfio-pci的操作，如#options vfio-pci ids=8086:3184,8086:3198</p><pre><code>rm -rf /etc/modprobe.d/vfio.conf
+</code></pre><p>2、编辑/etc/default/grub
+添加vfio-pci.ids=8086:3184 8086:3198到 GRUB_CMDLINE_LINUX= &ldquo;"（添加到引号内，id就是显卡id，有时需要将声卡id一并加入）</p><pre><code>     GRUB_CMDLINE_LINUX= &quot;vfio-pci.ids=8086:3e9b&quot;
+</code></pre><p>3、更新重启</p><pre><code>    update-grub
+</code></pre><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>agent: 1
+</span></span><span class=line><span class=cl>args: -device vfio-pci,host=00:02.0,addr=0x02,x-igd-opregion=on,romfile=vbios_gvt_uefi.rom -device isa-applesmc,osk=&#34;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&#34; &gt;
+</span></span><span class=line><span class=cl>bios: ovmf
+</span></span><span class=line><span class=cl>boot: order=virtio0
+</span></span><span class=line><span class=cl>cores: 8
+</span></span><span class=line><span class=cl>cpu: Penryn
+</span></span><span class=line><span class=cl>efidisk0: local:102/vm-102-disk-0.qcow2,efitype=4m,size=528K
+</span></span><span class=line><span class=cl>machine: q35
+</span></span><span class=line><span class=cl>memory: 8192
+</span></span><span class=line><span class=cl>meta: creation-qemu=7.0.0,ctime=1667039767
+</span></span><span class=line><span class=cl>net0: virtio=EA:46:2B:E6:EF:5F,bridge=vmbr0,firewall=1
+</span></span><span class=line><span class=cl>numa: 1
+</span></span><span class=line><span class=cl>ostype: other
+</span></span><span class=line><span class=cl>sata1: none,media=cdrom
+</span></span><span class=line><span class=cl>scsihw: virtio-scsi-pci
+</span></span><span class=line><span class=cl>smbios1: uuid=cbc57782-404a-4a2c-8500-78d072f75125
+</span></span><span class=line><span class=cl>sockets: 1
+</span></span><span class=line><span class=cl>vga: vmware
+</span></span><span class=line><span class=cl>virtio0: local:102/vm-102-disk-2.raw,size=512M
+</span></span><span class=line><span class=cl>virtio1: local:102/vm-102-disk-1.qcow2,size=32G
+</span></span><span class=line><span class=cl>virtio3: local:102/vm-102-disk-3.qcow2,cache=unsafe,size=16G
+</span></span><span class=line><span class=cl>vmgenid: f216093f-9c67-4801-934e-0a6c31fbb4fe
+</span></span></code></pre></td></tr></table></div></div><h2 id=其他设备的直通>其他设备的直通</h2><p>声卡和USB的直通 pve7.2 目前已经可以直接直通进去，不需要任何额外操作
+HDMI 声音的直通，参考上面显卡 的
+蓝牙的直通，如果是外置的usb蓝牙简单，如果是类似笔记本 或者 黑苹果的wifi上的的蓝牙，可能不一定可以驱动，可以尝试吧整个usb控制器直通进去先试试，如果可以再想办法尝试 通过pcei usb扩展卡 或者其他方法解决</p><p>参考：
+<a class=link href=https://zhuanlan.zhihu.com/p/577161166 target=_blank rel=noopener>https://zhuanlan.zhihu.com/p/577161166</a>
+<a class=link href=https://zyyme.com/pve-igpu-passthrough.html target=_blank rel=noopener>https://zyyme.com/pve-igpu-passthrough.html</a>
+<a class=link href=https://www.right.com.cn/forum/thread-4055200-1-1.html target=_blank rel=noopener>https://www.right.com.cn/forum/thread-4055200-1-1.html</a>
+一个比较简单的显卡vbois提取教程：https://www.jianshu.com/p/3ec6891ac5c8
+一个比较易懂的kvm教程 <a class=link href=https://zhuanlan.zhihu.com/p/60389508 target=_blank rel=noopener>https://zhuanlan.zhihu.com/p/60389508</a></p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

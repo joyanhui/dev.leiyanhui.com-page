@@ -1,0 +1,574 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Unraid on 小类随手记</title><link>https://dev.leiyanhui.com/tags/unraid/</link><description>Recent content in Unraid on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 07 Sep 2022 19:56:11 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/unraid/index.xml" rel="self" type="application/rss+xml"/><item><title>unraid 安装 macos 12 Monterey 以及实现核显 win和macos 共享的方法</title><link>https://dev.leiyanhui.com/c/unraid-install-macos-12-monterey/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraid-install-macos-12-monterey/</guid><description>&lt;h1 id="unraid-安装-macos-12-monterey-以及实现核显-win和macos-共享的方法"&gt;unraid 安装 macos 12 Monterey 以及实现核显 win和macos 共享的方法
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;目的 一个能用得起的macos 并且可以通过 win虚拟机 本机转发macos的vnc 实现低带宽带宽下的远程访问&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="环境"&gt;环境
+&lt;/h2&gt;&lt;p&gt;我这里基于 unraid 6.9.2 物理机 是 I7 8850H 的样子，魔改cpu qnct 核显是 UHD630 没有独显 大概就是6h12线 睿频2.8G左右 内存8x2=16G 硬盘一块nvme 512G 一块古董 2.5村1T机械盘 网卡和蓝牙是bcm924xx忘记了具体型号了。 #其他前置需求 ##梯子或者hosts &lt;a class="link" href="https://dev.leiyanhui.com/c/133" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/c/133&lt;/a&gt; 尽量梯子吧 速度好一点 然后安装好 unraid 的最新应用市场和中文包 ##提前配置docker的国内镜像&lt;/p&gt;
+&lt;h2 id="应用市场安装辅助工具"&gt;应用市场安装辅助工具
+&lt;/h2&gt;&lt;p&gt;直接在应用市场搜索 Macinabox Macinabox 简单说明&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;就是一个工具，帮你自动下载黑苹果用的oc 镜像等，以及自动帮你创建虚拟机。是基于docker挂载物理机目录的方式实现的&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;安装完成后 会提示创建容器 Operating System Version: Monterey VM Images Location:和VM Images Location AGAIN !!!: 修改成ssd的路径 /mnt/disk1/domains/ Isos Share Location: 修改为机械硬盘 /mnt/disk2/isos/ appdata修改为 /mnt/disk1/appdata/macinabox custom ovmf location:修改 /mnt/disk1/system/custom_ovmf/ 点应用 等待 拉取镜像: spaceinvaderone/macinabox:lates 最后自动创建了容器&lt;code&gt;root@localhost:# /usr/local/emhttp/plugins/dynamix.docker.manager/scripts/docker run -d --name='macinabox' --net='bridge' --privileged=true -e TZ=&amp;quot;Asia/Shanghai&amp;quot; -e HOST_OS=&amp;quot;Unraid&amp;quot; -e 'flavour'='Monterey' -e 'vminstall'='Auto install' -e 'vdisksize'='100G' -e 'vdisktype'='raw' -e 'opencore'='stock' -e 'replaceopencore'='no' -e 'overridenic'='no' -e 'VMIMAGES'='/mnt/disk1/domains/' -e 'ISOIMAGES'='/mnt/disk2/isos/' -e 'injectfixxml'='yes' -v '/mnt/disk1/domains/':'/domains':'rw' -v '/mnt/disk2/isos/':'/isos':'rw' -v '/mnt/disk1/appdata/macinabox':'/config':'rw' -v '/mnt/disk1/system/custom_ovmf/':'/customovmf/':'rw' -v '/boot/config/plugins/user.scripts/scripts':'/userscripts':'rw' 'spaceinvaderone/macinabox' 75e8a2253e687b88fd0ca13cfadbe7928916ecd32e957deb74e0f9f665b041f6&lt;/code&gt; 可以看到 上面我们配置的路径 都在这里搞定了 ##查看 Macinabox 结果 到容器里面 点Macinabox 查看日志 如果没有问题的话 会提示你对应的镜像文件配置文件 都给你弄好了。位置也说明了。 #搞脚本 user scripts 这个已经不是必须的了 看看上面日志 A copy of the macinabox helper user script was placed in /mnt/user/appdata/macinabox shell直接执行``` sh /mnt/user/appdata/macinabox/macinabox_helper_userscript.sh&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;检查配置虚拟机Macinabox Monterey
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;=========================
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;先检查磁盘位置 是我们想要的，三个磁盘 一个opencore 一个install 一个系统磁盘 没有其他需要修改的项目
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;直接启动 链接vnc
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;==========
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;opencore 自动加到到引导界面 选第一个硬盘 ，鼠标暂时不能用不能，等苹果进度条 因为我把 Monterey-install.img 放到了hhd的原因吧，启动比正常的VMware虚拟机的苹果安装程序还要慢 后面就是正常苹果安装步骤，先格式硬盘再安装。 我第一次选择错了硬盘，把oc给格式掉了。需要彻底删除重新弄。删除方法 看文末
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;等待安装完成
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;======
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;重启后 选择启动的时候，要注意 选择位置 简单配置一下 ，性能肯定是拉跨的，主要是显卡
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;显卡直通 wifi卡 蓝牙卡 直通
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;=================
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;这些操作除了unraid的操作，主要还是黑苹果的驱动问题。慢慢折腾中..
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;未完待续
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;====
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;彻底删除方法
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;------
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;virsh destroy &amp;ldquo;Macinabox Monterey&amp;rdquo; virsh undefine &amp;ldquo;Macinabox Monterey&amp;rdquo; &amp;ndash;nvram docker stop macinabox docker rm macinabox rm -rf /mnt/disk2/isos/Monterey-install.img rm -rf /mnt/user/appdata/macinabox rm -rf /mnt/user/system/custom_ovmf rm -rf /mnt/user/domains/Macinabox*&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-docker" data-lang="docker"&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>unraid安装Intel GVT g 实现一个核显给多个虚拟机使用，目的 让虚拟机可以调用显卡实现远程加速 视频点播 虚拟群晖视频转码等等</title><link>https://dev.leiyanhui.com/c/unraid-intel-gvt-g/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraid-intel-gvt-g/</guid><description>&lt;h1 id="unraid安装intel-gvt-g-实现一个核显给多个虚拟机使用目的-让虚拟机可以调用显卡实现远程加速-视频点播-虚拟群晖视频转码等等"&gt;unraid安装Intel GVT g 实现一个核显给多个虚拟机使用，目的 让虚拟机可以调用显卡实现远程加速 视频点播 虚拟群晖视频转码等等
+&lt;/h1&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/c/unraid-auto-hosts/" target="_blank" rel="noopener"
+&gt;unraid免梯子解决多数插件问题 - 小类随手记 (leiyanhui.com)&lt;/a&gt; 插件市场直接搜索 Intel GVT-G 有可能需要 提示等待的时候 一定要耐心等待 最后提示 plugin: intel-gvt-g.plg installed 才算完成 重启 unraid 打开设置 /Settings/intel-gvt-g-main 可以看到``` Following modes are available: i915-GVTg_V5_4 i915-GVTg_V5_8&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>unraid安装插件或升级之类的，遇到GitHub被墙 最简单的解决方法 免梯子 免机场</title><link>https://dev.leiyanhui.com/c/unraid-github/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraid-github/</guid><description>&lt;h1 id="unraid安装插件或升级之类的遇到github被墙-最简单的解决方法-免梯子-免机场"&gt;unraid安装插件或升级之类的，遇到GitHub被墙 最简单的解决方法 免梯子 免机场
+&lt;/h1&gt;&lt;p&gt;试着用clash 弄半天 虽然可以用，但是没明白怎么自动更新配置文件，其他系统 都可以 就unraid的插件市场 一直提示 首先先去找在线hosts 源 找到源hosts后 先同网络的电脑修改 host试试，也可以用SwitchHosts 在本地试 看看可否打开 &lt;a class="link" href="https://raw.githubusercontent.com/Squidly271/community.applications/master/plugins/community.applications.plg" target="_blank" rel="noopener"
+&gt;https://raw.githubusercontent.com/Squidly271/community.applications/master/plugins/community.applications.plg&lt;/a&gt; 如果可以打开基本上就可以了。 然后去修改unraid的hosts ，修改完 不用重启，也不用更新缓存，注意：重启就无效了。 如果要一直有效 就加到开机命令里面，不过没必要，又不是天天折腾插件什么的``` cd /etc mv hosts hosts-bak wget &lt;a class="link" href="https://gitlab.com/ineo6/hosts/-/raw/master/next-hosts" target="_blank" rel="noopener"
+&gt;https://gitlab.com/ineo6/hosts/-/raw/master/next-hosts&lt;/a&gt; mv next-hosts hosts cat hosts&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>unraid部署clash和可视化界面</title><link>https://dev.leiyanhui.com/c/unraid-clash/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraid-clash/</guid><description>&lt;h1 id="unraid部署clash和可视化界面"&gt;unraid部署clash和可视化界面
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;建议用 v2rayA 更简单 &lt;a class="link" href="https://dev.leiyanhui.com/linux/docker-proxy/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/linux/docker-proxy/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;先安装可视化界面&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker pull haishanh/yacd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -p 1234:80 -d haishanh/yacd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#1234端口是你访问clash可视化界面的端口
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;改一下
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run --name clashx -p 1234:80 --restart=always -d haishanh/yacd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;打开 http://unraidip:1234 可以访问了，但是不可以操作 有提示要添加一个9090的服务，先不管，我们继续&lt;/p&gt;
+&lt;p&gt;去拿到 config.yaml 这个文件自己想办法。自己想办法解决节点问题。如果是机场有支持windows clash x的，订阅到windows后 本地会有这个文件 。这玩意收费的，不可能白嫖的。如果你没有地方买，可以找我拿邀请链接，会送你我一点流量。&lt;/p&gt;
+&lt;p&gt;把文件放到 /mnt/disk1/appdata/clash/config.yaml&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;C:\Users\你的用户名\.config\clash\profiles
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;注意 是在 profiles 目录
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;继续安装docker&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker pull dreamacro/clash
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run --name clash -d -v /mnt/disk1/appdata/clash/config.yaml:/root/.config/clash/config.yaml --privileged -p 7890:7890 -p 9090:9090 dreamacro/clash
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;然后发现 yacd 一直连不上 这边，最后改为host模式 就可以了。&lt;/p&gt;
+&lt;h3 id="unriad启用http代理"&gt;unriad启用http代理
+&lt;/h3&gt;&lt;p&gt;修改&lt;a class="link" href="https://www.smzdm.com/fenlei/youpan/" target="_blank" rel="noopener"
+&gt;U盘&lt;/a&gt;config目录下的go文件，增加如下代码，&lt;strong&gt;注意 加粗部分修改为你自己的IP和端口&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;http_proxy=&lt;strong&gt;http://192.168.1.2:7890&lt;/strong&gt; https_proxy=&lt;strong&gt;http://192.168.1.2:7890&lt;/strong&gt; /usr/local/sbin/emhttp &amp;amp;&lt;/p&gt;
+&lt;p&gt;echo &amp;ldquo;export http_proxy=&amp;rdquo;&lt;strong&gt;http://192.168.1.2:7890&lt;/strong&gt;&amp;quot;&amp;quot; &amp;raquo; /root/.bash_profile&lt;/p&gt;
+&lt;p&gt;echo &amp;ldquo;export https_proxy=&amp;rdquo;&lt;strong&gt;http://192.168.1.2:7890&lt;/strong&gt;&amp;quot;&amp;quot; &amp;raquo; /root/.bash_profile&lt;/p&gt;
+&lt;p&gt;修改U盘/config/plugins/community.applications目录下的proxy.cfg文件（没有的话自己手动创建）&lt;/p&gt;
+&lt;p&gt;同样注意加粗部分修改成自己的&lt;/p&gt;
+&lt;p&gt;port=&lt;strong&gt;7890&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;tunnel=2&lt;/p&gt;
+&lt;p&gt;proxy=&lt;strong&gt;http://192.168.1.2&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;proxy=&lt;strong&gt;socks5://192.168.1.2&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;下面给一个config.yaml 的范本&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mixed-port: 7890 #必须
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;allow-lan: true #必须的
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;bind-address: &amp;#39;*&amp;#39; #必须
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mode: rule #必须
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;log-level: silent #必须
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;external-controller: &amp;#39;:9090&amp;#39; #必须
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;dns:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; enable: true
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ipv6: false
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; default-nameserver: [223.5.5.5, 119.29.29.29]
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; enhanced-mode: redir-host
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; fake-ip-range: 198.18.0.1/16
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; use-hosts: true
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; nameserver: [&amp;#39;https://doh.pub/dns-query&amp;#39;, &amp;#39;https://dns.alidns.com/dns-query&amp;#39;]
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; fallback: [&amp;#39;https://doh.dns.sb/dns-query&amp;#39;, &amp;#39;https://dns.cloudflare.com/dns-query&amp;#39;, &amp;#39;https://dns.twnic.tw/dns-query&amp;#39;, &amp;#39;tls://8.8.4.4:853&amp;#39;]
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; fallback-filter: { geoip: true, ipcidr: [240.0.0.0/4, 0.0.0.0/32] }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;proxies:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - 更多内容 参考后
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>unraid离线安装官网中文语言包，免梯子的方法</title><link>https://dev.leiyanhui.com/c/unraid-cn/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraid-cn/</guid><description>&lt;h1 id="unraid离线安装官网中文语言包免梯子的方法"&gt;unraid离线安装官网中文语言包，免梯子的方法
+&lt;/h1&gt;&lt;p&gt;unraid离线安装官网中文语言包，免梯子的方法&lt;/p&gt;
+&lt;p&gt;6.9.2为例子 打开 &lt;a class="link" href="https://github.com/unraid/lang-zh" target="_blank" rel="noopener"
+&gt;https://github.com/unraid/lang-zh&lt;/a&gt;_CN zip下载 如果 github都打不开 那就找一个git加速网站 例如 &lt;a class="link" href="https://ghproxy.com/https://github.com/unraid/lang-zh" target="_blank" rel="noopener"
+&gt;https://ghproxy.com/https://github.com/unraid/lang-zh&lt;/a&gt;_CN/archive/refs/heads/master.zip 下载回来的zip不要解压 在unraid 的页面中点 tools 然后找到 http://xxxxxx/Tools/Language 重点来了，右侧 有一个 user 和 develop 切换按钮，点 user 切换到develop模式 Select language: 选择中文 Select language file: 点 Browse 选择刚刚的zip包 upload上传 刷新一下 页面 然后打开 /Settings/DisplaySettings 选择中文就可以了 也可以在 屏幕右上角 有一个 两个剪头组成的方框位置 切换语言 这个方法 修改的中文语言，重启后会失效。 如果 要一直有效，还是需要解决 GitHub污染问题，后安装最新版本 apps 市场，然后在市场里面直接安装 免梯子直接搞定的方法 &lt;a class="link" href="https://dev.leiyanhui.com/c/unraid-auto-hosts/" target="_blank" rel="noopener"
+&gt;unraid免梯子解决多数插件问题 - 小类随手记 (leiyanhui.com)&lt;/a&gt;&lt;/p&gt;</description></item><item><title>unraid免梯子解决多数插件问题</title><link>https://dev.leiyanhui.com/c/unraid-auto-hosts/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraid-auto-hosts/</guid><description>&lt;h1 id="unraid免梯子解决多数插件问题"&gt;unraid免梯子解决多数插件问题
+&lt;/h1&gt;&lt;p&gt;unraid大量依赖github，docker 跑clash的方法也可以，需要改三处地方。&lt;/p&gt;
+&lt;p&gt;但是 大部分机场的配置文件 都是基于win的 需要手动转换，或者写脚本自动转换，真的很麻烦。&lt;/p&gt;
+&lt;p&gt;那是改hosts了，next hosts 是一个稳定多年的host维护了&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;#更新hosts&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; /etc
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp hosts hosts-bak
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf hosts
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget -c https://gitlab.com/ineo6/hosts/-/raw/master/next-hosts
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mv next-hosts hosts
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个脚本 执行后，建议访问unraid的电脑也弄一下，或者挂梯子&lt;/p&gt;
+&lt;p&gt;以后每次要装插件之前 执行一次 或者，干脆装一个 user script插件 添加到脚本里面&lt;/p&gt;
+&lt;p&gt;然后custom，设定5分钟执行一次&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;*/5 * * * *
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>unraid下kvm虚拟机创建和热拔插一个虚拟硬盘</title><link>https://dev.leiyanhui.com/c/unraid-kvm-add-disk/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraid-kvm-add-disk/</guid><description>&lt;h1 id="unraid下kvm虚拟机创建和热拔插一个虚拟硬盘"&gt;unraid下kvm虚拟机创建和热拔插一个虚拟硬盘
+&lt;/h1&gt;&lt;p&gt;创建&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /mnt/disk1/domains
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img create -f qcow2 win_soft.qcow2 40G
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virsh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;附加到虚拟机&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virsh attach-disk Win2022 /mnt/disk1/domains/win_soft.qcow2 vdb --cache writeback --subdriver qcow2 --config --live
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;windows2022 是虚拟机名称 vdb 是挂载序号&lt;/p&gt;
+&lt;p&gt;还可以不关机直接改容量&lt;/p&gt;
+&lt;p&gt;删除 ，添加容量，附加硬盘&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virsh detach-disk Win2022 vdb--persistent
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img resize /mnt/disk1/domains/win_soft.qcow2 +1G
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virsh attach-disk Win2022 /mnt/disk1/domains/win_soft.qcow2 vdb --cache writeback --subdriver qcow2 --config --live
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>unraid虚拟机运行Windows 2022的配置文件</title><link>https://dev.leiyanhui.com/c/unraidwindows-2022/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/unraidwindows-2022/</guid><description>&lt;h1 id="unraid虚拟机运行windows-2022的配置文件"&gt;unraid虚拟机运行Windows 2022的配置文件
+&lt;/h1&gt;&lt;p&gt;unraid破解版安装Windows10 ltc 2021的时候遇到花屏问题 没时间研究解决方法 尝试了windows server 2022 没问题 记录一下配置文件 先贴xml 后贴截图&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt; 10
+&lt;/span&gt;&lt;span class="lnt"&gt; 11
+&lt;/span&gt;&lt;span class="lnt"&gt; 12
+&lt;/span&gt;&lt;span class="lnt"&gt; 13
+&lt;/span&gt;&lt;span class="lnt"&gt; 14
+&lt;/span&gt;&lt;span class="lnt"&gt; 15
+&lt;/span&gt;&lt;span class="lnt"&gt; 16
+&lt;/span&gt;&lt;span class="lnt"&gt; 17
+&lt;/span&gt;&lt;span class="lnt"&gt; 18
+&lt;/span&gt;&lt;span class="lnt"&gt; 19
+&lt;/span&gt;&lt;span class="lnt"&gt; 20
+&lt;/span&gt;&lt;span class="lnt"&gt; 21
+&lt;/span&gt;&lt;span class="lnt"&gt; 22
+&lt;/span&gt;&lt;span class="lnt"&gt; 23
+&lt;/span&gt;&lt;span class="lnt"&gt; 24
+&lt;/span&gt;&lt;span class="lnt"&gt; 25
+&lt;/span&gt;&lt;span class="lnt"&gt; 26
+&lt;/span&gt;&lt;span class="lnt"&gt; 27
+&lt;/span&gt;&lt;span class="lnt"&gt; 28
+&lt;/span&gt;&lt;span class="lnt"&gt; 29
+&lt;/span&gt;&lt;span class="lnt"&gt; 30
+&lt;/span&gt;&lt;span class="lnt"&gt; 31
+&lt;/span&gt;&lt;span class="lnt"&gt; 32
+&lt;/span&gt;&lt;span class="lnt"&gt; 33
+&lt;/span&gt;&lt;span class="lnt"&gt; 34
+&lt;/span&gt;&lt;span class="lnt"&gt; 35
+&lt;/span&gt;&lt;span class="lnt"&gt; 36
+&lt;/span&gt;&lt;span class="lnt"&gt; 37
+&lt;/span&gt;&lt;span class="lnt"&gt; 38
+&lt;/span&gt;&lt;span class="lnt"&gt; 39
+&lt;/span&gt;&lt;span class="lnt"&gt; 40
+&lt;/span&gt;&lt;span class="lnt"&gt; 41
+&lt;/span&gt;&lt;span class="lnt"&gt; 42
+&lt;/span&gt;&lt;span class="lnt"&gt; 43
+&lt;/span&gt;&lt;span class="lnt"&gt; 44
+&lt;/span&gt;&lt;span class="lnt"&gt; 45
+&lt;/span&gt;&lt;span class="lnt"&gt; 46
+&lt;/span&gt;&lt;span class="lnt"&gt; 47
+&lt;/span&gt;&lt;span class="lnt"&gt; 48
+&lt;/span&gt;&lt;span class="lnt"&gt; 49
+&lt;/span&gt;&lt;span class="lnt"&gt; 50
+&lt;/span&gt;&lt;span class="lnt"&gt; 51
+&lt;/span&gt;&lt;span class="lnt"&gt; 52
+&lt;/span&gt;&lt;span class="lnt"&gt; 53
+&lt;/span&gt;&lt;span class="lnt"&gt; 54
+&lt;/span&gt;&lt;span class="lnt"&gt; 55
+&lt;/span&gt;&lt;span class="lnt"&gt; 56
+&lt;/span&gt;&lt;span class="lnt"&gt; 57
+&lt;/span&gt;&lt;span class="lnt"&gt; 58
+&lt;/span&gt;&lt;span class="lnt"&gt; 59
+&lt;/span&gt;&lt;span class="lnt"&gt; 60
+&lt;/span&gt;&lt;span class="lnt"&gt; 61
+&lt;/span&gt;&lt;span class="lnt"&gt; 62
+&lt;/span&gt;&lt;span class="lnt"&gt; 63
+&lt;/span&gt;&lt;span class="lnt"&gt; 64
+&lt;/span&gt;&lt;span class="lnt"&gt; 65
+&lt;/span&gt;&lt;span class="lnt"&gt; 66
+&lt;/span&gt;&lt;span class="lnt"&gt; 67
+&lt;/span&gt;&lt;span class="lnt"&gt; 68
+&lt;/span&gt;&lt;span class="lnt"&gt; 69
+&lt;/span&gt;&lt;span class="lnt"&gt; 70
+&lt;/span&gt;&lt;span class="lnt"&gt; 71
+&lt;/span&gt;&lt;span class="lnt"&gt; 72
+&lt;/span&gt;&lt;span class="lnt"&gt; 73
+&lt;/span&gt;&lt;span class="lnt"&gt; 74
+&lt;/span&gt;&lt;span class="lnt"&gt; 75
+&lt;/span&gt;&lt;span class="lnt"&gt; 76
+&lt;/span&gt;&lt;span class="lnt"&gt; 77
+&lt;/span&gt;&lt;span class="lnt"&gt; 78
+&lt;/span&gt;&lt;span class="lnt"&gt; 79
+&lt;/span&gt;&lt;span class="lnt"&gt; 80
+&lt;/span&gt;&lt;span class="lnt"&gt; 81
+&lt;/span&gt;&lt;span class="lnt"&gt; 82
+&lt;/span&gt;&lt;span class="lnt"&gt; 83
+&lt;/span&gt;&lt;span class="lnt"&gt; 84
+&lt;/span&gt;&lt;span class="lnt"&gt; 85
+&lt;/span&gt;&lt;span class="lnt"&gt; 86
+&lt;/span&gt;&lt;span class="lnt"&gt; 87
+&lt;/span&gt;&lt;span class="lnt"&gt; 88
+&lt;/span&gt;&lt;span class="lnt"&gt; 89
+&lt;/span&gt;&lt;span class="lnt"&gt; 90
+&lt;/span&gt;&lt;span class="lnt"&gt; 91
+&lt;/span&gt;&lt;span class="lnt"&gt; 92
+&lt;/span&gt;&lt;span class="lnt"&gt; 93
+&lt;/span&gt;&lt;span class="lnt"&gt; 94
+&lt;/span&gt;&lt;span class="lnt"&gt; 95
+&lt;/span&gt;&lt;span class="lnt"&gt; 96
+&lt;/span&gt;&lt;span class="lnt"&gt; 97
+&lt;/span&gt;&lt;span class="lnt"&gt; 98
+&lt;/span&gt;&lt;span class="lnt"&gt; 99
+&lt;/span&gt;&lt;span class="lnt"&gt;100
+&lt;/span&gt;&lt;span class="lnt"&gt;101
+&lt;/span&gt;&lt;span class="lnt"&gt;102
+&lt;/span&gt;&lt;span class="lnt"&gt;103
+&lt;/span&gt;&lt;span class="lnt"&gt;104
+&lt;/span&gt;&lt;span class="lnt"&gt;105
+&lt;/span&gt;&lt;span class="lnt"&gt;106
+&lt;/span&gt;&lt;span class="lnt"&gt;107
+&lt;/span&gt;&lt;span class="lnt"&gt;108
+&lt;/span&gt;&lt;span class="lnt"&gt;109
+&lt;/span&gt;&lt;span class="lnt"&gt;110
+&lt;/span&gt;&lt;span class="lnt"&gt;111
+&lt;/span&gt;&lt;span class="lnt"&gt;112
+&lt;/span&gt;&lt;span class="lnt"&gt;113
+&lt;/span&gt;&lt;span class="lnt"&gt;114
+&lt;/span&gt;&lt;span class="lnt"&gt;115
+&lt;/span&gt;&lt;span class="lnt"&gt;116
+&lt;/span&gt;&lt;span class="lnt"&gt;117
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&amp;lt;?xml version=&amp;#39;1.0&amp;#39; encoding=&amp;#39;UTF-8&amp;#39;?&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&amp;lt;domain type=&amp;#39;kvm&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;name&amp;gt;Win2022&amp;lt;/name&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;uuid&amp;gt;1ac2ae0c-a1df-1110-5b63-14d758344a6b&amp;lt;/uuid&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;metadata&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vmtemplate xmlns=&amp;#34;unraid&amp;#34; name=&amp;#34;Windows 10&amp;#34; icon=&amp;#34;windows.png&amp;#34; os=&amp;#34;windows10&amp;#34;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/metadata&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;memory unit=&amp;#39;KiB&amp;#39;&amp;gt;8388608&amp;lt;/memory&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;currentMemory unit=&amp;#39;KiB&amp;#39;&amp;gt;8388608&amp;lt;/currentMemory&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;memoryBacking&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;nosharepages/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/memoryBacking&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpu placement=&amp;#39;static&amp;#39;&amp;gt;12&amp;lt;/vcpu&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;cputune&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;0&amp;#39; cpuset=&amp;#39;0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;1&amp;#39; cpuset=&amp;#39;6&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;2&amp;#39; cpuset=&amp;#39;1&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;3&amp;#39; cpuset=&amp;#39;7&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;4&amp;#39; cpuset=&amp;#39;2&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;5&amp;#39; cpuset=&amp;#39;8&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;6&amp;#39; cpuset=&amp;#39;3&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;7&amp;#39; cpuset=&amp;#39;9&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;8&amp;#39; cpuset=&amp;#39;4&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;9&amp;#39; cpuset=&amp;#39;10&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;10&amp;#39; cpuset=&amp;#39;5&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vcpupin vcpu=&amp;#39;11&amp;#39; cpuset=&amp;#39;11&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/cputune&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;os&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;type arch=&amp;#39;x86_64&amp;#39; machine=&amp;#39;pc-i440fx-5.1&amp;#39;&amp;gt;hvm&amp;lt;/type&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/os&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;features&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;acpi/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;apic/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;hyperv&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;relaxed state=&amp;#39;on&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vapic state=&amp;#39;on&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;spinlocks state=&amp;#39;on&amp;#39; retries=&amp;#39;8191&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;vendor_id state=&amp;#39;on&amp;#39; value=&amp;#39;none&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/hyperv&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/features&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;cpu mode=&amp;#39;host-passthrough&amp;#39; check=&amp;#39;none&amp;#39; migratable=&amp;#39;on&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;topology sockets=&amp;#39;1&amp;#39; dies=&amp;#39;1&amp;#39; cores=&amp;#39;6&amp;#39; threads=&amp;#39;2&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;cache mode=&amp;#39;passthrough&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/cpu&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;clock offset=&amp;#39;localtime&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;timer name=&amp;#39;hypervclock&amp;#39; present=&amp;#39;yes&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;timer name=&amp;#39;hpet&amp;#39; present=&amp;#39;no&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/clock&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;on_poweroff&amp;gt;destroy&amp;lt;/on_poweroff&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;on_reboot&amp;gt;restart&amp;lt;/on_reboot&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;on_crash&amp;gt;restart&amp;lt;/on_crash&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;devices&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;emulator&amp;gt;/usr/local/sbin/qemu&amp;lt;/emulator&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;disk type=&amp;#39;file&amp;#39; device=&amp;#39;disk&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;driver name=&amp;#39;qemu&amp;#39; type=&amp;#39;raw&amp;#39; cache=&amp;#39;writeback&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;source file=&amp;#39;/mnt/user/domains/Win2022/vdisk1.img&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;target dev=&amp;#39;hdc&amp;#39; bus=&amp;#39;virtio&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;boot order=&amp;#39;1&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x05&amp;#39; function=&amp;#39;0x0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/disk&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;controller type=&amp;#39;pci&amp;#39; index=&amp;#39;0&amp;#39; model=&amp;#39;pci-root&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;controller type=&amp;#39;ide&amp;#39; index=&amp;#39;0&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x01&amp;#39; function=&amp;#39;0x1&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/controller&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;controller type=&amp;#39;virtio-serial&amp;#39; index=&amp;#39;0&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x04&amp;#39; function=&amp;#39;0x0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/controller&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;controller type=&amp;#39;usb&amp;#39; index=&amp;#39;0&amp;#39; model=&amp;#39;ich9-ehci1&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x07&amp;#39; function=&amp;#39;0x7&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/controller&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;controller type=&amp;#39;usb&amp;#39; index=&amp;#39;0&amp;#39; model=&amp;#39;ich9-uhci1&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;master startport=&amp;#39;0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x07&amp;#39; function=&amp;#39;0x0&amp;#39; multifunction=&amp;#39;on&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/controller&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;controller type=&amp;#39;usb&amp;#39; index=&amp;#39;0&amp;#39; model=&amp;#39;ich9-uhci2&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;master startport=&amp;#39;2&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x07&amp;#39; function=&amp;#39;0x1&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/controller&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;controller type=&amp;#39;usb&amp;#39; index=&amp;#39;0&amp;#39; model=&amp;#39;ich9-uhci3&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;master startport=&amp;#39;4&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x07&amp;#39; function=&amp;#39;0x2&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/controller&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;interface type=&amp;#39;bridge&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;mac address=&amp;#39;52:54:00:cc:4c:19&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;source bridge=&amp;#39;br0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;model type=&amp;#39;virtio-net&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x03&amp;#39; function=&amp;#39;0x0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/interface&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;serial type=&amp;#39;pty&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;target type=&amp;#39;isa-serial&amp;#39; port=&amp;#39;0&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;model name=&amp;#39;isa-serial&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/target&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/serial&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;console type=&amp;#39;pty&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;target type=&amp;#39;serial&amp;#39; port=&amp;#39;0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/console&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;channel type=&amp;#39;unix&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;target type=&amp;#39;virtio&amp;#39; name=&amp;#39;org.qemu.guest_agent.0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;virtio-serial&amp;#39; controller=&amp;#39;0&amp;#39; bus=&amp;#39;0&amp;#39; port=&amp;#39;1&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/channel&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;input type=&amp;#39;tablet&amp;#39; bus=&amp;#39;usb&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;usb&amp;#39; bus=&amp;#39;0&amp;#39; port=&amp;#39;1&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/input&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;input type=&amp;#39;mouse&amp;#39; bus=&amp;#39;ps2&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;input type=&amp;#39;keyboard&amp;#39; bus=&amp;#39;ps2&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;graphics type=&amp;#39;vnc&amp;#39; port=&amp;#39;-1&amp;#39; autoport=&amp;#39;yes&amp;#39; websocket=&amp;#39;-1&amp;#39; listen=&amp;#39;0.0.0.0&amp;#39; keymap=&amp;#39;en-us&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;listen type=&amp;#39;address&amp;#39; address=&amp;#39;0.0.0.0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/graphics&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;video&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;model type=&amp;#39;qxl&amp;#39; ram=&amp;#39;65536&amp;#39; vram=&amp;#39;65536&amp;#39; vgamem=&amp;#39;16384&amp;#39; heads=&amp;#39;1&amp;#39; primary=&amp;#39;yes&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x02&amp;#39; function=&amp;#39;0x0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/video&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;memballoon model=&amp;#39;virtio&amp;#39;&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;address type=&amp;#39;pci&amp;#39; domain=&amp;#39;0x0000&amp;#39; bus=&amp;#39;0x00&amp;#39; slot=&amp;#39;0x06&amp;#39; function=&amp;#39;0x0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/memballoon&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;/devices&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&amp;lt;/domain&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>选择Windows server2022 作为主开发系统 并运行在unraid上 all in one 的理由，优势和原因</title><link>https://dev.leiyanhui.com/c/windows-server2022-to-main-os/</link><pubDate>Wed, 03 Aug 2022 21:38:29 +0000</pubDate><guid>https://dev.leiyanhui.com/c/windows-server2022-to-main-os/</guid><description>&lt;h1 id="选择windows-server2022-作为主开发系统--并运行在unraid上-all-in-one-的理由优势和原因"&gt;选择Windows server2022 作为主开发系统 并运行在unraid上 all in one 的理由，优势和原因
+&lt;/h1&gt;&lt;h2 id="前言"&gt;前言
+&lt;/h2&gt;&lt;p&gt;个人癖好喜欢折腾操作系统，并未为之付出很多时间和精力&lt;/p&gt;
+&lt;h2 id="选择unraid的原因"&gt;选择unraid的原因
+&lt;/h2&gt;&lt;h4 id="为什么选择all-in-one"&gt;为什么选择all in one
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 我喜欢折腾系统，经常尝试重装各种系统，所以虚拟机是少不了的 · 为什么不桌面系统跑vmware或者hyper-v 因为宿主桌面系统也容易被我折腾 · 最后一个主要原因&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;· 我经常外出，主力机是diy机， · 家境贫寒，便携机配置很烂或者只是ipad · 即便是主力机接显示器键鼠等，硬件直通也可以搞定&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="为什么选择unraid"&gt;为什么选择unraid
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 首先硬件不特殊，所以pve对我来说没优势 · 黑果更简单 · 硬件直通和vgpu也简单 · 不牵扯硬盘，不用操心硬盘分区什么的什么的。 · 备份简单，只备份U盘文件就好了 几百M · 破解也不难 安装更简单 · 其他几个all in one 对我来说的缺点有：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;· pve 硬盘安装webui复杂 唯独集成的虚拟机模板功能还不错，不原生支持docker 不自带文件共享 · 群晖 白的玩不起，黑的遭遇一次莫名其妙无法启动的 因为人在外地无法处理，回来后就直接格式掉了。以后应该只会玩虚拟群晖了，毕竟群晖的移动app还是挺不错的 · ESXI 威联通Nas系统 没玩过&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;以后可能会选择全盘exfat分区，然后ventoy+alpine.vhd 的方式，不过眼下没还没精力玩耍。因为unraid的黑果实在太方便了。懒得折腾了。正版也就59美元400块钱&lt;/p&gt;
+&lt;h4 id="unraid劝退理由"&gt;unraid劝退理由
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 有两台电脑，或至少一个pad · 有一个容量256M以上容量的闲置U盘【带uuid的】最好是1G以上的，目前还没有硬盘安装方法，要一直插在上面 · 能接受盗版软件或者舍得买正版&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="小补充关于u盘的问题"&gt;小补充：关于U盘的问题
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 主机上一直插着一个U盘 没你想的那么难受。如果是笔记本可以买小巧一点的。 · U盘真心不用太好的，因为就开机和修改配置的时候会读写U盘，而且你可以在开机状态下拔下备份。或者直接tar 或者 在虚拟机里面访问到U盘 自己备份到云或者什么都可以。 · 只要是用过一段时间段的U盘 都是可以的，别是用都没用过的杂牌，两天就坏了那就得不偿失了。我现在用的是 路边卖车载U的地方买的杂牌。 · 更换U盘重新破解并不难，正版换授权也不难 · 但是真的不要长期用读卡器+sd方式 这个方式真的很玄，临时玩玩是绝对没问题的。等玩舒服了，再换一个靠谱的U盘就是了&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="选择windows-server2022原因"&gt;选择Windows server2022原因
+&lt;/h2&gt;&lt;h4 id="和非win的系统对比"&gt;和非win的系统对比
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 远程控制功能 win的rdp独步天下，硬件加速 视频压缩 音频传输，这是Linux mac均没有的。 · 上手难度低&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="和win11"&gt;和win11
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 用过几个月win11 实在不知眼下选择他 不选win10的理由是什么 · 右键菜单一项 就可以去掉他了。 · slc的问题，虽然可以绕过，但是麻烦&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="和-win10-以及win10-ltc"&gt;和 win10 以及win10 ltc
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 只一个原因 kvm 安装win10的时候 花屏 没法继续&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="和win7"&gt;和win7
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;· 虽然日常软件使用没问题，但是偶尔遇到假死 还是兼容性有一些问题 · 另外一些软件一直不支持了。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="windows-server-2022-作为桌面系统使用需要处理的几个问题"&gt;Windows server 2022 作为桌面系统使用需要处理的几个问题
+&lt;/h2&gt;&lt;h4 id="去掉开机ctrlaltdel物理按键和自动登录"&gt;去掉开机ctrl+alt+del物理按键和自动登录
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/c/win2022-autologin/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/c/win2022-autologin/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="windows-server-2022-datacenter-无法访问unraid的smb共享的问题"&gt;Windows Server 2022 Datacenter 无法访问unraid的smb共享的问题
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/c/windows-server-2022-datacenter-smb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/c/windows-server-2022-datacenter-smb/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="去掉-windows-server-2022打开共享文件的exe的安全提醒以及部分软件提示internet安全配置"&gt;去掉 Windows server 2022打开共享文件的exe的安全提醒，以及部分软件提示internet安全配置
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/c/windows-server-2022-internetsafe/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/c/windows-server-2022-internetsafe/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="输入法"&gt;输入法
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/c/inputexe/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/c/inputexe/&lt;/a&gt;&lt;/p&gt;</description></item></channel></rss>

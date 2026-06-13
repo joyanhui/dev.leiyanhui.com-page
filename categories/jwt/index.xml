@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Jwt on 小类随手记</title><link>https://dev.leiyanhui.com/categories/jwt/</link><description>Recent content in Jwt on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 31 Dec 2023 00:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/jwt/index.xml" rel="self" type="application/rss+xml"/><item><title>私有协议的轻量jwt-token的实现，物联网设备</title><link>https://dev.leiyanhui.com/lot/jwt-lite/</link><pubDate>Sun, 31 Dec 2023 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/lot/jwt-lite/</guid><description>&lt;p&gt;jwt是优秀的无状态服务的身份验证方法。但是jwt有一个小缺点就是字符串太长，在物联网设备中占用宝贵的储存空间。&lt;/p&gt;
+&lt;p&gt;所以有一些场景下不适合。
+这里分享一种 类似jwt的轻量token实现方法。&lt;/p&gt;
+&lt;h2 id="几个元素"&gt;几个元素
+&lt;/h2&gt;&lt;p&gt;1、身份标识：一般是物联网设备的串号、mac地址 或者其他的唯一id。下文中以mac地址为例
+2、过期时间: 明文用时间戳即可，考虑到时间戳 1703981684 前面的17最近几年不会变化。也可以直接用 03981684。或者干脆为 202312311023 这种格式，然后去掉前面的20，即2312311023 代23年12约32日10点23分过期
+3、长短token： 一般jwt中应用存在两个token 一个token同于频繁的通讯有效期通常是几分钟到几十分钟 称之为 accessToken ，另外一个token为长期token 用于更新token,有效期通常为几十天，称之为 refreshToken
+4、盐值：因为我们简化了jwt 改为直接通过MAC地址的md5值来检查，所以需要引入一个salt来保证协议的安全性。每一个设备具有唯一的一个salt值。&lt;/p&gt;
+&lt;h2 id="逻辑"&gt;逻辑
+&lt;/h2&gt;&lt;p&gt;因为物联网设备 不会要求用户去登陆注册，所以两个token的更新都是无感进行的。&lt;/p&gt;
+&lt;p&gt;设备首次联网，使用设备MAC地址向 jwt-lite 服务器请求，jwt-lite检索数据库，确定mac地址在白名单中，那么发放两个token,格式为均为 过期时间+md5(过期时间+MAC+salt)，其中 refreshToken 可以写入到设备的flash中，而accessToken 就暂存到ram 掉电即丢弃。&lt;/p&gt;
+&lt;p&gt;设备重新通电后，检查 refreshToken 是否将要过期或者是否存在，然后根据需要使用mac地址重新请求accessToken 和 refreshToken。随后改为定时检查&lt;/p&gt;
+&lt;p&gt;设备运行过程中，定时检查/或者每次要和服务器交互之前先检查 accessToken （和 refreshToken） 。
+如果 accessToken 将要过期，但是 refreshToken 没问题，那么使用refreshToken重新请求accessToken。 refreshToken 则另外的定时逻辑处理。&lt;/p&gt;
+&lt;h2 id="加密"&gt;加密
+&lt;/h2&gt;&lt;p&gt;因为物联网设备 出厂的时候，每个设备我们可以预设一个加密key。所以上面的 过期时间+md5(过期时间+MAC+salt) 我们可以使用对称加密算法例如AES 加密一下 预防恶意第三方。当然实际意义不大。如果不考虑服务器端压力，私有协议 over tls或https 更为合理。&lt;/p&gt;
+&lt;h2 id="物联网设备端"&gt;物联网设备端
+&lt;/h2&gt;&lt;p&gt;物联网设备端，因为都是基本可信客户端，可以去掉refreshToken，只使用accessToken 并适当延长 accessToken的有效期 一般为几十分钟。&lt;/p&gt;
+&lt;h2 id="app端web端"&gt;app端/web端
+&lt;/h2&gt;&lt;p&gt;可以用同样的方法&lt;/p&gt;
+&lt;h2 id="安全防护"&gt;安全防护
+&lt;/h2&gt;&lt;h3 id="降低服务器校验开支"&gt;降低服务器校验开支
+&lt;/h3&gt;&lt;p&gt;无状态服务器 通过redis或者内存map 维护一个 已经验证过的token list 和对应过期时间，避免每次都校验token。&lt;br&gt;
+这个list要定时维护清理，避免占用过多资源。&lt;/p&gt;
+&lt;h3 id="黑名单token回收已签发的token"&gt;黑名单token回收已签发的token
+&lt;/h3&gt;&lt;p&gt;同时维护一个黑名单token,手动或者自动，加入黑名单。&lt;/p&gt;
+&lt;h3 id="避免被反射攻击"&gt;避免被反射攻击
+&lt;/h3&gt;&lt;p&gt;和协议本身以及upd/tcp无关，需要在isp或者iptable处理。&lt;br&gt;
+SYN Flood、ACK Flood、TCP反射、UDP Flood、UDP反射 是常见的被攻击的方式。当然这和你用什么协议无关，只要是基于tcp/udp 就要面对这些。首先要想办法避免自己成为反射角色，其次要预防常见的反射攻击。
+现在 主要的的反射源有 : DNS、NTP、SSDP、QOTD、SNMP、CHARGEN、LDAP、MEMCACHE、WS-DISCOVERY、DVR、CLDAP、RPC 等
+主要反射源端口，基本都是上述协议的默认端口。
+一般在入口流量的地方 通过白名单ip+端口 以及 指纹分析 和 带宽弹性部署 以及 eip切换 来应对&lt;/p&gt;
+&lt;h3 id="避免被自己放大攻击"&gt;避免被自己放大攻击
+&lt;/h3&gt;&lt;p&gt;在token未校验通过/不符合格式 的返回的错误消息体尽可能简短，或者直接不返回。&lt;br&gt;
+配合黑名单制度，即使把请求异常的token加入到黑名单&lt;/p&gt;</description></item></channel></rss>
