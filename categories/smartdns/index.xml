@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Smartdns on 小类随手记</title><link>https://dev.leiyanhui.com/categories/smartdns/</link><description>Recent content in Smartdns on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 19 Sep 2023 00:01:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/smartdns/index.xml" rel="self" type="application/rss+xml"/><item><title>smartdns和openclash的配合</title><link>https://dev.leiyanhui.com/openwrt/smartdns-openclash/</link><pubDate>Tue, 19 Sep 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/smartdns-openclash/</guid><description>&lt;h2 id="安装配置-smartdns"&gt;安装配置 smartdns
+&lt;/h2&gt;&lt;p&gt;opkg install luci-app-smartdns&lt;/p&gt;
+&lt;p&gt;然后配置上游dns 即可&lt;/p&gt;
+&lt;p&gt;需要配置多个 上游dns ， 最好 几个国内的 几个境外&lt;/p&gt;
+&lt;h2 id="openclash-配置"&gt;openclash 配置
+&lt;/h2&gt;&lt;p&gt;openclash 使用redir-host 模式即可，然后追加上游dns 为本地 127.0.0.1:smartdns端口&lt;/p&gt;
+&lt;h2 id="注意"&gt;注意
+&lt;/h2&gt;&lt;p&gt;smartdns 并发请求 上游dns，也就是默认情况下，你访问某一个网站，多个dns 都会收到查询请求。&lt;/p&gt;
+&lt;p&gt;所以需要进一步调整 配置 域名列表&lt;/p&gt;
+&lt;h2 id="一般建议"&gt;一般建议
+&lt;/h2&gt;&lt;p&gt;通常来说 非必要情况下 不建议 smartdns 和 openclash 一起使用，广告过滤可以 openclash规则处理掉 ，国内域名的dns加速，可以 fake-ip 处理掉。&lt;/p&gt;
+&lt;p&gt;mosdns 也是一个不错的选择！&lt;/p&gt;
+&lt;h2 id="mosdns"&gt;mosdns
+&lt;/h2&gt;&lt;p&gt;白名单：加入的域名始终允许使用 “本地 DNS” 进行解析，且优先级最高（每个域名一行，支持域名匹配规则）
+黑名单：加入的域名将屏蔽 DNS 解析（每个域名一行，支持域名匹配规则）
+灰名单：加入的域名始终使用 “远程 DNS” 进行解析（每个域名一行，支持域名匹配规则）
+DDNS 域名：加入的域名始终使用 “本地 DNS” 进行解析，并且强制 TTL 5 秒，解析结果不会进入缓存（每个域名一行，支持域名匹配规则）
+Hosts：自定义 Hosts 重写，如：baidu.com 10.0.0.1（每个规则一行）
+重定向：重定向请求的域名。请求域名 A，但返回域名 B 的记录，如：baidu.com qq.com（每个规则一行）
+PTR 黑名单：加入的域名将阻止 PTR 请求（每个域名一行，支持域名匹配规则）&lt;/p&gt;</description></item><item><title>openwrt上配置doh/dot，以及科学工具分流解析的方法 以及自定义分流等 简单方法</title><link>https://dev.leiyanhui.com/openwrt/passwall2/</link><pubDate>Thu, 12 Jan 2023 08:12:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/passwall2/</guid><description>&lt;p&gt;之前用 smartdns+ssrp 来解决，后来发现过于复杂。&lt;/p&gt;
+&lt;p&gt;简单的方法 还是用 openclash 或者 passwall2。但是openclash 规则设置过于繁琐。所以我这里简单的用passwall2 来实现。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;本文停止更新，新文章优化解决方案：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="passwall2-方案简单容易且靠谱"&gt;passwall2 方案简单容易且靠谱
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/passwall2" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/passwall2&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="ssrpsmartdns-略微麻烦"&gt;ssrp+smartdns 略微麻烦
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/ssr_doh" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/ssr_doh&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="openclash-自由-强大"&gt;openclash 自由 强大
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/openclash" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/openclash&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果可以接受openclash的繁琐，还是建议openclash，自由，强大 ：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;本文基于 passwall2&lt;/p&gt;
+&lt;h2 id="实现目标"&gt;实现目标
+&lt;/h2&gt;&lt;p&gt;1、国内不走代理，dns走doh到阿里云，境外ip全部走代理，doh用cloudflare
+2、可以指定部分域名走 或者 不走 代理&lt;/p&gt;
+&lt;h2 id="配置passwall2"&gt;配置passwall2
+&lt;/h2&gt;&lt;p&gt;可能需要卸载smartdns，然后安装&lt;code&gt;luci-app-passwall2&lt;/code&gt; 关闭其他代理工具。&lt;br&gt;
+节点订阅 配置好，以及自动更新 订阅 启动切换 等等&lt;/p&gt;
+&lt;h3 id="配置代理环境"&gt;配置代理环境
+&lt;/h3&gt;&lt;p&gt;基本配置 mian 这个地方 Node 选分流总节点
+其他看情况自己配置，他自带了一个Direct规则，内置的国内dns 还有常用的苹果 微软等规则。这个选直连，其他的看自己需求 包括奈飞 和去广告 还有国内那个 china等等。&lt;br&gt;
+最关键的是 下面那个 其他或者叫做* 默认 这行是配置好首选节点&lt;/p&gt;
+&lt;p&gt;这就完成了 基本的上网环境&lt;/p&gt;
+&lt;h3 id="全局doh配置"&gt;全局doh配置
+&lt;/h3&gt;&lt;p&gt;基本设置，dns直连dns，选doh选阿里云。远程 DNS 协议 同样设置 选cf。&lt;/p&gt;
+&lt;p&gt;完毕&lt;/p&gt;
+&lt;h2 id="自定义两个规则"&gt;自定义两个规则
+&lt;/h2&gt;&lt;p&gt;passwall2 自带的规则 基本上可以满足日常使用。不需要额外定制。但是有一些特殊的情况。&lt;/p&gt;
+&lt;h3 id="强制走代理的域名"&gt;强制走代理的域名
+&lt;/h3&gt;&lt;p&gt;新建以规则名称&lt;code&gt;my_proxy&lt;/code&gt; 拖到 最前面，编辑内容。
+域名这个地方,有说明，我这里 以本站为例,输入下面两行任意一行都是可以的&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;dev.leiyanhui.com
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;full:dev.leiyanhui.com
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;返回，基本设置，给 my_proxy 配置一个线路&lt;/p&gt;
+&lt;h3 id="强制不走代理的域名"&gt;强制不走代理的域名
+&lt;/h3&gt;&lt;p&gt;新建以规则名称&lt;code&gt;my_direct&lt;/code&gt; 拖到 最前面&lt;code&gt;my_proxy&lt;/code&gt;之前，编辑内容。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;test-ipv6.com
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;dyndns.com
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;返回，基本设置，给 my_direct 设置为直连&lt;/p&gt;
+&lt;h3 id="测试"&gt;测试
+&lt;/h3&gt;&lt;p&gt;可能需要重启浏览器 或者清理本机缓存，打开 test-ipv6.com 查看自己的ip 不在是梯子的ip，
+还有：http://checkipv6.dyndns.com &lt;a class="link" href="http://checkip.dyndns.com/" target="_blank" rel="noopener"
+&gt;http://checkip.dyndns.com/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;ping dev.leiyanhui.com 也应该返回国外的ip段（gitbub.io），用国内在线ping 工具返回国内ip（阿里云）
+打开网站查看 dev.leiyanhui.com 查看证书是le的 也就是强制走了代理。国内的是亚洲诚信的证书&lt;/p&gt;
+&lt;h3 id="进阶ip直连"&gt;进阶ip直连
+&lt;/h3&gt;&lt;p&gt;直连doh的ip，可以查看之前的文章 末尾
+&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/ssr_doh" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/ssr_doh&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="配合smartdns"&gt;配合smartdns
+&lt;/h2&gt;&lt;p&gt;smartdns 支持预更新dns等功能 支持ttl缓存等等 如果性能够用可能会舒服一些更方便一些。&lt;br&gt;
+如果需要，可以另外搭建smartdns 到docker，这里设置为smartdns的地址即可。&lt;/p&gt;</description></item><item><title>openwrt上配置doh/dot，以及科学工具分流解析的方法</title><link>https://dev.leiyanhui.com/openwrt/ssr_doh/</link><pubDate>Thu, 12 Jan 2023 07:12:20 +0800</pubDate><guid>https://dev.leiyanhui.com/openwrt/ssr_doh/</guid><description>&lt;h2 id="简单的说明"&gt;简单的说明
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;最简单的方法 是用 passwall2&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;本文停止更新，新文章优化解决方案：
+passwall2 方案简单容易且靠谱
+&lt;a class="link" href="https://dev.leiyanhui.com/openwrt/passwall2" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/openwrt/passwall2&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;科学工具 用 ssrp &lt;code&gt;luci-app-ssr-plus&lt;/code&gt; dns 工具用 &lt;code&gt;luci-app-smartdns&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;smartdns 里面添加两种dns上游服务器&lt;/p&gt;
+&lt;p&gt;一组境内的 组名称 china，一组境外的，组名称 gfw&lt;/p&gt;
+&lt;p&gt;境外的doh均勾选上 从default默认服务器组中排除&lt;/p&gt;
+&lt;p&gt;同时 smartdns 也开启两组服务&lt;/p&gt;
+&lt;p&gt;常规设置里面，端口修改掉不要用53 防止故障导致全家断网，我这里用 6453&lt;/p&gt;
+&lt;p&gt;第二DNS服务器 也开启 端口 6553 ，服务器组 选择 gfw&lt;/p&gt;
+&lt;p&gt;这样 在 6453端口上 走国内doh解析，在 6553 走国外doh解析&lt;/p&gt;
+&lt;p&gt;然后 在 ssrp里面 访问国外域名 DNS 服务器 自定义输入 &lt;code&gt;127.0.0.1:6553&lt;/code&gt; 国内 DNS 服务器 &lt;code&gt;127.0.0.1:6453&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;这样就ok了&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;smartdns 支持明文上游dns 也支持 doh和dot&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="我在用的上游dns"&gt;我在用的上游dns
+&lt;/h3&gt;&lt;h4 id="china组"&gt;china组
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://dns.alidns.com/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://doh.pub/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;台湾也有一组：https://dns.twnic.tw/dns-query&lt;/p&gt;
+&lt;h3 id="gwf组"&gt;gwf组
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://dns.google/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://cloudflare-dns.com/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://dns.quad9.net/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://doh.sb/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="关键点来了"&gt;关键点来了
+&lt;/h3&gt;&lt;p&gt;如果ssrp上的用的ip分流。。他需要先解析出来 再判断，所以。。就会导致 所有的网站 可能都无法访问。。。&lt;/p&gt;
+&lt;p&gt;解决方法也简单，就是上游doh服务器，用ip直接链接。而不是用域名。。&lt;/p&gt;
+&lt;p&gt;阿里云的也可以这样写&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://223.5.5.5/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;https://223.6.6.6/dns-query
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;腾讯的貌似不支持直接ip的方式，不过腾讯的doh和dot 一直不怎么稳定，测试运行了几百年了还是不稳定&lt;/p&gt;
+&lt;p&gt;360的 电信移动
+https://101.226.4.6
+https://218.30.118.6
+360的 联通
+https://123.125.81.6
+https://140.207.198.6&lt;/p&gt;
+&lt;p&gt;cf的可以这样写
+https://1.1.1.1/dns-query
+google的这样写
+https://8.8.8.8&lt;/p&gt;
+&lt;h3 id="为什么不选择其他工具"&gt;为什么不选择其他工具
+&lt;/h3&gt;&lt;p&gt;pypass 内置了一个smartdns，但是pypass 自己有域名 走代理和不走代理的 配置bug ，也就是无效。暂时不支持新版会不会解决&lt;br&gt;
+clash 规则过于复杂，没时间折腾&lt;/p&gt;
+&lt;p&gt;mosdns 不错，支持域名别名解析，比如 可以强制自己在国内对象储存和githubpage 同时存在的网站，可以强制别名到 xxx.github.io ,但是，mosdns 真的太简陋了。&lt;/p&gt;
+&lt;p&gt;同时 smartdns支持 域名 指定的上游组解析，所以别名解析 也不需要了。&lt;/p&gt;</description></item></channel></rss>

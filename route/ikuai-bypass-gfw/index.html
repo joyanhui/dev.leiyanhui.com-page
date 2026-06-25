@@ -1,0 +1,249 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="前 基于 ztc1997/ikuai-bypass/ 二开的 ikuai-bypass 已经 测试完成，请阅读本文：\nhttps://dev.leiyanhui.com/route/ikuai-bypass-joyanhui/\n优点 可以接受 OpenWrt 死机/故障。完全无感 深造炸了不会有任何影响 OpenWrt关闭也不影响正常上网。 丝毫不影响ipv6,无视fake-ip模式带来的一系列问题。 爱快下内网设备同一个网络内，没有跨三层问题。 依旧可以在爱快上设置某个或者某些设备走 OpenWrt ，或者不深造。 内网流量和国内流量仅经过一个网关，没有网关损耗问题。 可以无感覆盖ipsec拨入的外网设备。 国内网站秒开，国外网站速度也不比clash差。 op和clash有问题的情况下，国外未墙网站可以正常访问。 不用操心clash自定义规则，可以用爱快完成全部分流。 不用给设备分配独立网关，所有设备都用爱快作为网关即可。 缺点 家里是多线宽带的情况，会略微复杂一些，单线的话非常简单明了。\n情况 物理机，单网卡主机。安装pve 10.1.1.5\n光猫 开桥接\npve物理机和、光猫、ap 以及其他设备都接入交换机器 pve 创建虚拟机安装爱快 10.1.1.1 lxc 或者 docker 或者 vm 运行 openwrt+openclash或者linux+clash或者v2ray等均可 top图 点击这里查看 或者恩山帖子\n原理 openwrt作为爱快的下级路由器，但是作为爱快的wan2的上级路由器，端口分流规则避免环回问题。 利用爱快的流控分流功能和自动wan检测功能，根据ip或者域名分流到openwrt再回到pppoe. 爱快默认的分流优先级顺序为：静态路由>域名分流>端口分流>协议分流>多线负载>默认网关。 我们要用的是 多线负载分流 和 默认网关分流。文末也有提供域名分流方法。 利用pve esxi等虚拟网卡和内部交换机功能 不增加物理设备的情况下 高效连接爱快和OpenWrt. 原理图 没想到很多人看不明白，也有朋友来询问，所以简单说明如下\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 #爱快网口 爱快lan1[10.1.1.1] 爱快wan2[192.168.10.2] ==> [lan 192.168.10.1] openwrt/clash [wan 10.1.1.3] ==>爱快==>爱快wan1 爱快wan1 ==> pppoe/宽带运营商 #分流规则 ==> gfw域名 => 固定走爱快wan2 [==>openwrt] 访问请求 ==> 国内ip => 固定走爱快wan1 ==> 其他情况且wan2可用 => 爱快wan2 [==>openwrt] ==> 其他情况且wan2不可用 => 爱快wan1 ==> 来自openwrt的流量 ==>爱快wan1 #避免回到wan2死循环 ==> 其他自定义规则 => 爱快wan1或者wan2自由配置 #dns DNS请求 ==> 爱快DNS加速==>第三方代理模式==>mosdns可用 ==>mosdns/adg ==>mosdns不可用 ==> 备用dns（爱快3.7.7,需要20秒左右才能切换） 网口设置 爱快 三个虚拟网口\n"><title>爱快无感分流</title><link rel=canonical href=https://dev.leiyanhui.com/route/ikuai-bypass-gfw/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="爱快无感分流"><meta property='og:description' content="前 基于 ztc1997/ikuai-bypass/ 二开的 ikuai-bypass 已经 测试完成，请阅读本文：\nhttps://dev.leiyanhui.com/route/ikuai-bypass-joyanhui/\n优点 可以接受 OpenWrt 死机/故障。完全无感 深造炸了不会有任何影响 OpenWrt关闭也不影响正常上网。 丝毫不影响ipv6,无视fake-ip模式带来的一系列问题。 爱快下内网设备同一个网络内，没有跨三层问题。 依旧可以在爱快上设置某个或者某些设备走 OpenWrt ，或者不深造。 内网流量和国内流量仅经过一个网关，没有网关损耗问题。 可以无感覆盖ipsec拨入的外网设备。 国内网站秒开，国外网站速度也不比clash差。 op和clash有问题的情况下，国外未墙网站可以正常访问。 不用操心clash自定义规则，可以用爱快完成全部分流。 不用给设备分配独立网关，所有设备都用爱快作为网关即可。 缺点 家里是多线宽带的情况，会略微复杂一些，单线的话非常简单明了。\n情况 物理机，单网卡主机。安装pve 10.1.1.5\n光猫 开桥接\npve物理机和、光猫、ap 以及其他设备都接入交换机器 pve 创建虚拟机安装爱快 10.1.1.1 lxc 或者 docker 或者 vm 运行 openwrt+openclash或者linux+clash或者v2ray等均可 top图 点击这里查看 或者恩山帖子\n原理 openwrt作为爱快的下级路由器，但是作为爱快的wan2的上级路由器，端口分流规则避免环回问题。 利用爱快的流控分流功能和自动wan检测功能，根据ip或者域名分流到openwrt再回到pppoe. 爱快默认的分流优先级顺序为：静态路由>域名分流>端口分流>协议分流>多线负载>默认网关。 我们要用的是 多线负载分流 和 默认网关分流。文末也有提供域名分流方法。 利用pve esxi等虚拟网卡和内部交换机功能 不增加物理设备的情况下 高效连接爱快和OpenWrt. 原理图 没想到很多人看不明白，也有朋友来询问，所以简单说明如下\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 #爱快网口 爱快lan1[10.1.1.1] 爱快wan2[192.168.10.2] ==> [lan 192.168.10.1] openwrt/clash [wan 10.1.1.3] ==>爱快==>爱快wan1 爱快wan1 ==> pppoe/宽带运营商 #分流规则 ==> gfw域名 => 固定走爱快wan2 [==>openwrt] 访问请求 ==> 国内ip => 固定走爱快wan1 ==> 其他情况且wan2可用 => 爱快wan2 [==>openwrt] ==> 其他情况且wan2不可用 => 爱快wan1 ==> 来自openwrt的流量 ==>爱快wan1 #避免回到wan2死循环 ==> 其他自定义规则 => 爱快wan1或者wan2自由配置 #dns DNS请求 ==> 爱快DNS加速==>第三方代理模式==>mosdns可用 ==>mosdns/adg ==>mosdns不可用 ==> 备用dns（爱快3.7.7,需要20秒左右才能切换） 网口设置 爱快 三个虚拟网口\n"><meta property='og:url' content='https://dev.leiyanhui.com/route/ikuai-bypass-gfw/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Route'><meta property='article:published_time' content='2023-10-23T19:14:20+08:00'><meta property='article:modified_time' content='2023-10-23T19:14:20+08:00'><meta name=twitter:title content="爱快无感分流"><meta name=twitter:description content="前 基于 ztc1997/ikuai-bypass/ 二开的 ikuai-bypass 已经 测试完成，请阅读本文：\nhttps://dev.leiyanhui.com/route/ikuai-bypass-joyanhui/\n优点 可以接受 OpenWrt 死机/故障。完全无感 深造炸了不会有任何影响 OpenWrt关闭也不影响正常上网。 丝毫不影响ipv6,无视fake-ip模式带来的一系列问题。 爱快下内网设备同一个网络内，没有跨三层问题。 依旧可以在爱快上设置某个或者某些设备走 OpenWrt ，或者不深造。 内网流量和国内流量仅经过一个网关，没有网关损耗问题。 可以无感覆盖ipsec拨入的外网设备。 国内网站秒开，国外网站速度也不比clash差。 op和clash有问题的情况下，国外未墙网站可以正常访问。 不用操心clash自定义规则，可以用爱快完成全部分流。 不用给设备分配独立网关，所有设备都用爱快作为网关即可。 缺点 家里是多线宽带的情况，会略微复杂一些，单线的话非常简单明了。\n情况 物理机，单网卡主机。安装pve 10.1.1.5\n光猫 开桥接\npve物理机和、光猫、ap 以及其他设备都接入交换机器 pve 创建虚拟机安装爱快 10.1.1.1 lxc 或者 docker 或者 vm 运行 openwrt+openclash或者linux+clash或者v2ray等均可 top图 点击这里查看 或者恩山帖子\n原理 openwrt作为爱快的下级路由器，但是作为爱快的wan2的上级路由器，端口分流规则避免环回问题。 利用爱快的流控分流功能和自动wan检测功能，根据ip或者域名分流到openwrt再回到pppoe. 爱快默认的分流优先级顺序为：静态路由>域名分流>端口分流>协议分流>多线负载>默认网关。 我们要用的是 多线负载分流 和 默认网关分流。文末也有提供域名分流方法。 利用pve esxi等虚拟网卡和内部交换机功能 不增加物理设备的情况下 高效连接爱快和OpenWrt. 原理图 没想到很多人看不明白，也有朋友来询问，所以简单说明如下\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 #爱快网口 爱快lan1[10.1.1.1] 爱快wan2[192.168.10.2] ==> [lan 192.168.10.1] openwrt/clash [wan 10.1.1.3] ==>爱快==>爱快wan1 爱快wan1 ==> pppoe/宽带运营商 #分流规则 ==> gfw域名 => 固定走爱快wan2 [==>openwrt] 访问请求 ==> 国内ip => 固定走爱快wan1 ==> 其他情况且wan2可用 => 爱快wan2 [==>openwrt] ==> 其他情况且wan2不可用 => 爱快wan1 ==> 来自openwrt的流量 ==>爱快wan1 #避免回到wan2死循环 ==> 其他自定义规则 => 爱快wan1或者wan2自由配置 #dns DNS请求 ==> 爱快DNS加速==>第三方代理模式==>mosdns可用 ==>mosdns/adg ==>mosdns不可用 ==> 备用dns（爱快3.7.7,需要20秒左右才能切换） 网口设置 爱快 三个虚拟网口\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#前>前</a></li><li><a href=#优点>优点</a></li><li><a href=#缺点>缺点</a></li><li><a href=#情况>情况</a></li><li><a href=#原理>原理</a></li><li><a href=#原理图>原理图</a><ol><li><a href=#网口设置>网口设置</a><ol><li><a href=#爱快>爱快</a></li><li><a href=#openwrt>openwrt</a></li></ol></li><li><a href=#爱快分流规则>爱快分流规则</a></li><li><a href=#辅助工具和其他说明>辅助工具和其他说明</a></li></ol></li><li><a href=#准备工作>准备工作</a><ol><li><a href=#爱快设备>爱快设备</a></li><li><a href=#深造设备>深造设备</a></li><li><a href=#手动ip-v4-配置方法>手动ip v4 配置方法</a><ol><li><a href=#国内ip-v4地址列表>国内ip v4地址列表</a></li><li><a href=#爱快内配置国内ipv4>爱快内配置国内ipv4</a></li><li><a href=#分流>分流</a></li><li><a href=#wan2>wan2</a></li><li><a href=#设置openwrt出口强制为wan1>设置openwrt出口强制为wan1</a></li></ol></li><li><a href=#打开ipv6>打开ipv6</a></li><li><a href=#关闭openwrt的dhcp>关闭openwrt的dhcp</a></li><li><a href=#进阶>进阶</a><ol><li><a href=#ipv4-地址列表>ipv4 地址列表</a></li><li><a href=#ipv6-地址列表>ipv6 地址列表</a></li><li><a href=#基于域名的>基于域名的</a></li><li><a href=#docker自动更新规则>docker自动更新规则</a></li><li><a href=#去广告和dns加速>去广告和dns加速</a></li><li><a href=#关于ipv6>关于ipv6</a></li></ol></li></ol></li><li><a href=#部分配置截图>部分配置截图</a></li><li><a href=#附lxc的openwrt配置文件>附lxc的openwrt配置文件</a></li><li><a href=#附ikuai的kvm配置文件>附ikuai的kvm配置文件</a></li><li><a href=#本文另外发布到恩山帖>本文另外发布到恩山帖</a></li><li><a href=#本文参考>本文参考</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/ikuai/ style=background-color:#eabeef;color:#390f3d>Ikuai
+</a><a href=/categories/openclash/ style=background-color:#efbee7;color:#3d0f36>Openclash</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/route/ikuai-bypass-gfw/>爱快无感分流</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-10-23T19:14:20+08:00>2023-10-23</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><h2 id=前>前</h2><p>基于 ztc1997/ikuai-bypass/ 二开的 ikuai-bypass 已经 测试完成，请阅读本文：</p><p><a class=link href=https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui/ target=_blank rel=noopener>https://dev.leiyanhui.com/route/ikuai-bypass-joyanhui/</a></p><h2 id=优点>优点</h2><ul><li>可以接受 OpenWrt 死机/故障。完全无感 深造炸了不会有任何影响 OpenWrt关闭也不影响正常上网。</li><li>丝毫不影响ipv6,无视fake-ip模式带来的一系列问题。</li><li>爱快下内网设备同一个网络内，没有跨三层问题。</li><li>依旧可以在爱快上设置某个或者某些设备走 OpenWrt ，或者不深造。</li><li>内网流量和国内流量仅经过一个网关，没有网关损耗问题。</li><li>可以无感覆盖ipsec拨入的外网设备。</li><li>国内网站秒开，国外网站速度也不比clash差。</li><li>op和clash有问题的情况下，国外未墙网站可以正常访问。</li><li>不用操心clash自定义规则，可以用爱快完成全部分流。</li><li>不用给设备分配独立网关，所有设备都用爱快作为网关即可。</li></ul><h2 id=缺点>缺点</h2><p>家里是多线宽带的情况，会略微复杂一些，单线的话非常简单明了。</p><h2 id=情况>情况</h2><p>物理机，单网卡主机。安装pve 10.1.1.5<br>光猫 开桥接<br>pve物理机和、光猫、ap 以及其他设备都接入交换机器<br>pve 创建虚拟机安装爱快 10.1.1.1<br>lxc 或者 docker 或者 vm 运行 openwrt+openclash或者linux+clash或者v2ray等均可<br>top图 <a class=link href=https://i.imgur.com/jZZePwJ.png target=_blank rel=noopener>点击这里查看</a> 或者<a class=link href=https://www.right.com.cn/forum/thread-8310402-1-1.html target=_blank rel=noopener>恩山帖子</a></p><h2 id=原理>原理</h2><ul><li>openwrt作为爱快的下级路由器，但是作为爱快的wan2的上级路由器，端口分流规则避免环回问题。</li><li>利用爱快的流控分流功能和自动wan检测功能，根据ip或者域名分流到openwrt再回到pppoe.</li><li>爱快默认的分流优先级顺序为：静态路由>域名分流>端口分流>协议分流>多线负载>默认网关。</li><li>我们要用的是 多线负载分流 和 默认网关分流。文末也有提供域名分流方法。</li><li>利用pve esxi等虚拟网卡和内部交换机功能 不增加物理设备的情况下 高效连接爱快和OpenWrt.</li></ul><h2 id=原理图>原理图</h2><blockquote><p>没想到很多人看不明白，也有朋友来询问，所以简单说明如下</p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl><span class=c1>#爱快网口</span>
+</span></span><span class=line><span class=cl>爱快lan1<span class=o>[</span>10.1.1.1<span class=o>]</span>
+</span></span><span class=line><span class=cl>爱快wan2<span class=o>[</span>192.168.10.2<span class=o>]</span> <span class=o>==</span>&gt; <span class=o>[</span>lan 192.168.10.1<span class=o>]</span> openwrt/clash <span class=o>[</span>wan 10.1.1.3<span class=o>]</span> <span class=o>==</span>&gt;爱快<span class=o>==</span>&gt;爱快wan1
+</span></span><span class=line><span class=cl><span class=nv>爱快wan1</span> <span class=o>==</span>&gt; pppoe/宽带运营商
+</span></span><span class=line><span class=cl><span class=c1>#分流规则</span>
+</span></span><span class=line><span class=cl>          <span class=o>==</span>&gt; <span class=nv>gfw域名</span> <span class=o>=</span>&gt; 固定走爱快wan2 <span class=o>[==</span>&gt;openwrt<span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=nv>访问请求</span>   <span class=o>==</span>&gt; <span class=nv>国内ip</span> <span class=o>=</span>&gt; <span class=nv>固定走爱快wan1</span> 
+</span></span><span class=line><span class=cl>          <span class=o>==</span>&gt; <span class=nv>其他情况且wan2可用</span> <span class=o>=</span>&gt; 爱快wan2 <span class=o>[==</span>&gt;openwrt<span class=o>]</span>
+</span></span><span class=line><span class=cl>          <span class=o>==</span>&gt; <span class=nv>其他情况且wan2不可用</span> <span class=o>=</span>&gt; <span class=nv>爱快wan1</span>
+</span></span><span class=line><span class=cl>          <span class=o>==</span>&gt; <span class=nv>来自openwrt的流量</span> <span class=o>==</span>&gt;爱快wan1 <span class=c1>#避免回到wan2死循环</span>
+</span></span><span class=line><span class=cl>          <span class=o>==</span>&gt; <span class=nv>其他自定义规则</span> <span class=o>=</span>&gt; 爱快wan1或者wan2自由配置
+</span></span><span class=line><span class=cl><span class=c1>#dns</span>
+</span></span><span class=line><span class=cl><span class=nv>DNS请求</span> <span class=o>==</span>&gt; <span class=nv>爱快DNS加速</span><span class=o>==</span>&gt;第三方代理模式<span class=o>==</span>&gt;mosdns可用 <span class=o>==</span>&gt;mosdns/adg
+</span></span><span class=line><span class=cl>                                  <span class=o>==</span>&gt;mosdns不可用 <span class=o>==</span>&gt; 备用dns（爱快3.7.7,需要20秒左右才能切换）
+</span></span></code></pre></td></tr></table></div></div><h3 id=网口设置>网口设置</h3><h4 id=爱快>爱快</h4><p>三个虚拟网口</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>lan1   10.1.1.1
+</span></span><span class=line><span class=cl>wan1   pppoe
+</span></span><span class=line><span class=cl>wan2   IP：192.168.10.2
+</span></span><span class=line><span class=cl>       网关：192.168.10.1
+</span></span><span class=line><span class=cl>       掩码：255.255.255.0
+</span></span><span class=line><span class=cl>       默认网关： √ 设此条线路为默认网关
+</span></span><span class=line><span class=cl>       自动切换： √ 掉线自动切换
+</span></span><span class=line><span class=cl>       线路检测：HTTP www.google.com 或者 ping  192.168.10.1
+</span></span></code></pre></td></tr></table></div></div><h4 id=openwrt>openwrt</h4><p>两个虚拟网口</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>br-lan lan  静态ip
+</span></span><span class=line><span class=cl>            IPv4 地址：192.168.10.1
+</span></span><span class=line><span class=cl>            IPv4 掩码：255.255.255.0
+</span></span><span class=line><span class=cl>            IPv4 网关  留空
+</span></span><span class=line><span class=cl>            IPv4 广播地址 留空
+</span></span><span class=line><span class=cl>            DHCP服务器  √ 忽略此接口
+</span></span><span class=line><span class=cl>wan   eth1  DHCP客户端 （去爱快的静态dhcp里面给配置为 10.1.1.3）
+</span></span><span class=line><span class=cl>wan6  不用管，你开启ipv6 和wan配置为DHCP客户端的情况下，wan6会自动获取ipv6地址
+</span></span></code></pre></td></tr></table></div></div><p>此时，相当于 openwrt作为爱快的下级路由器，但是作为爱快的wan2的上级路由器。下面会添加一个端口分流规则避免环回问题。</p><h3 id=爱快分流规则>爱快分流规则</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl><span class=nv>访问请求</span> <span class=o>==</span>&gt; 爱快判断请求中的域名或者ip
+</span></span><span class=line><span class=cl>  <span class=nv>如果请求是gfw的域名</span> <span class=o>==</span>&gt; wan2      <span class=o>(</span>流控分流&gt;分流设置&gt;域名分流<span class=o>)</span>
+</span></span><span class=line><span class=cl>  <span class=nv>如果请求的ip是国内ip</span> <span class=o>==</span>&gt; wan1直连     <span class=o>(</span>流控分流&gt;分流设置&gt;多线负载<span class=o>)</span> <span class=o>(</span>自定义运营商添加国内所有ip地址<span class=o>)</span>
+</span></span><span class=line><span class=cl>  <span class=nv>其他情况且wan2可用</span>  <span class=o>==</span>&gt; wan2    （因为上文中吧wan2设置为默认了）
+</span></span><span class=line><span class=cl>  <span class=nv>其他情况且wan2不可用</span>  <span class=o>==</span>&gt; wan1直连
+</span></span><span class=line><span class=cl><span class=nv>如果流量是来自openwrt</span>  <span class=o>==</span>&gt; wan1  <span class=o>(</span>流控分流&gt;分流设置&gt;端口分流<span class=o>)</span>把10.1.1.3<span class=o>(</span>openwrt<span class=o>)</span>定向到wan1避免环回
+</span></span></code></pre></td></tr></table></div></div><h3 id=辅助工具和其他说明>辅助工具和其他说明</h3><p>ztc1997/ikuai-bypass 可以自动给爱快添加gwf域名列表和国内ip地址列表，并可以自动更新。<br>后文中的openwrt可以运行在kvm docker lxc 都可以无影响，爱快内的docker和kvm也可以。<br>这个方案适合pve esxi unraid 。
+如果是kvm 这个方案中所有的网口都要用 virtio 性能是最好的，可以最低的资源占用跑满。<br>openwrt 可以用lxc/docker/kvm运行的普通linux+clash替代，开ipv4和ipv6转发就好 。</p><h2 id=准备工作>准备工作</h2><p>后面是原始记录</p><h3 id=爱快设备>爱快设备</h3><p>我这里是pve 用vm运行的设备。先添加两个虚拟网卡，一个做wan一个做lan,
+配置wan1到 eth1 pppoe
+配置lan1 到 eth0 ip配置为10.1.1.1
+配置dhcp 为 10.1.1.X段 dns为10.1.1.1 ，配置dns 输入两个国内正常的dns,先配置DNS加速模式 为代理模式 doh <a class=link href=https://doh.pub/dns-query target=_blank rel=noopener>https://doh.pub/dns-query</a>
+这样接入爱快的设备 均可正常上网，只是不能深造学习。
+再添加一个虚拟网卡 并从pve关闭爱快后重新打开,爱快中可以看到多了一个 eth2 备用</p><h3 id=深造设备>深造设备</h3><p>可以用lxc docker 或者 vm 都可以 看自己。 也可以物理设备 n1 之类的。
+我这里因为是pve,所以 lxc 运行了一个 openwrt+openclash.
+openwrt 需要注意的是这里的openwrt不是旁路由模式，所以需要添加两个虚拟网卡 用于lan(192.168.10.1)和wan(10.1.1.3 也可以从爱快dhcp)
+正常lxc或者vm安装openwrt。配置好深造。
+然后找一个电脑或者vm/lxc ip设置为 和lan同一个网段的ip 网关和dns都配置为192.168.10.1.
+wan 口也可以配置为dhcp,然后在爱快里给他静态分配一个也可以。</p><h3 id=手动ip-v4-配置方法>手动ip v4 配置方法</h3><p>先确保关闭爱快和</p><h4 id=国内ip-v4地址列表>国内ip v4地址列表</h4><p>先看手动添加方法，文末有自动维护方法。
+<a class=link href=https://raw.githubusercontent.com/17mon/china_ip_list/master/china_ip_list.txt target=_blank rel=noopener>https://raw.githubusercontent.com/17mon/china_ip_list/master/china_ip_list.txt</a>
+如果没有深造，可以用https://ghproxy.com/https://raw.githubusercontent.com/17mon/china_ip_list/master/china_ip_list.txt 这个地址打开
+因为爱快一次只能输入5000个ip,但是国内的ip地址有6000多条，我们需要前5000条和后面1000多条分两次插入。
+所以把上面的地址复制到一个支持行数显示的文本编辑器里面。备用。</p><h4 id=爱快内配置国内ipv4>爱快内配置国内ipv4</h4><p>爱快 流控分流>多线负载>自定义运营商. 添加运营商 名称叫做 国内 ip地址粘贴前5000条 备注国内1
+同样后面的1000多条 也粘贴进来 名称也是叫做国内 备注 国内2</p><h4 id=分流>分流</h4><p>爱快 流控分流>多线负载，点添加
+负载模式：源IP+目的IP+目的端口
+运营商 选择国内 负载比例：wan1 1 点操作后面的开启。然后保存</p><h4 id=wan2>wan2</h4><p>然后返回 网络设置 > 内外网设置 创建一个接口 wan2 ，绑定到 eth2。使用静态ip 192.168.10.2 ，网关为192.168.10.1（openwrt的地址）</p><p>下面 勾选 设此条线路为默认网关 和 掉线自动切换
+可以设置为:线路检测 HTTP 检测地址 google.com 这样当 OpenWrt 不能正常访问国外网，流量会切换到 wan1
+也可以 线路检测：ping 检测地址 192.168.10.1 ,这个地址是 OpenWrt 的 lan 地址，检查它的存在与否，用来确定是不是要将流量切换到 wan1 。</p><h4 id=设置openwrt出口强制为wan1>设置openwrt出口强制为wan1</h4><p>不然 外网ip会分流到op又再次分流会wan2到openwrt 死循环。
+爱快 流控分流 > 分流设置 > 端口分流 添加一条规则
+分流方式：外网 线路 wan1
+IP/分组： 添加openwrt的wan地址 10.1.1.3</p><h3 id=打开ipv6>打开ipv6</h3><p>测试没有问题的时候，爱快 网络设置 > IPv6 > IPv6设置 wan1 DHCPv6客户端(动态获取) 启用
+openwrt 系统 设置向导 启用 ipv6 （没有这个选项的固件可能需要 另外配置）</p><h3 id=关闭openwrt的dhcp>关闭openwrt的dhcp</h3><p>因为我这里 都是虚拟网卡 理论上都会接入唯一的主交换机，所以爱快和op都开dhcp的话，有可能会有冲突。所以关掉openwrt的dchp.
+网络 接口 lan 关闭 dhcp</p><h3 id=进阶>进阶</h3><h4 id=ipv4-地址列表>ipv4 地址列表</h4><p><a class=link href=https://github.com/17mon/china_ip_list target=_blank rel=noopener>https://github.com/17mon/china_ip_list</a>
+<a class=link href=https://github.com/Loyalsoldier/geoip/tree/release/text target=_blank rel=noopener>https://github.com/Loyalsoldier/geoip/tree/release/text</a>
+<a class=link href=https://ispip.clang.cn/all_cn.txt target=_blank rel=noopener>https://ispip.clang.cn/all_cn.txt</a></p><h4 id=ipv6-地址列表>ipv6 地址列表</h4><p><a class=link href=https://ispip.clang.cn/all_cn_ipv6.txt target=_blank rel=noopener>https://ispip.clang.cn/all_cn_ipv6.txt</a></p><h4 id=基于域名的>基于域名的</h4><p><a class=link href=https://github.com/Loyalsoldier/v2ray-rules-dat/tree/release target=_blank rel=noopener>https://github.com/Loyalsoldier/v2ray-rules-dat/tree/release</a></p><h4 id=docker自动更新规则>docker自动更新规则</h4><p><a class=link href=https://github.com/ztc1997/ikuai-bypass target=_blank rel=noopener>https://github.com/ztc1997/ikuai-bypass</a>
+ztc1997大佬的docker支持自动更新ip列表和gfw域名列表。支持爱快内docker运行或者其他能访问爱快面板的地方运行。支持定时任务。
+配制文件优化如下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yml data-lang=yml><span class=line><span class=cl><span class=c>## 本文件/data/ikuai-bypass/config.yml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=c>## /data/ikuai-bypass/ 映射到 /etc/ikuai-bypass</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=c>## 爱快管理页面的 URL，结尾不要加 &#34;/&#34;，</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=c>## 如不填写，则使用第一个接口的网关地址作为爱快地址，</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>ikuai-url</span><span class=p>:</span><span class=w> </span><span class=l>http://10.1.1.1</span><span class=w> </span><span class=c>#爱快地址</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>username</span><span class=p>:</span><span class=w> </span><span class=l>admin</span><span class=w> </span><span class=c># 爱快用户名</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>password</span><span class=p>:</span><span class=w> </span><span class=cp>******</span><span class=w>  </span><span class=c># 爱快密码</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>cron</span><span class=p>:</span><span class=w> </span><span class=m>0</span><span class=w> </span><span class=m>4</span><span class=w> </span>*<span class=w> </span>*<span class=w> </span>*<span class=w> </span><span class=c># 执行更新的周期 crontab</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>custom-isp</span><span class=p>:</span><span class=w>     </span><span class=c># 自定义运营商</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>国内 </span><span class=w> </span><span class=c># 自定义运营商名称cnip就直接走wan1 非cnip走在默认可用的情况下走默认即wan2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c>## 自定义运营商 cidr 列表网址，每行一个，超过5000行会自动分为多个，ipv6 地址会被删除</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://ghproxy.com/https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/cn.txt</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c>## 下面的ip 可以分别添加到到wan2的 多线负载 规则</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>telegram</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://ghproxy.com/https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/telegram.txt</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>google</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://ghproxy.com/https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/google.txt</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>twitter</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://ghproxy.com/https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/twitter.txt</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>facebook</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://ghproxy.com/https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/facebook.txt</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>stream-domain</span><span class=p>:</span><span class=w>      </span><span class=c># 域名分流 被墙的域名  无脑走wan2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>interface</span><span class=p>:</span><span class=w> </span><span class=l>wan2</span><span class=w> </span><span class=c># 分流线路</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>src-addr</span><span class=p>:</span><span class=w> </span><span class=m>10.1.1.5-10.1.1.250</span><span class=w>   </span><span class=c># 分流的源地址 我这边10.1.1.1是爱快  2/4是AP 3是openwrt</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c>## 域名列表网址，每行一个，超过1000行会自动分为多个</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://ghproxy.com/https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/gfw.txt</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>interface</span><span class=p>:</span><span class=w> </span><span class=l>wan2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>src-addr</span><span class=p>:</span><span class=w> </span><span class=m>10.1.1.5-10.1.1.250</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://ghproxy.com/https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/greatfire.txt</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><blockquote><p>这个容器在更新的时候只会删除 备注名称为IKUAI_BYPASS的规则，自己添加的规则不会有影响。</p></blockquote><h4 id=去广告和dns加速>去广告和dns加速</h4><p>adguardhome 配制 爱快的dns加速即可。
+adg 分流 <a class=link href=https://github.com/mouyase/ChinaListForAdGuardHome/ target=_blank rel=noopener>https://github.com/mouyase/ChinaListForAdGuardHome/</a><br>也可以不单独分流，直接一股脑把dns全部写入 也可以.<br>另外最好用 爱快 3.7.7 版本，目前是体验版 ikuai9.com:555/1/main/iKuai_x86_beta 直接后台直接上传升级。3.7.7 的第三方代理加速模式支持设置备用dns.可以在adguardhome关闭或者宕机保证正常。</p><h4 id=关于ipv6>关于ipv6</h4><p>上面ipv4 正常后，op和爱快这边都可以打开ipv6 可以正常支持。</p><h2 id=部分配置截图>部分配置截图</h2><blockquote><p>默认上传到imgur 请挂深度学习工具查看，也可能失效</p></blockquote><p>爱快 网络设置 > 内外网设置 <a class=link href=https://i.imgur.com/lZBdtGc.png target=_blank rel=noopener>点击查看imgur</a><br>爱快 wan2 设置 <a class=link href=https://i.imgur.com/7k7R7ZU.png target=_blank rel=noopener>点击查看imgur</a><br>爱快 基于ip的分流设置 <a class=link href=https://i.imgur.com/Xsb6nQr.png target=_blank rel=noopener>点击查看imgur</a><br>爱快 基于ip的自定义运营商的设置，红框部分由ztc1997/ikuai-bypass自动管理 <a class=link href=https://i.imgur.com/6Ht7Xvr.png target=_blank rel=noopener>点击查看imgur</a><br>爱快 基于域名的设置 红框部分由ztc1997/ikuai-bypass自动管理 <a class=link href=https://i.imgur.com/AzAcED8.png target=_blank rel=noopener>点击查看imgur</a><br>爱快 强制openwrt的出口流量走wan1的设置 10.1.1.3是爱快通过dhcp给openwrt分配的域名 <a class=link href=https://i.imgur.com/qrQVUM5.png target=_blank rel=noopener>点击查看imgur</a><br>爱快内kvm运行的openwrt的配置 pve/lxc/docker运行都是一样，关键是需要两个虚拟网口 <a class=link href=https://i.imgur.com/FAuTRsl.png target=_blank rel=noopener>点击查看imgur</a><br>openwrt 两个网口的设置 <a class=link href=https://i.imgur.com/fgjAkgK.png target=_blank rel=noopener>点击查看imgur</a></p><h2 id=附lxc的openwrt配置文件>附lxc的openwrt配置文件</h2><p>cat /etc/pve/lxc/103.conf</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>arch</span><span class=p>:</span><span class=w> </span><span class=l>amd64</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>cores</span><span class=p>:</span><span class=w> </span><span class=m>12</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>hostname</span><span class=p>:</span><span class=w> </span><span class=l>op</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=m>512</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>net0</span><span class=p>:</span><span class=w> </span><span class=l>name=eth0,bridge=vmbr0,hwaddr=1A:C2:8D:8D:56:70,type=veth</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>net1</span><span class=p>:</span><span class=w> </span><span class=l>name=eth1,bridge=vmbr0,hwaddr=EA:49:A6:98:4D:59,type=veth</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>ostype</span><span class=p>:</span><span class=w> </span><span class=l>unmanaged</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>rootfs</span><span class=p>:</span><span class=w> </span><span class=l>nvme_btrfs:103/vm-103-disk-0.raw,size=512M</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>swap</span><span class=p>:</span><span class=w> </span><span class=m>0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>lxc.include</span><span class=p>:</span><span class=w> </span><span class=l>/usr/share/lxc/config/openwrt.common.conf</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>lxc.cgroup2.devices.allow</span><span class=p>:</span><span class=w> </span><span class=l>c 108:0 rwm</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>lxc.mount.entry</span><span class=p>:</span><span class=w> </span><span class=l>/dev/ppp dev/ppp none bind,create=file</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>lxc.mount.entry</span><span class=p>:</span><span class=w> </span><span class=l>/dev/net dev/net none bind,create=dir</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>lxc.cap.drop</span><span class=p>:</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><blockquote><p>lxc.cgroup2 适合pve7-8版本 旧版是 lxc.cgroup<br>/dev/ppp 因为这里op不需要拨号所以非必需<br>/dev/net 是 clash-tun要用的</p></blockquote><h2 id=附ikuai的kvm配置文件>附ikuai的kvm配置文件</h2><p>cat /etc/pve/qemu-server/101.conf</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>agent</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>boot</span><span class=p>:</span><span class=w> </span><span class=l>order=scsi0;ide2;net0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>cores</span><span class=p>:</span><span class=w> </span><span class=m>12</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>host</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>ide2</span><span class=p>:</span><span class=w> </span><span class=l>nvme_btrfs:iso/iKuai8_x64_3.7.6_Build202309081651.iso,media=cdrom,size=52604K</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>machine</span><span class=p>:</span><span class=w> </span><span class=l>q35</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=m>4096</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>meta</span><span class=p>:</span><span class=w> </span><span class=l>creation-qemu=8.0.2,ctime=1698058265</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>ikuai</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>net0</span><span class=p>:</span><span class=w> </span><span class=l>virtio=F6:9E:AC:C8:3B:64,bridge=vmbr0,firewall=1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>net1</span><span class=p>:</span><span class=w> </span><span class=l>virtio=0A:58:E2:6F:14:21,bridge=vmbr0,firewall=1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>net2</span><span class=p>:</span><span class=w> </span><span class=l>virtio=DA:36:A5:E6:93:9B,bridge=vmbr0,firewall=1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>numa</span><span class=p>:</span><span class=w> </span><span class=m>0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>onboot</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>ostype</span><span class=p>:</span><span class=w> </span><span class=l>l26</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>scsi0</span><span class=p>:</span><span class=w> </span><span class=l>nvme_btrfs:101/vm-101-disk-0.qcow2,cache=unsafe,iothread=1,size=4G</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>scsihw</span><span class=p>:</span><span class=w> </span><span class=l>virtio-scsi-single</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>smbios1</span><span class=p>:</span><span class=w> </span><span class=l>uuid=cd6edce3-e6d4-44e2-abd7-f6907dcaf34c</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>sockets</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=nt>vmgenid</span><span class=p>:</span><span class=w> </span><span class=l>42a99cea-820b-48fe-9ef5-2989a97e9758</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><blockquote><p>可以用3.7.6安装后升级到3.7.7<br>三个虚拟网口</p></blockquote><h2 id=本文另外发布到恩山帖>本文另外发布到恩山帖</h2><p><a class=link href=https://www.right.com.cn/forum/thread-8310402-1-1.html target=_blank rel=noopener>https://www.right.com.cn/forum/thread-8310402-1-1.html</a></p><h2 id=本文参考>本文参考</h2><p><a class=link href=https://www.right.com.cn/forum/thread-8252571-1-1.html target=_blank rel=noopener>https://www.right.com.cn/forum/thread-8252571-1-1.html</a></p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/route/ikuai-bypass-joyanhui/><div class=article-details><h2 class=article-title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</h2></div></a></article><article><a href=/route/ikuai-bypass-joyanhui-old/><div class=article-details><h2 class=article-title>爱快无感分流 自动更新规则 ikuai-bypass 修改版</h2></div></a></article><article><a href=/route/mosdns-all-in-one/><div class=article-details><h2 class=article-title>mosdns all in one 分流加自定义解析，不依赖 AdGuardHome</h2></div></a></article><article><a href=/route/safe-dns/><div class=article-details><h2 class=article-title>关于dns泄露的那些事情 路由器 mosdns分流 clash</h2></div></a></article><article><a href=/cloudflare/vless/><div class=article-details><h2 class=article-title>利用cfwokr免费搭建自己的节点</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

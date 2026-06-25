@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cloud on 小类随手记</title><link>https://dev.leiyanhui.com/categories/cloud/</link><description>Recent content in Cloud on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 15 Nov 2023 01:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/cloud/index.xml" rel="self" type="application/rss+xml"/><item><title>关于跨云部署的一些思路和困扰</title><link>https://dev.leiyanhui.com/web/clouds-migrate/</link><pubDate>Wed, 15 Nov 2023 01:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/clouds-migrate/</guid><description>&lt;p&gt;阿里云在这次（2023年11月12日）大规模故障时间中，可以说给所有人迎头一击。&lt;br&gt;
+得益处这些年遇到的太多灾难，我们在业务开展初期就考虑到了跨地区跨机房跨云跨域名跨dns跨主体,但是依旧有部分业务被影响。&lt;/p&gt;
+&lt;h2 id="各种跨的必要性和方案"&gt;各种跨的必要性和方案
+&lt;/h2&gt;&lt;h3 id="跨云厂商"&gt;跨云厂商
+&lt;/h3&gt;&lt;p&gt;必要性这个不用说了，这次事情都知道了。&lt;br&gt;
+一般情况下，核心业务最好一律跨厂商多活部署。&lt;br&gt;
+尤其是是核心数据 在隐藏好ip的情况下（能上ipv6一定上ipv6）,公网加密主从同步自动切换是必须的。&lt;br&gt;
+对于redis数据库来说来Cluster是一开始就要准备的&lt;/p&gt;
+&lt;h3 id="跨地区和机房"&gt;跨地区和机房
+&lt;/h3&gt;&lt;p&gt;在同一家云厂商，尽量跨地区/机房部署多活部署。&lt;/p&gt;
+&lt;h3 id="跨域名跨dns"&gt;跨域名跨dns
+&lt;/h3&gt;&lt;p&gt;数年前的dnspod时间不知道还有人记得吗？&lt;br&gt;
+域名被暂停解析不知道有多少人遇到过，数年前更有人遇到域名过户/转移等奇葩事件。&lt;br&gt;
+所以 除非是网站的网址，其他地方一定有多个域名&lt;br&gt;
+另外域名的dns不要只使用一家的&lt;/p&gt;
+&lt;h3 id="跨主体"&gt;跨主体
+&lt;/h3&gt;&lt;p&gt;因为国内目前的政策因素，即便是你合法合规的运营，能100%确定自己不会遇到备案吊销域名暂停解析。单一主体依旧存在风险。&lt;br&gt;
+因为备案制度，任何人都可以查到你公司或者个人名下的所有域名，进一步拿到你部分api地址，更是可以直接看到你域名dns地址（dns一锅端也是可以的）。&lt;/p&gt;
+&lt;h3 id="关于无状态服务"&gt;关于无状态服务
+&lt;/h3&gt;&lt;p&gt;微服务在规划的时候，注意能无状态服务的就用无状态的。&lt;/p&gt;
+&lt;h3 id="和域名相关的"&gt;和域名相关的
+&lt;/h3&gt;&lt;h4 id="用谁的域名"&gt;用谁的域名
+&lt;/h4&gt;&lt;p&gt;如果不会产生额外的费用，并且接口地址你可以随时更换的的情况下，尽量用云厂商送的域名（例如阿里云函数计算的http触发器域名）。&lt;br&gt;
+因为云厂商的域名dns防护程度都比较高，免费的在某些时候比你花钱的更好。&lt;br&gt;
+当然如果你没有办法随时切换接口的地址，那么还是用自己有控制权的域名。&lt;/p&gt;
+&lt;h4 id="泛域名"&gt;泛域名
+&lt;/h4&gt;&lt;p&gt;对于可以捆绑域名的http类业务，泛域名解析虽然不能避免解析记录泄露，但是可以避免通过域名dns历史解析记录拿到接口绑定的hostname。而且这个操作并不麻烦。&lt;br&gt;
+例如你 一个 接口 为 &lt;a class="link" href="http://usercenter-aliyun.leiyanhui.com" target="_blank" rel="noopener"
+&gt;http://usercenter-aliyun.leiyanhui.com&lt;/a&gt; ，原来cname或者A记录 usercenter-aliyun，之需要修改为 *.usercenter-aliyun 同时在业务上绑定的域名修改为 &lt;a class="link" href="http://run1.usercenter-aliyun.leiyanhui.com" target="_blank" rel="noopener"
+&gt;http://run1.usercenter-aliyun.leiyanhui.com&lt;/a&gt;（不要绑定泛域名） 如果发生针对这个地址的一些攻击，去业务那边修改为 &lt;a class="link" href="http://run2.usercenter-aliyun.leiyanhui.com" target="_blank" rel="noopener"
+&gt;http://run2.usercenter-aliyun.leiyanhui.com&lt;/a&gt; 即可临时规避一下&lt;/p&gt;
+&lt;h2 id="关于entrypoint"&gt;关于entrypoint
+&lt;/h2&gt;&lt;p&gt;这里定义的项目的entrypoint 主要是面向客户端的（app/物联网设备/html内的api）。即客户端需要先连接entrypoint查询后端api接口，再连接api处理后续工作。&lt;/p&gt;
+&lt;p&gt;entrypoint应该跨云跨域名跨主体部署 。 相关业务在运行中或如果和其他业务通信故障，去这些地址里面查询可用的节点。&lt;/p&gt;
+&lt;p&gt;比较经典的例子，比如一般情况 app的后端api地址为 &lt;a class="link" href="http://api.app.com" target="_blank" rel="noopener"
+&gt;http://api.app.com&lt;/a&gt; ，一般可能还会预留一个 &lt;a class="link" href="http://api2.app.com" target="_blank" rel="noopener"
+&gt;http://api2.app.com&lt;/a&gt; 作为备用地址。&lt;/p&gt;
+&lt;p&gt;修改后的方案为&lt;/p&gt;
+&lt;p&gt;app应该 &lt;a class="link" href="http://entrypoint1.url.com" target="_blank" rel="noopener"
+&gt;http://entrypoint1.url.com&lt;/a&gt; &lt;a class="link" href="http://entrypoint.url2.com" target="_blank" rel="noopener"
+&gt;http://entrypoint.url2.com&lt;/a&gt; &lt;a class="link" href="http://entrypoint.url3.com" target="_blank" rel="noopener"
+&gt;http://entrypoint.url3.com&lt;/a&gt; &lt;a class="link" href="http://entrypoint.urlNNN.com" target="_blank" rel="noopener"
+&gt;http://entrypoint.urlNNN.com&lt;/a&gt; 等多个地址并发查询 a 通过上面的entrypoint返回的 api地址，再继续操作。&lt;/p&gt;
+&lt;p&gt;entrypoint 虽然多地跨云跨域名甚至跨主体部署，但是因为只是一个简单的json静态文件服务器，甚至可以部署到cdn，以及servless 所以维护成本很低。&lt;/p&gt;
+&lt;p&gt;另外 entrypoint的地址，最好其中有预留1-3个云厂商/大厂的域名，例如 阿里云的 函数计算 的url， 以及 各个云厂商的对象储存的文件访问地址，因为他们的域名都做好了dns防护，可用性要比我们的dns高很多。 为了节省开支放置servless和对象储存被刷，平时禁止访问即可，在需要的时候开启允许公网访问即可。&lt;br&gt;
+不过华为云函数计算就算了，他给的域名公网访问次数限制1000次/天&lt;/p&gt;
+&lt;h2 id="困扰"&gt;困扰
+&lt;/h2&gt;&lt;p&gt;跨云部署最大的困扰 就是 成本，带宽占用 服务器闲置 管理成本。&lt;br&gt;
+尤其是大量数据 在 公网上加密同步。。。&lt;/p&gt;</description></item></channel></rss>

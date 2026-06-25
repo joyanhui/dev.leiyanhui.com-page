@@ -1,0 +1,1974 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kvms on 小类随手记</title><link>https://dev.leiyanhui.com/kvm/</link><description>Recent content in Kvms on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 18 Dec 2022 19:16:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/kvm/index.xml" rel="self" type="application/rss+xml"/><item><title>archlinux 下安装virio-gpu驱动</title><link>https://dev.leiyanhui.com/kvm/arch-virio-gpu/</link><pubDate>Sun, 18 Dec 2022 19:16:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/arch-virio-gpu/</guid><description>&lt;p&gt;环境 基于kvm的pve下的archlinux ，其他kvm和linux发行版 也都差不多&lt;/p&gt;
+&lt;p&gt;分配显卡 virio-gpu&lt;/p&gt;
+&lt;p&gt;KVM 使用 Virtio API 作为虚拟机管理程序和客户机之间的连接层，为虚拟机提供准虚拟化设备。&lt;/p&gt;
+&lt;p&gt;用以下命令检查虚拟机中内核的 VIRTIO 模块是否可用：&lt;/p&gt;
+&lt;p&gt;$ zgrep VIRTIO /proc/config.gz&lt;/p&gt;
+&lt;p&gt;然后，检查这些内核模块是否已自动加载：&lt;/p&gt;
+&lt;p&gt;$ lsmod | grep virtio&lt;/p&gt;
+&lt;p&gt;参考&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://wiki.archlinuxcn.org/wiki/QEMU#virtio" target="_blank" rel="noopener"
+&gt;https://wiki.archlinuxcn.org/wiki/QEMU#virtio&lt;/a&gt;&lt;/p&gt;</description></item><item><title>pve/unraid kvm vmware virtualbox等虚拟机的虚拟磁盘 容量调整</title><link>https://dev.leiyanhui.com/kvm/vdisk-add-g/</link><pubDate>Sun, 18 Dec 2022 19:16:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/vdisk-add-g/</guid><description>&lt;p&gt;常用的虚拟磁盘格式 vmdk vhd vdi raw/img qcow2 等&lt;/p&gt;
+&lt;h2 id="磁盘编辑工具修改容量"&gt;磁盘编辑工具修改容量
+&lt;/h2&gt;&lt;p&gt;vmware virtualbox 之类的软件，一般自带了磁盘管理工具，不用细说。
+vhd文件 可以用 diskpart 或者 可视化的其他工具处理 比如win下可以用&lt;code&gt;bootice&lt;/code&gt; 这个小工具编辑。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注意： 有数据的磁盘，轻易 不要减小容量。大概率会丢失数据&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;pve/unraid 包括 群𪸩 等系统，基本都是 kvm，也就是 raw/img qcow2 这两种格式，一般建议用 qemu-img 命令直接调整容量，新版qemu-img 已经支持 qcow2容量调整&lt;/p&gt;
+&lt;p&gt;举例：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img resize ubuntu.qcow2 +5GB
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="win客户机处理"&gt;win客户机处理
+&lt;/h2&gt;&lt;p&gt;win的话，直接用pe或者系统的磁盘管理添加容量即可&lt;/p&gt;
+&lt;h2 id="linux客户机处理"&gt;linux客户机处理
+&lt;/h2&gt;&lt;h3 id="非kvm"&gt;非kvm
+&lt;/h3&gt;&lt;p&gt;cfdisk 添加容量后需要另外 处理
+ext* ext4分区格式 &lt;code&gt;resize2fs /dev/XXX&lt;/code&gt;&lt;br&gt;
+xfs 分区格式 &lt;code&gt;xfs_growfs /挂载点&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="lvm"&gt;lvm
+&lt;/h3&gt;&lt;p&gt;如果基于lvm的分区格式，例如 vhd启动的pve&lt;/p&gt;
+&lt;p&gt;先&lt;code&gt;lvdisplay&lt;/code&gt;和&lt;code&gt;fdisk -l&lt;/code&gt;查看 lvm情况，然后记住要扩容的&lt;code&gt;LV Path /dev/pve/root&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;lvextend -l +100%FREE /dev/pve/root
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;resize2fs /dev/pve/root
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>archlinux运行kvm all in one主机，包括核显和pci直通 保姆级教程</title><link>https://dev.leiyanhui.com/kvm/archlinux-kvm/</link><pubDate>Mon, 21 Nov 2022 19:16:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/archlinux-kvm/</guid><description>&lt;h2 id="archlinux"&gt;archlinux
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;为什么选择archlinux，因为文档齐全 ，且可以滚动更新。
+已经安装好了一个archlinux &lt;a class="link" href="https://dev.leiyanhui.com/arch/base-install" target="_blank" rel="noopener"
+&gt;在一个5G的分区上，用的efi grub启动&lt;/a&gt;
+安装的包&lt;code&gt; base linux dhcpcd nano sudo grub efibootmgr exfat-utils&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;本文停止更新， 新文：&lt;a class="link" href="https://dev.leiyanhui.com/arch/install-kvm" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/install-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="准备工作"&gt;准备工作
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;sudo pacman -S neofetch fish wget
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4 id="配置开机登录提示-和自动打开fish"&gt;配置开机登录提示 和自动打开fish
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;cd ~ &amp;amp;&amp;amp; nano readme.md
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;输入一些提示信息&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;nano .bashrc
+------
+neofetch
+cat ~/readme.md
+fish
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4 id="nano替代vim"&gt;nano替代vim
+&lt;/h4&gt;&lt;p&gt;sudo ln -s /bin/nano /bin/vi
+sudo ln -s /bin/nano /bin/vim&lt;/p&gt;
+&lt;h4 id="安装yay非必须"&gt;安装yay（非必须）
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;nano /etc/pacman.conf 文件末尾添加以下两行：
+---------
+[archlinuxcn]
+Server = https://mirrors.tuna.tsinghua.edu.cn/archlinuxcn/$arch
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;挂一下代理或者不挂也行，&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;export http_proxy=&amp;quot;10.0.0.200:7890&amp;quot;
+export https_proxy=&amp;quot;10.0.0.200:7890&amp;quot;
+sudo pacman -Sy
+sudo pacman -S archlinuxcn-keyring
+sudo pacman -S yay
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="安装基本的qemu和libvir"&gt;安装基本的qemu和libvir
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo pacman -S qemu-base
+sudo pacman -S ovmf #新版edk2-ovmf已经包含在qemu-base 包里面了 这行不用运行
+sudo pacman -S libvirt # libvirt服务器端和 virtsh命令行客户端
+sudo pacman -S dnsmasq # net网络需要的dns分配
+sudo pacman -S usbutils # 查看usb设备id用的工具包
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;我这次选择了 libvir 作为kvm的管理工具，因为纯shell的方式 有一些 权限问题，还有开机启动启动，pci和usb热拔插，以及其他一些细节处理起来还是很麻烦。所以 还是决定用 管理工具来处理&lt;/p&gt;
+&lt;h2 id="在无图形界面的archlinux上安装使用virt-manager"&gt;在无图形界面的archlinux上安装使用virt-manager
+&lt;/h2&gt;&lt;h3 id="安装"&gt;安装
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;sudo pacman -S
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="arch启动x11转发"&gt;arch启动x11转发
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;sudo pacman -S xorg-xauth # x11转发需要的依赖
+touch ~/.Xauthority &amp;amp;&amp;amp; chmod 600 ~/.Xauthority
+sudo nano /etc/ssh/sshd_config
+----
+AddressFamily inet
+X11Forwarding yes
+X11DisplayOffset 10
+X11UseLocalhost yes
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;重启sshd&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo systemctl reload sshd
+sudo systemctl restart sshd
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;virt-manager 虽然可以打开，但是因为权限问题是连不上本地主机的&lt;/p&gt;
+&lt;h2 id="配置普通用户的权限"&gt;配置普通用户的权限
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo usermod -a -G kvm $(whoami)
+sudo usermod -a -G libvirt $(whoami)
+sudo nano /etc/libvirt/libvirtd.conf
+#找到这里两行 取消注释
+unix_sock_group = &amp;quot;libvirt&amp;quot;
+unix_sock_ro_perms = &amp;quot;0777&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="配置-libvirtd-服务"&gt;配置 libvirtd 服务
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo systemctl enable libvirtd
+sudo systemctl start libvirtd
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="使用支持x11-server的ssh客户端登录到宿主机"&gt;使用支持x11 server的ssh客户端登录到宿主机
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;win下推荐 MobaXterm&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;运行 virt-manager 正常可以打开 virt-manager图形界面了 virt-manager 应该可以用了&lt;/p&gt;
+&lt;h2 id="配置pci设备直通和vgpu"&gt;配置pci设备直通和vgpu
+&lt;/h2&gt;&lt;p&gt;核显的直通查看我之前的文章，usb是不需要任何处理就可以直通的，这里处理部分pice设备的直通和intel核显的 vgpu&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo nano /etc/default/grub
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;编辑 &lt;code&gt;GRUB_CMDLINE_LINUX_DEFAULT&lt;/code&gt; 添加 &lt;code&gt;intel_iommu=on i915.enable_guc=0 &lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;重启&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo grub-mkconfig -o /boot/grub/grub.cfg
+sudo mkinitcpio -P
+sudo reboot
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="需要直通的pci设备挂到vfio"&gt;需要直通的pci设备挂到vfio
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo nano /etc/modprobe.d/vfio.conf
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;具体查看以前的文章关于vfio.conf 的部分&lt;/p&gt;
+&lt;h2 id="启用几个内核模块"&gt;启用几个内核模块
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo modprobe kvmgt vfio-iommu-type1 mdev
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="i915-enable_gvt1"&gt;i915 enable_gvt=1
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo nano /etc/modprobe.d/gvt-g.conf
+-------
+options i915 enable_gvt=1
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;然后重启&lt;/p&gt;
+&lt;h2 id="检查显卡"&gt;检查显卡
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;lspci -D -nn # 查看显卡id 一般核显都是 0000:00:02.0
+ls /sys/devices/pci0000:00/0000:00:02.0/mdev_supported_types
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;目录不存在，&lt;code&gt;lsmod | grep kvm&lt;/code&gt; 发现 kvmgt 没有启用 &lt;code&gt;sudo nano /etc/default/grub&lt;/code&gt; 中的&lt;code&gt;GRUB_CMDLINE_LINUX_DEFAULT&lt;/code&gt; 再添加 &lt;code&gt;i915.enable_gvt=1&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="这里发现一个kvmgt-的坑"&gt;这里发现一个kvmgt 的坑
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;sudo modprobe kvmgt vfio-iommu-type1 mdev &lt;/code&gt; 在重启后就会失效&lt;/p&gt;
+&lt;h2 id="嵌套虚拟化"&gt;嵌套虚拟化
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo nano /etc/modprobe.d/kvm_intel.conf
+------
+options kvm_intel nested=1
+&lt;/code&gt;&lt;/pre&gt;</description></item><item><title>关闭核显直通，打开vgpu，多虚拟机同时使用核显.kvm下一个核显和多个虚拟机共享使用3D加速甚至游戏</title><link>https://dev.leiyanhui.com/kvm/gvt-g-vgpu/</link><pubDate>Mon, 21 Nov 2022 19:16:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/gvt-g-vgpu/</guid><description>&lt;p&gt;和pci直通相比，gvt-g可以吧同一个显卡 同时共享给多个虚拟机使用，并提供硬件加速。&lt;/p&gt;
+&lt;h2 id="前置条件"&gt;前置条件
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;已经安装了一个 kvm &lt;a class="link" href="https://dev.leiyanhui.com/kvm/arch-install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/arch-install-kvm/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;开启了核显直通 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="处理一些简单的操作"&gt;处理一些简单的操作
+&lt;/h2&gt;&lt;p&gt;删除核显的vfio绑定&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo nano /etc/modprobe.d/vfio.conf
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;删除
+sudo nano /etc/mkinitcpio.conf
+删除一些配置文件&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt; sudo rm -rf /etc/modprobe.d/blacklist.conf
+sudo rm -rf /etc/booster.yaml
+sudo rm -rf /etc/dracut.conf.d
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="i915enable_guc0"&gt;i915.enable_guc=0
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;sudo nano /etc/default/grub
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;GRUB_CMDLINE_LINUX_DEFAULT 这行 编辑一下 确保有&lt;code&gt;intel_iommu=on i915.enable_guc=0&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="重启"&gt;重启
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;# pve =&amp;gt; update-initramfs -u
+sudo update-grub
+sudo mkinitcpio -P
+sudo reboot
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="开启kernel的几个-modules"&gt;开启kernel的几个 modules
+&lt;/h2&gt;&lt;p&gt;kernel modules: kvmgt, vfio-iommu-type1 and mdev.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo modprobe kvmgt vfio-iommu-type1 mdev
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="配置-i915--enable_gvt1"&gt;配置 i915 enable_gvt=1
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo echo &amp;quot;options i915 enable_gvt=1&amp;quot; &amp;gt;&amp;gt; /etc/modprobe.d/gvt-g.conf
+#重启
+sudo mkinitcpio -P
+sudo reboot
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="重启后查看显卡"&gt;重启后查看显卡
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;lspci -D -nn # 查看id 核显一般情况是 0000:00:02.0
+#查看模式
+ls /sys/devices/pci0000:00/0000:00:02.0/mdev_supported_types
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;未完成待续&lt;/p&gt;
+&lt;p&gt;参考 &lt;a class="link" href="https://www.cnblogs.com/kagamirr/p/15451409.html" target="_blank" rel="noopener"
+&gt;https://www.cnblogs.com/kagamirr/p/15451409.html&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="我的kvm脚本参考"&gt;我的kvm脚本参考
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a&gt;&lt;/p&gt;</description></item><item><title>使用libvirt 管理 qemu虚拟主机</title><link>https://dev.leiyanhui.com/kvm/libvirt-base/</link><pubDate>Sun, 20 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/libvirt-base/</guid><description>&lt;p&gt;kvm qemu 使用命令行的方式 较为简单明了，但是有几个问题 有一些麻烦。所以最好还是搞一下virt 不然还是不好处理&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;开机启动虚拟主机（非管理员权限）&lt;/li&gt;
+&lt;li&gt;虚拟机内引导顺序&lt;/li&gt;
+&lt;li&gt;usb sata 等设备的热拔插&lt;/li&gt;
+&lt;li&gt;以及一些sudo权限的处理上&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="安装"&gt;安装
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S libvirt #服务端 自带命令行客户端 virsh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="服务"&gt;服务
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl enable libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl start libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="用已经存在的虚拟磁盘文件创建一个虚拟机"&gt;用已经存在的虚拟磁盘文件创建一个虚拟机
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S virt-install
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;virt-install 不是必须的工具，可在 /home/yanhui/.config/libvirt/qemu/ 或者 /etc/libvirt/qemu 手动创建xml 来新建虚拟机&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;virt-install \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --name alpine-dockers \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --vcpus=12 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --osinfo alpinelinux3.16 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --memory 1024 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --disk /mnt/ssd/alpinx-kvm/alpine-sys.qcow2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; --import
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;运行后 直接 ctrl+c 关闭,然后查看
+&lt;code&gt;virsh list --all&lt;/code&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;查看支持的操作系统 virt-install &amp;ndash;osinfo list&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="关闭虚拟机"&gt;关闭虚拟机
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;virsh shutdown alpine-dockers
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="编辑虚拟机"&gt;编辑虚拟机
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;nano /home/yanhui/.config/libvirt/qemu/alpine-dockers.xml
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;大部分内容很容易理解，和unraid下 以及shell下的写法 都接近
+修改之前 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/%E4%B8%80%E4%B8%AA%E5%9F%BA%E7%A1%80%E7%9A%84libvirt-alpine.xml" target="_blank" rel="noopener"
+&gt;传送门&lt;/a&gt;
+我这里主要修改端口映射 以及 vnc 还有smb的处理&lt;/p&gt;
+&lt;h3 id="vnc配置"&gt;vnc配置
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;&amp;lt;graphics type='spice' autoport='yes'&amp;gt;
+&amp;lt;listen type='address'/&amp;gt;
+&amp;lt;image compression='off'/&amp;gt;
+&amp;lt;/graphics&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这段修改为vnc的配置&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&amp;lt;graphics type=&amp;#39;vnc&amp;#39; port=&amp;#39;5908&amp;#39; autoport=&amp;#39;yes&amp;#39; listen=&amp;#39;0.0.0.0&amp;#39; keymap=&amp;#39;en-us&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;listen type=&amp;#39;address&amp;#39; address=&amp;#39;0.0.0.0&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&amp;lt;/graphics&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="图形工具-安装"&gt;图形工具 安装
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S virt-manager
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S dnsmasq
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="打开x11-转发"&gt;打开x11 转发
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;yay&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt; &lt;span class="n"&gt;xorg&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;xauth&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;~&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;touch&lt;/span&gt; &lt;span class="o"&gt;~/.&lt;/span&gt;&lt;span class="n"&gt;Xauthority&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="n"&gt;chmod&lt;/span&gt; &lt;span class="mi"&gt;600&lt;/span&gt; &lt;span class="o"&gt;~/.&lt;/span&gt;&lt;span class="n"&gt;Xauthority&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;nano&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;ssh&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;sshd_config&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;----&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;AddressFamily&lt;/span&gt; &lt;span class="n"&gt;inet&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;X11Forwarding&lt;/span&gt; &lt;span class="n"&gt;yes&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;X11DisplayOffset&lt;/span&gt; &lt;span class="mi"&gt;10&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;X11UseLocalhost&lt;/span&gt; &lt;span class="n"&gt;yes&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;reload&lt;/span&gt; &lt;span class="n"&gt;sshd&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;sudo&lt;/span&gt; &lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;restart&lt;/span&gt; &lt;span class="n"&gt;sshd&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="配置普通用户权限"&gt;配置普通用户权限
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/etc/libvirt/libvirtd.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;找到这里两行 取消注释&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;unix_sock_group = &amp;#34;libvirt&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;unix_sock_ro_perms = &amp;#34;0777&amp;#34; # set to 0770 to deny non-group libvirt users
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="当前用户添加到libvirt-组"&gt;当前用户添加到libvirt 组
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;sudo usermod -a -G libvirt $(whoami)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="重启libvirtd"&gt;重启libvirtd
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo systemctl restart libvirtd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="使用-virt-manager-来管虚拟机"&gt;使用 virt-manager 来管虚拟机
+&lt;/h3&gt;&lt;p&gt;直接在支持x11 server的ssh客户端上登录，然后运行 &lt;code&gt;virt-manager&lt;/code&gt; 即可&lt;/p&gt;
+&lt;h2 id="端口转发"&gt;端口转发
+&lt;/h2&gt;&lt;p&gt;端口转发 可以直接在宿主机上用iptables 来处理&lt;/p&gt;
+&lt;p&gt;也可以用 /etc/libvirt/hooks/ 来处理&lt;/p&gt;
+&lt;h3 id="静态ip"&gt;静态ip
+&lt;/h3&gt;&lt;p&gt;先查看网络情况&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo virsh net-list
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;有一个 名称为&lt;code&gt;network&lt;/code&gt; 是配置的nat 的网络
+处理一下 vi，我用nano替代&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo ln -s /bin/nano /bin/vi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;编辑 dhcp 这段&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo virsh net-edit network
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;添加几行&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;host mac=&amp;#39;52:54:00:6d:77:46&amp;#39; name=&amp;#39;alpine&amp;#39; ip=&amp;#39;192.168.100.2&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;host mac=&amp;#39;52:54:00:6d:77:10&amp;#39; name=&amp;#39;win10&amp;#39; ip=&amp;#39;192.168.100.10&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;host mac=&amp;#39;52:54:00:6d:77:13&amp;#39; name=&amp;#39;macos13&amp;#39; ip=&amp;#39;192.168.100.13&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;lt;host mac=&amp;#39;52:54:00:6d:77:08&amp;#39; name=&amp;#39;archlinux&amp;#39; ip=&amp;#39;192.168.100.8&amp;#39;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;52:54:00:6d:77:46 是虚拟机的虚拟mac地址&lt;/p&gt;
+&lt;h3 id="重新创建同名网络"&gt;重新创建同名网络
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo virsh net-destroy network
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo virsh net-start network
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;关闭虚拟机，然后再打开一次虚拟机，不是重启虚拟机，是关闭后重新打开&lt;/p&gt;
+&lt;h3 id="配置转发规则"&gt;配置转发规则
+&lt;/h3&gt;&lt;h4 id="查看本地网卡"&gt;查看本地网卡
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;ifconfig
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;我这里是本地网卡是enp1s0 虚拟机用的网卡是virbr1&lt;/p&gt;
+&lt;h4 id="procsysnetipv4ip_forward"&gt;/proc/sys/net/ipv4/ip_forward
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;cat /proc/sys/net/ipv4/ip_forward
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;应该是1 ，如果不是修改成1，或者 编辑/etc/stsctl.conf文件，把其中的net.ipv4.ip_forward = 0修为net.ipv4.ip_forward = 1&lt;/p&gt;
+&lt;h4 id="开启转发"&gt;开启转发
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 添加filter 表的forward链
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -I FORWARD -m state -d 192.168.100.0/24 --state NEW,RELATED,ESTABLISHED -j ACCEPT
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 规则
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2222 -j DNAT --to-destination 192.168.100.2:22
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 13389 -j DNAT --to-destination 192.168.100.10:3389
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="保存-重启后有效"&gt;保存 重启后有效
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;su&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;iptables&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;save&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;iptables&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;iptables&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;rules&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;systemctl&lt;/span&gt; &lt;span class="n"&gt;reload&lt;/span&gt; &lt;span class="n"&gt;iptables&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;iptables&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;restore&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;etc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;iptables&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;iptables&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;rules&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="查看和删除"&gt;查看和删除
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -nL --line # 查看
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -D PREROUTING 序号 # 删除
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="更多需要的规则"&gt;更多需要的规则
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# v2ray
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2017 -j DNAT --to-destination 192.168.100.2:2017
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20170 -j DNAT --to-destination 192.168.100.2:20170
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20171 -j DNAT --to-destination 192.168.100.2:20171
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20172 -j DNAT --to-destination 192.168.100.2:20172
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 20173 -j DNAT --to-destination 192.168.100.2:20173
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 阿里云盘wedav
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 8080 -j DNAT --to-destination 192.168.100.2:8080
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="其他"&gt;其他
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mkdir /etc/libvirt/hooks
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nano /etc/libvirt/hooks/qemu
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;1&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;alpinelinux&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nv"&gt;GUEST_IP&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;192.168.100.2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nv"&gt;GUEST_PORT&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;22&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nv"&gt;HOST_PORT&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;2222&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;2&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;stopped&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt; &lt;span class="o"&gt;||&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;2&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;reconnect&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; /sbin/iptables -D FORWARD -o virbr0 -p tcp -d &lt;span class="nv"&gt;$GUEST_IP&lt;/span&gt; --dport &lt;span class="nv"&gt;$GUEST_PORT&lt;/span&gt; -j ACCEPT
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; /sbin/iptables -t nat -D PREROUTING -p tcp --dport &lt;span class="nv"&gt;$HOST_PORT&lt;/span&gt; -j DNAT --to &lt;span class="nv"&gt;$GUEST_IP&lt;/span&gt;:&lt;span class="nv"&gt;$GUEST_PORT&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;2&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;start&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt; &lt;span class="o"&gt;||&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;2&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;reconnect&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; /sbin/iptables -I FORWARD -o virbr0 -p tcp -d &lt;span class="nv"&gt;$GUEST_IP&lt;/span&gt; --dport &lt;span class="nv"&gt;$GUEST_PORT&lt;/span&gt; -j ACCEPT
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; /sbin/iptables -t nat -I PREROUTING -p tcp --dport &lt;span class="nv"&gt;$HOST_PORT&lt;/span&gt; -j DNAT --to &lt;span class="nv"&gt;$GUEST_IP&lt;/span&gt;:&lt;span class="nv"&gt;$GUEST_PORT&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;</description></item><item><title>在kvm主机上运行一个alpine，单独运行docker</title><link>https://dev.leiyanhui.com/kvm/install-alpine/</link><pubDate>Sun, 20 Nov 2022 19:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/install-alpine/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;一台all in one 主机，宿主机运行的 archlinux+ kvm qemu，部分硬件直通。 只占用2G左右硬盘。其他分区均为ext4 格式
+宿主机也可以直接docker，但是感觉不是很方便，所以单独做一个vm 之用来运行docker&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="获取安装影像"&gt;获取安装影像
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;选这个虚拟机版本 就好了&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /mnt/hdd/iso/linux/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-virt-3.16.3-x86_64.iso
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="创建虚拟机主机"&gt;创建虚拟机主机
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir -p /mnt/ssd/alpinx-kvm/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /mnt/ssd/alpinx-kvm/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img create -f qcow2 alpine-sys.qcow2 50G
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="启动参数"&gt;启动参数
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;nano startalpine.sh
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;内容&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;span class="lnt"&gt;26
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;MY_OPTIONS=&amp;#34;+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ALLOCATED_RAM=&amp;#34;1G&amp;#34; # MiB
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;CPU_SOCKETS=&amp;#34;1&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;CPU_CORES=&amp;#34;6&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;CPU_THREADS=&amp;#34;12&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;args=(
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -name &amp;#34;macos&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -enable-kvm -m &amp;#34;$ALLOCATED_RAM&amp;#34; -cpu host,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,&amp;#34;$MY_OPTIONS&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -machine q35
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -usb -device usb-kbd -device usb-tablet # 鼠标穿透 mac 和win linux 都适用 键盘鼠标正常
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -smp &amp;#34;$CPU_THREADS&amp;#34;,cores=&amp;#34;$CPU_CORES&amp;#34;,sockets=&amp;#34;$CPU_SOCKETS&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -smbios type=2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -device ich9-intel-hda -device hda-duplex
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -device ich9-ahci,id=sata
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; #qemu-img create -f qcow2 alpine-sys.qcow2 50G
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -cdrom /mnt/hdd/iso/linux/alpine-virt-3.16.3-x86_64.iso
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -drive index=0,media=disk,format=qcow2,if=virtio,file=/mnt/ssd/alpinx-kvm/alpine-sys.qcow2
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -netdev user,id=net0,smb=/mnt,hostfwd=tcp::8006-:3306,hostfwd=tcp::8222-:22
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -device virtio-net-pci,addr=0x10,netdev=net0,id=net0,mac=52:54:00:c9:18:27
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -monitor stdio
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -vga virtio
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -display none
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -vnc 0.0.0.0:8 -k en-us
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 &amp;#34;${args[@]}&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="安装"&gt;安装
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;setup-alpine&lt;/code&gt; 用安装助手安装 30秒就可以装完了&lt;/p&gt;
+&lt;h2 id="安装docker"&gt;安装docker
+&lt;/h2&gt;&lt;p&gt;ssh用上面的端口8222登录到alpine&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apk add nano
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nano /etc/apk/repositories
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;把 community 的那行注释去掉&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apk add docker
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rc-update add docker boot
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;service docker start
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="安装fish-和-neofetch"&gt;安装fish 和 neofetch
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;apk add fish neofetch
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="完毕-关机备份"&gt;完毕 关机备份
+&lt;/h2&gt;&lt;p&gt;alpine 默认是用 poweroff 关机的，但是。。我习惯性 还是用 shutdown&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir -p /mnt/hdd/kvm-bak/alpine-docker
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp alpine-sys.qcow2 /mnt/hdd/kvm-bak/alpine-docker/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp start_nogpu.sh /mnt/hdd/kvm-bak/alpine-docker/
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="docker-几个常用镜像"&gt;docker 几个常用镜像
+&lt;/h2&gt;&lt;p&gt;v2ray aliyunpanwebdav nginx mysql&lt;/p&gt;
+&lt;p&gt;查看单独的文章 &lt;a class="link" href="https://dev.leiyanhui.com/alpine/docker-s/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/alpine/docker-s/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="最后的-启动脚本"&gt;最后的 启动脚本
+&lt;/h2&gt;&lt;p&gt;脚本备份： &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/%E4%B8%80%E4%B8%AA%E4%B8%93%E9%97%A8%E8%BF%90%E8%A1%8Cdocker%E7%9A%84alpine.sh" target="_blank" rel="noopener"
+&gt;github传送门&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm安装一个archlinux / arch 安装遇到Triggering uevunts...错误的解决</title><link>https://dev.leiyanhui.com/kvm/install-arch-on-kvm/</link><pubDate>Fri, 18 Nov 2022 20:10:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/install-arch-on-kvm/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;之前的开发环境是debian，最近打算全线换到arch 所以在kvm下新装一个
+之所以用kvm去运行archlinux 是因为需要一个桌面环境并硬件加速，甚至显卡直通&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在使用&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/shell%E5%90%AF%E5%8A%A8%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%B8%B8%E7%94%A8%E5%8F%82%E6%95%B0%E5%AE%9E%E4%BE%8B-win.sh" target="_blank" rel="noopener"
+&gt;常用的一个shell&lt;/a&gt;
+启动虚拟机后 安装arch遇到一个错误 &lt;code&gt;Triggering uevunts...&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;尝试解决&lt;/p&gt;
+&lt;h2 id="创建虚拟磁盘"&gt;创建虚拟磁盘
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd /mnt/ssd/kvm-arch/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-img create -f qcow2 arch-sys.qcow2 50G
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="尝试简单启动过程"&gt;尝试简单启动过程
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -enable-kvm -m 1G -cdrom /mnt/hdd/iso/linux/archlinux2022.11.1.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=0,media=disk,format=qcow2,if=virtio,file=/mnt/ssd/kvm-arch/arch-sys.qcow2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc 0.0.0.0:2 -k en-us
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;没发现问题，初步怀疑是uefi问题&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -enable-kvm -m 1G -cdrom /mnt/hdd/iso/linux/archlinux2022.11.1.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=0,media=disk,format=qcow2,if=virtio,file=/mnt/ssd/kvm-arch/arch-sys.qcow2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-machine q35 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive if=pflash,format=raw,readonly=on,file=&amp;#34;/mnt/ssd/kvm-arch/kvm-efi-bios/OVMF_CODE.fd&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive if=pflash,format=raw,file=&amp;#34;/mnt/ssd/kvm-arch/kvm-efi-bios/OVMF_VARS-1024x768.fd&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc 0.0.0.0:2 -k en-us
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;不是这个问题 继续&lt;/p&gt;
+&lt;h2 id="逐行测试后发现"&gt;逐行测试后发现
+&lt;/h2&gt;&lt;p&gt;是 &lt;code&gt;-vga vmware &lt;/code&gt; 的问题，换一个虚拟显卡就可以了 &lt;code&gt;-vga virtio&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;剩下安装过程就很简单了，参考 &lt;a class="link" href="https://dev.leiyanhui.com/arch/startx/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/startx/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>榨干一个上网本，在4年前的上网本上 部署工作娱乐环境</title><link>https://dev.leiyanhui.com/kvm/net-notebook-linux-win/</link><pubDate>Wed, 16 Nov 2022 12:34:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/net-notebook-linux-win/</guid><description>&lt;p&gt;一台中柏的上网本，N4020 双核（基础频率1.1G 睿频2.4G） 120G mmc(大文件速度30-60M/s) 12G内存 14村 1920x1080 无风扇
+400块钱咸鱼收的，打算做瘦客户端用。
+后来用了一段时间后，wifi和蓝牙坏了，目前全部用的外置usb蓝牙和wifi。屏幕漏光，但是不影响使用。
+win8驱动打不上win10 下很卡。&lt;/p&gt;
+&lt;p&gt;安装了archlinux，很流畅，办公日用足够了，但是声卡很冷门，不清楚具体情况，驱动不起来。 蓝牙可用，用airpods凑合对付一下。&lt;/p&gt;
+&lt;h2 id="目标"&gt;目标
+&lt;/h2&gt;&lt;p&gt;arch 系统作为宿主系统，也是日用系统，主要就 火狐 vscode wechat qq 等&lt;/p&gt;
+&lt;p&gt;kvm 运行 win10 系统 和macos&lt;/p&gt;
+&lt;p&gt;其中 win10 直通核显进去，偶尔打打小游戏，关闭win10后 核显可自动释放给宿主arch&lt;/p&gt;
+&lt;p&gt;macos 就作为应急用，主要处理 ios相关证书和火狐&amp;lt;&amp;gt;safari的同步。&lt;/p&gt;
+&lt;h2 id="安装arch和-i3w"&gt;安装arch和 i3w
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/arch/startx/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/startx/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="安装qemu"&gt;安装qemu
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/kvm/arch-install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/arch-install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="安装win系统-安装macos"&gt;安装win系统 安装macos
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo sudo mount /dev/mmcblk0p3 ~/exfat
+qemu-img create -f raw -o size=16G ~/exfat/win10.img
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;过程掠过，参考&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/kvm/arch-install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/arch-install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="配置核显声卡-和-usb直通"&gt;配置核显声卡 和 usb直通
+&lt;/h2&gt;&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="实现虚拟机关机后-显卡释放和蓝牙释放回宿主机"&gt;实现虚拟机关机后 显卡释放和蓝牙释放回宿主机
+&lt;/h2&gt;&lt;p&gt;尚未完成&lt;/p&gt;</description></item><item><title>kvm shell启动权限问题</title><link>https://dev.leiyanhui.com/kvm/shell-sudo/</link><pubDate>Mon, 07 Nov 2022 23:50:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/shell-sudo/</guid><description>&lt;h2 id="直接使用shell管理-kvm-qemu-会遇到一些权限问题-需要sudo"&gt;直接使用shell管理 kvm-qemu 会遇到一些权限问题 需要sudo
+&lt;/h2&gt;&lt;p&gt;首先 当前用户 需要添加到 kvm组 &lt;code&gt;sudo usermod -a -G kvm user_name &lt;/code&gt;
+其次还有一些小问题&lt;/p&gt;
+&lt;h2 id="远程启动声卡穿透的权限问题"&gt;远程启动声卡穿透的权限问题
+&lt;/h2&gt;&lt;p&gt;这是因为远程登录的用户默认没有权限操作audio，把当前用户添加到 audio就可以了&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;sudo gpasswd -a user_name audio &lt;/code&gt;查看组情况 &lt;code&gt;id user_name &lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;更多可以参考 查看这里 这个文章
+&lt;a class="link" href="https://dev.leiyanhui.com/arch/arch-sound/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/arch-sound/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/kvm/sound-pass" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/sound-pass&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="pice直通-权限问题"&gt;pice直通 权限问题
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;qemu-system-x86_64 -device vfio-pci,host=0000:02:00.0 &lt;/code&gt; 也需要sudo
+会提示 &lt;code&gt;failed to open /dev/vfio/1: Permission denied&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;先看一下 vfio的设备权限&lt;code&gt;sudo ls -lart /dev/vfio&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;drwxr-xr-x 2 root root 100 Nov 7 03:34 .
+crw-rw-rw- 1 root root 10, 196 Nov 7 03:34 vfio
+crw------- 1 root root 240, 1 Nov 7 03:34 11
+crw------- 1 root root 240, 0 Nov 7 03:34 1
+drwxr-xr-x 18 root root 3780 Nov 7 03:34 ..
+&lt;/code&gt;&lt;/pre&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo chmod -R 755 /dev/vfio
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="为了后续方便-最好把当前用户也添加到-qemu组"&gt;为了后续方便 最好把当前用户也添加到 qemu组
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;sudo gpasswd -a user_name qemu&lt;/code&gt;&lt;/p&gt;</description></item><item><title>kvm 进阶和相关小问题处理</title><link>https://dev.leiyanhui.com/kvm/all_list/</link><pubDate>Mon, 07 Nov 2022 00:19:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/all_list/</guid><description>&lt;h2 id="进阶功能和相关记录文章"&gt;进阶功能和相关记录文章
+&lt;/h2&gt;&lt;h3 id="基本安装"&gt;基本安装
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/arch/install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="关于efi-ovmf模式启动"&gt;关于efi ovmf模式启动
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/ovmf/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/ovmf/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="进阶配置桥接网络"&gt;进阶：配置桥接网络
+&lt;/h3&gt;&lt;p&gt;桥接网络：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/net-br/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/net-br/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="硬件直通--pci-和usb"&gt;硬件直通 pci 和usb
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="声卡的直通穿透"&gt;声卡的直通/穿透
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/sound-pass/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/sound-pass/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="我的一些配置文件记录"&gt;我的一些配置文件记录
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm-开机自动启动"&gt;kvm 开机自动启动
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/auto_start_vm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/auto_start_vm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm-过游戏检测和部分显卡驱动无法安装"&gt;kvm 过游戏检测和部分显卡驱动无法安装
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/guest-unkvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/guest-unkvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm安装macos"&gt;kvm安装macos
+&lt;/h3&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm安装macos附加上一个win"&gt;kvm安装macos附加上一个win
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/macos_add_win10/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/macos_add_win10/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm虚拟机和宿主机文件交换"&gt;kvm虚拟机和宿主机文件交换
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/syncfile/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/syncfile/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm-shell启动权限问题"&gt;kvm shell启动权限问题
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/shell_sudo/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/shell_sudo/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm 让客户机不知到自己是一个虚拟机</title><link>https://dev.leiyanhui.com/kvm/guest-unkvm/</link><pubDate>Sat, 05 Nov 2022 06:54:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/guest-unkvm/</guid><description>&lt;p&gt;很简单，在 -cpu 的参数上，添加 &lt;code&gt;-hypervisor&lt;/code&gt; 即可，如果原来是 +hypervisor 改成-hypervisor&lt;/p&gt;
+&lt;p&gt;可以解决部分直通硬件不能装驱动&lt;/p&gt;
+&lt;p&gt;或者部分游戏检测自己是虚拟机不能运行 等等问题。。&lt;/p&gt;
+&lt;h2 id="进阶功能和相关记录文章"&gt;进阶功能和相关记录文章
+&lt;/h2&gt;&lt;h3 id="基本安装"&gt;基本安装
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/arch/install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="关于efi模式启动"&gt;关于efi模式启动
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/ovmf/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/ovmf/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="进阶配置桥接网络"&gt;进阶：配置桥接网络
+&lt;/h3&gt;&lt;p&gt;桥接网络：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/net-br/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/net-br/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="硬件直通--pci-和usb"&gt;硬件直通 pci 和usb
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="声卡的直通穿透"&gt;声卡的直通/穿透
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/sound-pass/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/sound-pass/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="我的一些配置文件记录"&gt;我的一些配置文件记录
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm-开机自动启动"&gt;kvm 开机自动启动
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/auto_start_vm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/auto_start_vm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm-过游戏检测和部分显卡驱动无法安装"&gt;kvm 过游戏检测和部分显卡驱动无法安装
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/guest-unkvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/guest-unkvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm安装macos"&gt;kvm安装macos
+&lt;/h3&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm安装macos附加上一个win"&gt;kvm安装macos附加上一个win
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/macos_add_win10/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/macos_add_win10/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm 和宿主机 使用 smb交换文件</title><link>https://dev.leiyanhui.com/kvm/syncfile/</link><pubDate>Wed, 02 Nov 2022 06:12:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/syncfile/</guid><description>&lt;p&gt;物理机基于arch 运行的kvm qemu 没有用libvir管理工具，纯手动shell管理。。首先宿主机要安装 samba ，qemu只是可以自动生成配置文件&lt;code&gt;/tmp/qemu-smb.random_string&lt;/code&gt; 并不能替代samba&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo pacman -S samba # 150M 左右，蛋疼。。还不如直接用webdav 暂时先用 吧，晚点改成我自己的webdav工具
+sudo pacman -Rns samba ## 卸载掉吧不用了
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;用我自己的webdavgo&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/webdavgo" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/webdavgo&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;如果用samba的话 在虚拟机添加 &lt;code&gt;-net nic -net user,smb=/mnt &lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;然后虚拟机里访问 \10.0.2.4\qemu 即可。&lt;/p&gt;
+&lt;p&gt;如果你不能访问共享文件夹且客户机系统为 Windows, 请检查 NetBIOS 协议是否被启用 并确认防火墙没有屏蔽NetBIOS协议的 端口&lt;br&gt;
+如果你不能访问共享文件夹且客户机系统为 Windows 10 Enterprise 或 Education 或 Windows Server 2016, 请启用游客访问.&lt;/p&gt;
+&lt;p&gt;打开本地组策略编辑器 (gpedit.msc)。
+在控制台树中，依次选择“计算机配置”&amp;gt;“管理模板”&amp;gt;“网络”&amp;gt;“Lanman 工作站”。
+对于设置，右键单击“启用不安全的来宾登录”，然后选择“编辑”。
+选择“启用”，然后选择“确定”&lt;/p&gt;
+&lt;h3 id="kvm-进阶和相关小问题处理"&gt;kvm 进阶和相关小问题处理
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/all_list/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/all_list/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm 的macos虚拟主机下，加装一个win10系统,为方便改oc和测试硬件直通</title><link>https://dev.leiyanhui.com/kvm/macos_add_win10/</link><pubDate>Tue, 01 Nov 2022 20:07:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/macos_add_win10/</guid><description>&lt;p&gt;kvm下Windows的硬件直通，还是很简单的。macos 不容易。所以，先同环境弄一个win&lt;/p&gt;
+&lt;p&gt;已经基本完成了一个macos的安装：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a&gt;
+但是 卡到爆炸
+先做好基本的优化，比如：打开屏幕共享 ssh，汉化，关机
+然后尝试先从windows下完成这部分硬件的直通。&lt;/p&gt;
+&lt;p&gt;先安装一个windows&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;qemu-img create -f raw -o size=15G /mnt/ext4/win10-q35-efi.img
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;把前面的shell命令稍微修改一下&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;临时去掉macos的盘&lt;/li&gt;
+&lt;li&gt;挂上win10安装iso&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S screen
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;screen -S win
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -enable-kvm -machine pc-q35-7.1 -m 4G \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-boot menu=on \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-usb -device usb-kbd -device usb-tablet \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-netdev user,id=net0,hostfwd=tcp::13389-:3389 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device usb-ehci,id=ehci \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device nec-usb-xhci,id=xhci \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-global nec-usb-xhci.msi=off \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device isa-applesmc,osk=&amp;#34;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smbios type=2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ich9-intel-hda -device hda-duplex \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ich9-ahci,id=sata \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smp 8,sockets=1,cores=4 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-cpu host,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-bios /usr/share/edk2-ovmf/x64/OVMF.fd \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=2,media=disk,format=raw,if=virtio,file=/mnt/ext4/win10-q35-efi.img \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=3,media=cdrom,file=/mnt/hdd/iso/virtio-win-0.1.225.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=5,media=cdrom,file=/mnt/ext4/Win10LTSC2021x64.ISO \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vga vmware \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc :2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;vnc链接上 宿主IP:5902 后，开机按esc 从 cd启动，正常安装window10. 过程略&lt;/p&gt;
+&lt;p&gt;win10 打开远程桌面后 关机，再创建一个 临时磁盘文件 格式化为exfat 方便 win10和macos 交换文件&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;qemu-img create -f qcow2 -o size=10G /mnt/ext4/temp.qcow2
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;最后启动 干净的macos+win&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;screen -S mac
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -enable-kvm -machine pc-q35-7.1 -m 4G \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-boot menu=on \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-usb -device usb-kbd -device usb-tablet \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-netdev user,id=net0,hostfwd=tcp::13389-:3389,hostfwd=tcp::15900-:5900,hostfwd=udp::15900-:5900,hostfwd=tcp::13283-:3283,hostfwd=udp::13283-:3283,hostfwd=tcp::1222-:22 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device usb-ehci,id=ehci \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device nec-usb-xhci,id=xhci \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-global nec-usb-xhci.msi=off \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device isa-applesmc,osk=&amp;#34;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smbios type=2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ich9-intel-hda -device hda-duplex \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ich9-ahci,id=sata \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smp 8,sockets=1,cores=4 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-cpu host,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-bios /usr/share/edk2-ovmf/x64/OVMF.fd \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive id=OpenCoreBoot,if=none,snapshot=on,format=raw,file=&amp;#34;/mnt/ext4/OpenCore-V19.img&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ide-hd,bus=sata.2,drive=OpenCoreBoot \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=1,media=disk,format=raw,if=virtio,file=/mnt/ext4/macos-13.img \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=2,media=disk,format=raw,if=virtio,file=/mnt/ext4/win10-q35-efi.img \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=3,media=disk,format=qcow2,if=virtio,file=/mnt/ext4/temp.qcow2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vga vmware \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc :1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="kvm-进阶和相关小问题处理"&gt;kvm 进阶和相关小问题处理
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/all_list/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/all_list/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm手动运行macos 13 ventura</title><link>https://dev.leiyanhui.com/kvm/install-macos-base/</link><pubDate>Tue, 01 Nov 2022 17:19:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/install-macos-base/</guid><description>&lt;p&gt;尝试不使用pve unraid等搭建一个macos ，并在后续直通显卡 蓝牙 wifi usb&lt;/p&gt;
+&lt;p&gt;宿主机器：archlinux ，已经安装了qemu 安装过程很简单查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/arch-install-kvm" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/arch-install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;宿主机硬件情况：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;cpu：qnct魔改，实际是 i7 8850h es
+主板：技嘉一体机主板 b150m pio si r3
+内存：32G ddr4
+显卡：只有核显，主板有hdmi 和dp 接口，用的HDMI
+板载声卡：ALC887
+板载网卡：RTL8168
+wifi和蓝牙：博通 43224AG /别名：bcm943224PcieBT2
+硬盘：一块 512G nvme kioxia 一块 2.5寸机械盘
+分区情况：nvme盘 efi分区 放了一个winpe，另外就arch的引导
+/ 分区 EXT4 ，5G 只安装了arch基本系统+qemu base
+/ 另外一个分区 EXT4分区格式，用来存虚拟机的虚拟磁盘文件 挂载到 /mnt/EXT4
+机械盘 只一个分区 exfat格式，挂载到 /mnt/hdd 里面存放虚拟机镜像 各种iso 以及 重要文件的备份
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="准备工作"&gt;准备工作：
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;安装OVMF &lt;code&gt;sudo pacman -S ovmf&lt;/code&gt; 记得&lt;code&gt;/usr/share/edk2-ovmf/x64/OVMF.fd&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;opencore 后文&lt;/li&gt;
+&lt;li&gt;Ventura 恢复镜像Ventura-recovery.img 后文&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="opencore-获取"&gt;opencore 获取
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-gdscript3" data-lang="gdscript3"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;cd&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;mnt&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;ext4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;wget&lt;/span&gt; &lt;span class="n"&gt;https&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;//&lt;/span&gt;&lt;span class="n"&gt;github&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;com&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;thenickdude&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;KVM&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;Opencore&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;releases&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;download&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;v19&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;OpenCore&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v19&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;iso&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;gzip&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;d&lt;/span&gt; &lt;span class="n"&gt;OpenCore&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;v19&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;iso&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;gz&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个iso文件实际是一个img文件，所以直接重命名OpenCore-v19.img 即可&lt;/p&gt;
+&lt;h2 id="ventura-恢复镜"&gt;Ventura 恢复镜
+&lt;/h2&gt;&lt;p&gt;直接用网上一些dmg用qemu转换也可以,或者用这个项目获取在线恢复镜像（网络安装，安装速度会略慢，第三方打包的dmg是离线安装速度好很多） 我用的是小兵的dmg镜像
+我之前已经获取到了，建议创建一个docker ubuntu18，尽量别在宿主机搞，在docker 里面搞定.也可以参考我之前在&lt;a class="link" href="https://dev.leiyanhui.com/pve/install-macos-ventura/" target="_blank" rel="noopener"
+&gt;pve下的记录&lt;/a&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo apt install qemu-utils make git
+git clone https://ghproxy.com/https://github.com/thenickdude/OSX-KVM.git
+cd ./OSX-KVM/scripts/ventura
+make Ventura-recovery.dmg
+# 有执行 qemu-img convert BaseSystem.dmg -O raw Ventura-recovery.dmg 那么这个最终的dmg其实已经是raw文件了
+mv Ventura-recovery.dmg Ventura-recovery.img
+用sftp 或者其他方法 吧文件复制到宿主机，
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;如果用小兵的，需要转换一下格式&lt;code&gt;qemu-img convert -f dmg -O qcow2 小兵的dgm文件名.dmg xiaobing.qcow2&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="准备好的文件"&gt;准备好的文件
+&lt;/h2&gt;&lt;p&gt;/usr/share/edk2-ovmf/x64/OVMF.fd 虚拟OVMF-bois-efi 安装ovmf后就有了
+/mnt/exfat/OpenCore-V19.img 针对kvm优化过的通用opcencore 引导&lt;br&gt;
+/mnt/exfat/Ventura-recovery.img macos13 恢复镜像 ，
+/mnt/exfat/macos-13.img 用于安装macos的空白虚拟磁盘 &lt;code&gt;qemu-img create -f raw -o size=32G /mnt/ext4/macos-13.img&lt;/code&gt; qcow2也可以。我喜欢raw 通用性好一些
+可选&lt;br&gt;
+/mnt/hdd/iso/pe/FirPE-V1.8.1.iso 一个集成部分virtio驱动winpe win下下载运行 创建iso即可 &lt;a class="link" href="https://firpe.cn/" target="_blank" rel="noopener"
+&gt;https://firpe.cn/&lt;/a&gt;
+参考pve的配置文件： &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/100.macbase.conf" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/100.macbase.conf&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="安装前的思考"&gt;安装前的思考
+&lt;/h2&gt;&lt;p&gt;因为是第一次脱离pve或者unraid安装黑苹果，尽量采用pve下的黑苹果已经成功的方式，
+比如 q35机型 OVMF（uefi） VMware显卡 cpu Penryn 还有部分 args参数&lt;br&gt;
+部分内容参考： &lt;a class="link" href="https://github.com/kholia/OSX-KVM/blob/master/OpenCore-Boot.sh" target="_blank" rel="noopener"
+&gt;https://github.com/kholia/OSX-KVM/blob/master/OpenCore-Boot.sh&lt;/a&gt;&lt;br&gt;
+cpu核心数 应该是只可以用 2 4 8 16 32 这样的，我是6核12线，所以8&lt;br&gt;
+之前在kvm下部署成的配置文件 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/100.macbase.conf" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/100.macbase.conf&lt;/a&gt; 关键是这行&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;args: -device isa-applesmc,osk=&amp;quot;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&amp;quot; -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -global nec-usb-xhci.msi=off -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off -cpu host,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc&lt;/code&gt;
+网络部分，我为了简单管理，还是使用用户模式&lt;br&gt;
+另外vnc远程远远没有苹果的ARD协议速度好 需要映射 一下端口进去 5900 3283 22 其中22是tcp，其他两个tcp/udp 都要&lt;br&gt;
+苹果官网 在关于远程桌面 网络指南中有提示这三个端口：https://support.apple.com/zh-cn/guide/remote-desktop/welcome/mac&lt;br&gt;
+&lt;code&gt;hostfwd=tcp::15900-:5900,hostfwd=udp::15900-:5900,hostfwd=tcp::13283-:3283,hostfwd=udp::13283-:3283,hostfwd=tcp::1222-:22&lt;/code&gt;
+主硬盘尽量用virio,kholia/OSX-KVM/blob/master/OpenCore-Boot.sh 给的例子是ide的&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive id=MacHDD,if=none,file=&amp;#34;/mnt/ext4/macos-13.img&amp;#34;,format=raw \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ide-hd,bus=sata.4,drive=MacHDD \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;改一下 直接用drive 挂载&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=1,media=disk,format=raw,if=virtio,file=/mnt/ext4/macos-13.img \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="修改一下-opencore"&gt;修改一下 opencore
+&lt;/h2&gt;&lt;p&gt;可以不改，下面配置可以直接启动，后期要直通硬件 再修改即可&lt;/p&gt;
+&lt;h2 id="尝试启动安装"&gt;尝试启动安装
+&lt;/h2&gt;&lt;p&gt;看了参数 -boot [order=drivers][,once=drives] 定义设备的引导次序，每种设备使用一个字符表示。a,b 表示软驱，c表示第一块硬盘，d表示第一个光驱，n-p 表示网络适配器。
+-boot order=dc,once=d 或者 &lt;code&gt;-boot menu=on&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;span class="lnt"&gt;26
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S screen
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;screen -S mac
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -enable-kvm -machine pc-q35-7.1 -m 8G \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-boot menu=on \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-usb -device usb-kbd -device usb-tablet \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-netdev user,id=net0,hostfwd=tcp::15900-:5900,hostfwd=udp::15900-:5900,hostfwd=tcp::13283-:3283,hostfwd=udp::13283-:3283,hostfwd=tcp::1222-:22 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device usb-ehci,id=ehci \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device nec-usb-xhci,id=xhci \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-global nec-usb-xhci.msi=off \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device isa-applesmc,osk=&amp;#34;ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smbios type=2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ich9-intel-hda -device hda-duplex \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ich9-ahci,id=sata \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smp 8,sockets=1,cores=4 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-cpu host,kvm=on,vendor=GenuineIntel,+kvm_pv_unhalt,+kvm_pv_eoi,+hypervisor,+invtsc \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-bios /usr/share/edk2-ovmf/x64/OVMF.fd \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive id=OpenCoreBoot,if=none,snapshot=on,format=raw,file=&amp;#34;/mnt/ext4/OpenCore-V19.img&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device ide-hd,bus=sata.2,drive=OpenCoreBoot \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=0,media=disk,format=qcow2,if=virtio,file=/mnt/ext4/xiaobing.qcow2 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=1,media=disk,format=raw,if=virtio,file=/mnt/ext4/macos-13.img \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=3,media=cdrom,file=/mnt/hdd/iso/virtio-win-0.1.225.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=4,media=cdrom,file=/mnt/hdd/iso/pe/FirPE-V1.8.1.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vga vmware \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc :1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果 用OSX-KVM的恢复镜像，就上面Install_macOS_Ventura_13 或者 xiaobing.qcow2那行改为下面这两行&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;-device ide-hd,bus=sata.3,drive=InstallMedia \
+-drive id=InstallMedia,if=none,file=&amp;quot;/mnt/exfat/Ventura-recovery.img&amp;quot;,format=raw \
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id="vnc连接开始安装"&gt;vnc连接开始安装
+&lt;/h2&gt;&lt;p&gt;vnc 链接 宿主机器ip:5901
+开机 先按下 esc 选择cdrom 启动到pe 检查一下 基本的硬件情况,因为这个pe 没有集成 virtio-net-pci的驱动，所以每次进去需要手动安装一下驱动&lt;br&gt;
+安装之前 先safari打开网站 测试，可以顺利联网,继续安装&lt;/p&gt;
+&lt;p&gt;因为macos还需要继续完善，所以暂时不添加到开机启动里面,可以丢到screen里面 运行&lt;/p&gt;
+&lt;p&gt;没有意外 直接成功&lt;/p&gt;
+&lt;h3 id="kvm-进阶和相关小问题处理"&gt;kvm 进阶和相关小问题处理
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/all_list/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/all_list/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm的虚拟机使用ovmf模式uefi启动</title><link>https://dev.leiyanhui.com/kvm/ovmf/</link><pubDate>Tue, 01 Nov 2022 16:52:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/ovmf/</guid><description>&lt;p&gt;部分系统强制 efi启动，例如黑苹果。所以自己安装配置的pve 需要添加efi启动模式&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo pacman -S ovmf
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;会在 /usr/share/edk2-ovmf/x64/ 目录下多出来几个fd文件 是需要用的&lt;/p&gt;
+&lt;p&gt;先看一个基本的 win10系统的命令 源码： &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/kvm-baseNet-seaeBois.sh" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/kvm-baseNet-seaeBois.sh&lt;/a&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -bios /usr/share/edk2-ovmf/x64/OVMF.fd \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc :1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样就可以启动了，但是这个fd文件好像是公用的，会写入启动信息所所以，最好是给每一个vm都cp一份来使用&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;cp /usr/share/edk2-ovmf/x64/OVMF.fd /mnt/exfat/bois_win10.fd
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;创建一个虚拟磁盘&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;qemu-img create -f raw -o size=16G /mnt/exfat/win10efi.img
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;开启一个虚拟机&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -enable-kvm -machine pc-q35-7.1 -m 8192 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-name w10 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-bios /mnt/exfat/bois_win10.fd \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-cpu host,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smp 12,sockets=1,cores=6 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-netdev user,id=mynet0,hostfwd=tcp::13389-:3389,hostfwd=tcp::23389-:3389 -device e1000,netdev=mynet0 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-boot menu=on,splash-time=15000 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-usb -device usb-tablet \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vga vmware \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=1,media=disk,format=raw,if=virtio,file=/mnt/exfat/win10efi.img,cache=unsafe \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=2,media=cdrom,file=/mnt/hdd/iso/windows/Win10-21H2.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=3,media=cdrom,file=/mnt/hdd/iso/virtio-win-0.1.225.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=4,media=cdrom,file=/mnt/hdd/iso/pe/FirPE-V1.8.1.iso \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc :1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;正常安装即可，如果只是测试 也可以只启动 FirPE 他默认支持&lt;/p&gt;
+&lt;h3 id="kvm-进阶和相关小问题处理"&gt;kvm 进阶和相关小问题处理
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/all_list/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/all_list/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm 声卡的直通 穿透 映射</title><link>https://dev.leiyanhui.com/kvm/sound-pass/</link><pubDate>Tue, 01 Nov 2022 03:50:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/sound-pass/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;本文未完成，目前用 spice 和 rdp 调用控制机声卡&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;kvm下支持声卡作为usb或者pice 直通， 也支持 映射到虚拟机。
+usb声卡的直通很简单，不用多说。pice的也简单，但是在面对多个设备同一个组的时候，麻烦一些。另外就是 宿主机映射到虚拟机可以多虚拟机复用的情况。&lt;/p&gt;
+&lt;p&gt;主要记录这两个过程&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;声卡所在 分组存在多个设备，直通声卡给虚拟机&lt;/li&gt;
+&lt;li&gt;宿主机声卡映射给多个，多个虚拟机。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="基于pcie的声卡直通"&gt;基于pcie的声卡直通
+&lt;/h2&gt;&lt;p&gt;我这里整组直通存在问题，所以打算使用映射的反射光&lt;/p&gt;
+&lt;h2 id="声卡映射"&gt;声卡映射
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;soundhw 应该是已经被弃用的参数了，不要使用。
+如果要穿映射，先确定 &lt;code&gt;sudo nano /etc/modprobe.d/vfio.conf&lt;/code&gt; 里面没有声卡的id&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;a class="link" href="https://dev.leiyanhui.com/arch/arch-sound/" target="_blank" rel="noopener"
+&gt;然后确保物理机的声卡 可以驱动起来 &lt;/a&gt; 这里用了 alsa&lt;/p&gt;
+&lt;p&gt;qemu-system-x86_64 -audio model=help 可用的模拟设备&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;Valid sound card names (comma separated):
+sb16 Creative Sound Blaster 16
+hda Intel HD Audio
+gus Gravis Ultrasound GF1
+es1370 ENSONIQ AudioPCI ES1370
+cs4231a CS4231A
+adlib Yamaha YM3812 (OPL2)
+ac97 Intel 82801AA AC97 Audio
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;qemu-system-x86_64 -audio-help&lt;/code&gt; 提示只能用none&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;Environment variable based configuration deprecated.
+Please use the new -audiodev option.
+Equivalent -audiodev to your current environment variables:
+(Since you didn't specify QEMU_AUDIO_DRV, I'll list all possibilities)
+-audiodev id=none,driver=none
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;还需要一个包 &lt;code&gt;qemu-audio-alsa/qemu-audio-pa&lt;/code&gt; &lt;code&gt;sudo pacman -S qemu-audio-alsa&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;尝试启动一个 空白虚拟机&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -audiodev id=snd0,driver=alsa -device ich9-intel-hda -device hda-output,audiodev=snd0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;没有错误提示，巡航时启动一个win 虚拟机 加上上面的参数，注意之前有 ich9-intel-hda 的话记得冲突问题。 经过测试 有声音，但是杂音。完全听不清&lt;/p&gt;
+&lt;p&gt;尝试使用pulseaudio &lt;code&gt;sudo pacman -S  pulseaudio qemu-audio-pa&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;执行 pulseaudio 会提示几个目录不存在，他会自动创建，如果没有创建 手动创建，最后还提示 一个 &lt;code&gt;/etc/pulse/default.pa.d&lt;/code&gt; 也创建一下&lt;code&gt;sudo mkdir /etc/pulse/default.pa.d&lt;/code&gt;
+尝试启动一个 空白虚拟机&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pulseaudio &amp;amp;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -audiodev id=snd0,driver=pa -device ich9-intel-hda -device hda-output,audiodev=snd0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;依旧是杂音&lt;/p&gt;
+&lt;p&gt;试着换 ac97 &lt;code&gt;-audiodev id=snd0,driver=pa -device AC97,audiodev=snd0&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;win10 里面安装ac97 驱动比较麻烦，需要找到 cab包下载解压后，手动从可用驱动列表，然后磁盘安装找到 对应的inf后安装。经过我测试，更换ac97驱动后，第一次有概率生意正常，然后重启后 会再次出现巴拉巴拉的声音，完全听不清。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;经过我反复测试。。。。无论是前端用pa 还是alsa 后端 用ac97 hda sb16 usb-audio 最终的结果 都完全一样。。。杂音 听不清 偶尔可以 pa添了麦克风回声模块 也没用。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="kvm-进阶和相关小问题处理"&gt;kvm 进阶和相关小问题处理
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/all_list/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/all_list/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm使用桥接网络</title><link>https://dev.leiyanhui.com/kvm/net-br/</link><pubDate>Tue, 01 Nov 2022 03:50:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/net-br/</guid><description>&lt;p&gt;kvm 默认创建的虚拟机 是没有网络的&lt;/p&gt;
+&lt;p&gt;如果使用桥接，可以让局域网内的机器访问虚拟机
+如果要处理 可以参考 ： &lt;a class="link" href="https://wiki.archlinux.org/title/QEMU_%28%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87%29#%E4%BD%BF%E7%94%A8_qemu-bridge-helper_%E6%A1%A5%E6%8E%A5%E7%BD%91%E7%BB%9C" target="_blank" rel="noopener"
+&gt;https://wiki.archlinux.org/title/QEMU_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)#%E4%BD%BF%E7%94%A8_qemu-bridge-helper_%E6%A1%A5%E6%8E%A5%E7%BD%91%E7%BB%9C&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;但是也好像 会导致 虚拟机之间 和宿主机 之间的的通信速度收到物理网口的限制&lt;/p&gt;
+&lt;p&gt;所以，我这里暂时使用用户 网络 的方式，对外服务 由宿主机来的 QEMU 端口转发 转发服务端口出来。&lt;/p&gt;
+&lt;p&gt;like &lt;code&gt;-nic user,hostfwd=tcp::10022-:22,hostfwd=tcp::5900-:5900&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;完整的 启动代码 参考我的 ：https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/kvm-baseNet-seaeBois.sh&lt;/p&gt;
+&lt;h3 id="kvm-进阶和相关小问题处理"&gt;kvm 进阶和相关小问题处理
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/all_list/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/all_list/&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm硬件直通 核显 蓝牙 usb 板载声卡</title><link>https://dev.leiyanhui.com/kvm/pci-usb/</link><pubDate>Tue, 01 Nov 2022 03:50:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/pci-usb/</guid><description>&lt;p&gt;现在完成了一个 macos+ win10的双系统 vm &lt;a class="link" href="https://dev.leiyanhui.com/kvm/macos_add_win10/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/macos_add_win10/&lt;/a&gt;&lt;br&gt;
+并且 整理了一个可以基本启动的macos 和 win的脚本 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/start_bash_macos_win.sh" target="_blank" rel="noopener"
+&gt;start_bash_macos_win.sh&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;arch+kvm的安装 看文末链接&lt;/p&gt;
+&lt;h2 id="usb-和蓝牙的直通"&gt;usb 和蓝牙的直通
+&lt;/h2&gt;&lt;p&gt;usb直通 是最简单的，所以先处理usb的直通&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;SPICE 可以把控制机的usb通过网络穿透给受控虚拟机，这个可以看&lt;a class="link" href="https://wiki.archlinux.org/title/QEMU_%28%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87%29#%E4%BD%BF%E7%94%A8SPICE%E8%BF%9B%E8%A1%8CUSB%E9%87%8D%E5%AE%9A%E5%90%91" target="_blank" rel="noopener"
+&gt;arch的wike &lt;/a&gt;
+这里主要是宿主机的直通&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;需要用 lsusb命令&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S usbutils
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;运行 lsusb&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 001 Device 006: ID 05ac:821f Apple, Inc. Built-in Bluetooth 2.0+EDR HCI
+Bus 001 Device 003: ID 0a5c:4500 Broadcom Corp. BCM2046B1 USB 2.0 Hub (part of BCM2046 Bluetooth)
+Bus 001 Device 002: ID 093a:2510 Pixart Imaging, Inc. Optical Mouse
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;数字分别对应 标识“ host_bus host_addr vendor_id product_id”。&lt;br&gt;
+直通蓝牙 和 Mouse 给虚拟机，有两种方式，第一种是 按照设备id 第二种是直接把usb指定的接口直通给虚拟机。 建议用接口方式。这样指定的接口还可以热拔插&lt;br&gt;
+例如 usb 鼠标 是hostbus1 hostaddr：002 蓝牙是 hostbus1 hostaddr：006
+编辑脚本&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp base-win.sh base-win-usb.sh &amp;amp;&amp;amp; nano base-win-usb.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;在 &lt;code&gt;-device usb-ehci,id=ehci&lt;/code&gt; 后添加行 &lt;code&gt;id=qxhci&lt;/code&gt; 这个名字不能有重复的&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device qemu-xhci,id=qxhci -device usb-host,bus=qxhci.0,hostdevice=/dev/bus/usb/001/002 \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样，无论当前插鼠标的usb接口插入什么设备 都会直通给虚拟机（注意 usb2 和 usb3 对应的host_addr 是不同的，如果分别插入分别获取一次host_addr都直通进去才可以同一个接口 同时支持usb2和usb3）
+操作的时候 会有权限问题，可能需要 &lt;code&gt;sudo sh base-win-usb.sh&lt;/code&gt; 不是很安全，如果要解决这个问题，可以&lt;a class="link" href="https://wiki.archlinux.org/title/Udev#About_udev_rules" target="_blank" rel="noopener"
+&gt;查看arch关于udev的wiki&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;鼠标测试成功，用同样的方法添加的时候，我发现&lt;code&gt;ID 05ac:821f Apple, Inc. Built-in Bluetooth 2.0+EDR HCI&lt;/code&gt; 这个设备的Device id/host_addr会变化 所以直接用设备的id&lt;/p&gt;
+&lt;p&gt;添加 &lt;code&gt;port=XXX&lt;/code&gt; 参数，鼠标口直接绑定，蓝牙用vendorid 和 productid绑定&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device qemu-xhci,id=qxhci -device usb-host,port=1,bus=qxhci.0,hostdevice=/dev/bus/usb/001/002 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device usb-host,port=2,bus=qxhci.0,vendorid=0x0a5c,productid=0x4500 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device usb-host,port=3,bus=qxhci.0,vendorid=0x05ac,productid=0x821f \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最终完整文件 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/base-win-usb-bluetooth.sh" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/base-win-usb-bluetooth.sh&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;因为是已经安装好的 win，所以一直动他主板设备，可能会遇到蓝屏问题。这个是win的问题，不用管他，正常启动过一次 以后不改这些参数 就不会有问题&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="核显-独显和其他pice设备的直通"&gt;核显 独显和其他pice设备的直通
+&lt;/h2&gt;&lt;h3 id="启用iommu"&gt;启用IOMMU
+&lt;/h3&gt;&lt;p&gt;确认宿主机BIOS里面打开了VT-d/VT-x/VT-i等所有硬件虚拟化支持开关
+打开Linux操作系统的iommu开关，在grub启动命令行里面配置，Intel CPU和AMD CPU配置参数有区别：Intel CPU: intel_iommu=on；AMD CPU: amd_iommu=on
+重启服务器，检查iommu配置是否生效（dmesg | grep -i iommu，输出“Intel-IOMMU: enabled”表示生效）&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;sudo nano /etc/default/grub&lt;/code&gt; 编辑&lt;code&gt;GRUB_CMDLINE_LINUX_DEFAULT=&amp;quot;... intel_iommu=on ...&amp;quot;&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;另外一个参数 &lt;code&gt;iommu=pt&lt;/code&gt;，这将防止Linux试图接触(touching)无法直通的设备。 不确定是否是必须的&lt;/p&gt;
+&lt;p&gt;更新一下 grub，&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo grub-install /dev/nvme0n1 #(注意，不是efi分区，而且是整个磁盘)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo grub-mkconfig -o /boot/grub/grub.cfg
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo reboot
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重启 后检查一下,如果没有下面的分组，信息，那就是 bios的 vt-d 没打开，去打开&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;cat /etc/default/grub
+sudo dmesg | grep -i iommu
+[ 0.000000] Command line: BOOT_IMAGE=/boot/vmlinuz-linux root=UUID=7ecb4d27-3d12-9d47-ab75-ba39b6fbe737 rw loglevel=3 quiet intel_iommu=on
+[ 0.038327] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-linux root=UUID=7ecb4d27-3d12-9d47-ab75-ba39b6fbe737 rw loglevel=3 quiet intel_iommu=on
+[ 0.038385] DMAR: IOMMU enabled
+[ 0.092270] DMAR-IR: IOAPIC id 2 under DRHD base 0xfed91000 IOMMU 1
+[ 0.292307] iommu: Default domain type: Translated
+[ 0.292309] iommu: DMA domain TLB invalidation policy: lazy mode
+[ 0.320110] DMAR: IOMMU feature fl1gp_support inconsistent
+[ 0.320111] DMAR: IOMMU feature pgsel_inv inconsistent
+[ 0.320112] DMAR: IOMMU feature nwfs inconsistent
+[ 0.320113] DMAR: IOMMU feature pasid inconsistent
+[ 0.320114] DMAR: IOMMU feature eafs inconsistent
+[ 0.320114] DMAR: IOMMU feature prs inconsistent
+[ 0.320115] DMAR: IOMMU feature nest inconsistent
+[ 0.320116] DMAR: IOMMU feature mts inconsistent
+[ 0.320116] DMAR: IOMMU feature sc_support inconsistent
+[ 0.320117] DMAR: IOMMU feature dev_iotlb_support inconsistent
+[ 0.320347] pci 0000:00:00.0: Adding to iommu group 0
+[ 0.320357] pci 0000:00:02.0: Adding to iommu group 1
+[ 0.320367] pci 0000:00:14.0: Adding to iommu group 2
+[ 0.320373] pci 0000:00:17.0: Adding to iommu group 3
+[ 0.320384] pci 0000:00:1c.0: Adding to iommu group 4
+[ 0.320392] pci 0000:00:1c.5: Adding to iommu group 5
+[ 0.320400] pci 0000:00:1c.6: Adding to iommu group 6
+[ 0.320408] pci 0000:00:1c.7: Adding to iommu group 7
+[ 0.320416] pci 0000:00:1d.0: Adding to iommu group 8
+[ 0.320431] pci 0000:00:1f.0: Adding to iommu group 9
+[ 0.320437] pci 0000:00:1f.2: Adding to iommu group 9
+[ 0.320444] pci 0000:00:1f.3: Adding to iommu group 9
+[ 0.320451] pci 0000:00:1f.4: Adding to iommu group 9
+[ 0.320460] pci 0000:01:00.0: Adding to iommu group 10
+[ 0.320468] pci 0000:02:00.0: Adding to iommu group 11
+[ 0.320476] pci 0000:05:00.0: Adding to iommu group 12
+[ 0.378552] AMD-Vi: AMD IOMMUv2 functionality not available on this system - This is not a bug.
+[ 2.573917] pci 0000:00:1f.1: Adding to iommu group 13
+[ 2.574294] pci 0000:00:1f.1: Removing from iommu group 13
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="查看pice情况"&gt;查看pice情况
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;sudo nano /mnt/ssd/print_IOMMU.sh&lt;/code&gt; 内容&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#!/bin/bash
+shopt -s nullglob
+for d in /sys/kernel/iommu_groups/*/devices/*; do
+n=${d#*/iommu_groups/*}; n=${n%%/*}
+printf 'IOMMU Group %s ' &amp;quot;$n&amp;quot;
+lspci -nns &amp;quot;${d##*/}&amp;quot;
+done;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;sudo sh print_IOMMU.sh&lt;/code&gt; 查看所有pice设备&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;IOMMU Group 0 00:00.0 Host bridge [0600]: Intel Corporation 8th Gen Core Processor Host Bridge/DRAM Registers [8086:3ec4] (rev 07)
+IOMMU Group 1 00:02.0 VGA compatible controller [0300]: Intel Corporation CoffeeLake-H GT2 [UHD Graphics 630] [8086:3e9b]
+IOMMU Group 10 01:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller [10ec:8168] (rev 0c)
+IOMMU Group 11 02:00.0 Network controller [0280]: Broadcom Inc. and subsidiaries BCM43224 802.11a/b/g/n [14e4:4353] (rev 01)
+IOMMU Group 12 05:00.0 Non-Volatile memory controller [0108]: KIOXIA Corporation NVMe SSD [1e0f:0009] (rev 01)
+IOMMU Group 2 00:14.0 USB controller [0c03]: Intel Corporation 100 Series/C230 Series Chipset Family USB 3.0 xHCI Controller [8086:a12f] (rev 31)
+IOMMU Group 3 00:17.0 SATA controller [0106]: Intel Corporation Q170/Q150/B150/H170/H110/Z170/CM236 Chipset SATA Controller [AHCI Mode] [8086:a102] (rev 31)
+IOMMU Group 4 00:1c.0 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #5 [8086:a114] (rev f1)
+IOMMU Group 5 00:1c.5 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #6 [8086:a115] (rev f1)
+IOMMU Group 6 00:1c.6 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #7 [8086:a116] (rev f1)
+IOMMU Group 7 00:1c.7 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #8 [8086:a117] (rev f1)
+IOMMU Group 8 00:1d.0 PCI bridge [0604]: Intel Corporation 100 Series/C230 Series Chipset Family PCI Express Root Port #9 [8086:a118] (rev f1)
+IOMMU Group 9 00:1f.0 ISA bridge [0601]: Intel Corporation B150 Chipset LPC/eSPI Controller [8086:a148] (rev 31)
+IOMMU Group 9 00:1f.2 Memory controller [0580]: Intel Corporation 100 Series/C230 Series Chipset Family Power Management Controller [8086:a121] (rev 31)
+IOMMU Group 9 00:1f.3 Audio device [0403]: Intel Corporation 100 Series/C230 Series Chipset Family HD Audio Controller [8086:a170] (rev 31)
+IOMMU Group 9 00:1f.4 SMBus [0c05]: Intel Corporation 100 Series/C230 Series Chipset Family SMBus [8086:a123] (rev 31)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;我这里需要直通 核显 &lt;code&gt;[UHD Graphics 630] [8086:3e9b] &lt;/code&gt; wifi &lt;code&gt; BCM43224 802.11a/b/g/n [14e4:4353]&lt;/code&gt; 声卡 &lt;code&gt;HD Audio Controller [8086:a170]&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="隔离设备"&gt;隔离设备
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;为了将设备分配给虚拟机，直通的设备和同在一个IOMMU组的所有设备必须将驱动程序更换为 stub 或是 vfio ，以防止宿主机尝试与其交互。对于大多数设备，在虚拟机启动时就可以完成这项工作。 但是核显不行，独显也不行，所以需要隔离掉。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="通过设备id绑定vfio-pci"&gt;通过设备ID绑定vfio-pci
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;如果是独显可能需要同时绑定独显上的HDMI声卡和gpu ，但是我没有独显，也没有支持HDMI音频的显示器，所以我这里只绑定核显&lt;code&gt;[8086:3e9b]&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nano /etc/modprobe.d/vfio.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#============
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;options vfio-pci ids=8086:3e9b
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果还要直通wifi，声卡不打算直通，改为穿透&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;options vfio-pci ids=8086:3e9b,14e4:4353
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重新生成initramfs &lt;code&gt;sudo mkinitcpio -P&lt;/code&gt;&lt;/p&gt;
+&lt;h4 id="可能还需要-提前加载vfio-pci"&gt;可能还需要 提前加载vfio-pci
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;因为Arch的linux内核将vfio-pci作为一个模块，我们需要强迫vfio-pci在显卡驱动抢占硬件之前加载。为了达成这一目的，我们向mkinitcpio中添加 vfio_pci, vfio, vfio_iommu_type1, vfio_virqfd：
+这步 和 pve的黑名单差不多 意思&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id="mkinitcpio"&gt;mkinitcpio
+&lt;/h4&gt;&lt;p&gt;&lt;code&gt;sudo nano /etc/mkinitcpio.conf&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;MODULES=(... vfio_pci vfio vfio_iommu_type1 vfio_virqfd ...)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="黑名单"&gt;黑名单
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;sudo nano /etc/modprobe.d/blacklist.conf
+&lt;/code&gt;&lt;/pre&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;blacklist i915
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;blacklist snd_hda_intel
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;blacklist snd_hda_codec_hdmi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;snd_hda_intel 是声卡，如果不要直通这个地方 不要添加，snd_hda_codec_hdmi是核显的hdmi声卡&lt;/p&gt;
+&lt;h4 id="booster"&gt;booster
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;sudo nano /etc/booster.yaml
+modules_force_load: vfio_pci,vfio,vfio_iommu_type1,vfio_virqfd
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4 id="dracut"&gt;dracut
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mkdir /etc/dracut.conf.d
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nano /etc/dracut.conf.d/10-vfio.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;force_drivers+=&amp;#34; vfio_pci vfio vfio_iommu_type1 vfio_virqfd &amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="防止部分游戏蓝屏以及macos无限重启"&gt;防止部分游戏蓝屏，以及macos无限重启
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nano /etc/modprobe.d/kvm.conf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-------
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;options kvm ignore_msrs=Y
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;重新生成initramfs &lt;code&gt;sudo mkinitcpio -P&lt;/code&gt; 提示几个 &lt;code&gt;WARNING: Possibly missing firmware for module&lt;/code&gt; 不用管他，大致是物理机器缺少驱动的问题&lt;/p&gt;
+&lt;p&gt;然后重启&lt;/p&gt;
+&lt;h3 id="重启后检查"&gt;重启后检查
+&lt;/h3&gt;&lt;p&gt;重启后屏幕 过了grub后，显示startging versinon XXX.X-X-arch 后 屏幕就不再有输出，有时候 还可能会黑屏或者提示没信号，这是正常的,因为 我们没让arch接触显卡了&lt;/p&gt;
+&lt;p&gt;重启后重新检查
+&lt;code&gt;sudo dmesg | grep -i iommu&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;应该有 IOMMU enabled&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;sudo dmesg | grep -i vfio&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[ 1.324935] VFIO - User Level meta-driver version: 0.3
+[ 1.344914] vfio-pci 0000:00:02.0: vgaarb: deactivate vga console
+[ 1.344917] vfio-pci 0000:00:02.0: vgaarb: changed VGA decodes: olddecodes=io+mem,decodes=io+mem:owns=io+mem
+[ 1.345002] vfio_pci: add [8086:3e9b[ffffffff:ffffffff]] class 0x000000/00000000
+[ 1.345117] vfio_pci: add [14e4:4353[ffffffff:ffffffff]] class 0x000000/00000000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;lspci -k&lt;/code&gt; 检查一下 或者 &lt;code&gt;lspci -k | grep -i -e Intel -A 3&lt;/code&gt; &lt;code&gt;lspci -k | grep -i -e Audio -A 3&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;lspci -nnk -d 8086:3e9b&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;00:02.0 VGA compatible controller [0300]: Intel Corporation CoffeeLake-H GT2 [UHD Graphics 630] [8086:3e9b]
+DeviceName: Onboard IGD
+Subsystem: Gigabyte Technology Co., Ltd Device [1458:d000]
+Kernel driver in use: vfio-pci
+Kernel modules: i915
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="尝试直通-核显"&gt;尝试直通 核显
+&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;cd /mnt/ssd/vm-shell/
+cp base-win-usb.sh gpu-win-usb.sh &amp;amp;&amp;amp; nano gpu-win-usb.sh
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;添加行&lt;code&gt;-device vfio-pci,host=0000:00:02.0,addr=0x02,x-igd-opregion=on \&lt;/code&gt;
+屏幕有反应，但是一会还是无信号，不确定是否需要vbios先登录到win，用系统更新自动安装驱动试试看看，驱动装完后 依旧黑屏。&lt;/p&gt;
+&lt;p&gt;去弄vbois文件，因为我这个uhd630 很常见，有人弄好了，之前在kvm和unraid 都测试过没问题，所以直接拿来用&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;cd /mnt/ssd/
+wget https://file.leiyanhui.com/pve-unraid-kvm/vbios_gvt_uefi.rom
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;修改上面的参数，同时发现 插槽01 和02 01被VMware显卡用 02被网卡用了 所以把 网卡的改到04 显卡继续用02 02这个位置 就是多数电脑的核显的固定位置&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device vfio-pci,host=0000:00:02.0,addr=0x02,x-igd-opregion=on,romfile=/mnt/ssd/vbios_gvt_uefi.rom \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;顺利点亮，qemu有提示 &amp;ldquo;IGD device 0000:00:02.0 cannot support legacy mode due to existing devices at address 1f.0&amp;rdquo; 说明是用了UPT 直通模式而不是Legacy&lt;/p&gt;
+&lt;p&gt;主机类型用pc 也就是 pc-i440fx-7.1 然后vnc那个设置为none 就没有这个提示，可以用Legacy 模式输出 ，但是物理显示屏也是没法显示出来 用户登录之前的画面。&lt;/p&gt;
+&lt;p&gt;但是我看了&lt;a class="link" href="https://github.com/qemu/qemu/blob/master/docs/igd-assign.txt#L91" target="_blank" rel="noopener"
+&gt;qemu的源码&lt;/a&gt; 好像 是q35禁用了Legacy 模式&lt;/p&gt;
+&lt;p&gt;vnc/spice 在登录的时候黑屏，但登录后，两个屏幕都可以显示。 但是因为前面加了鼠标穿透，导致vnc的屏幕鼠标 穿透到物理屏幕导致 vnc屏幕只能观看 无法用控制机的鼠标操作。这个问题后来发现可以通过调整设备的顺序解决 实例代码：&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-spice-smb-no-sound.sh" target="_blank" rel="noopener"
+&gt;查看我的&lt;/a&gt;&lt;/p&gt;
+&lt;h5 id="核显和其他pci直通的另外一个写法"&gt;核显和其他pci直通的另外一个写法
+&lt;/h5&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device pcie-root-port,bus=pcie.0,multifunction=on,port=1,chassis=1,id=port.1 \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device vfio-pci,host=0000:00:02.0,bus=port.1,addr=0x02,x-igd-opregion=on,x-igd-gms=1,romfile=/mnt/ssd/vbios_gvt_uefi.rom \
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device vfio-pci,host=0000:02:00.0,bus=port.1 \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="添加直通wifi"&gt;添加直通wifi
+&lt;/h4&gt;&lt;p&gt;这个很简单，前面vfio之后这里添加一行 就可以了&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device vfio-pci,host=02:00.0 \
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="声卡直通"&gt;声卡直通
+&lt;/h3&gt;&lt;p&gt;声卡和其他一堆设备在一个组里面 还是比较麻烦的。单独记录
+查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/sound-pass/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/sound-pass/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="直通了-核显--wifi-usb-蓝牙-的一个win虚拟机启动脚本"&gt;直通了 核显 wifi usb 蓝牙 的一个win虚拟机启动脚本
+&lt;/h2&gt;&lt;p&gt;注意 smb功能需要宿主机安装samba &lt;code&gt;sudo pacman -S samba&lt;/code&gt;
+&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-no-sound.md" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-no-sound.md&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;存在的问题&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;vnc显卡的鼠标不可以用，会穿透到物理屏幕。键盘也穿透过去了。因为vnc屏幕定位还是调试用，后期也尝试macos所以 此问题可能以后才会去研究（已经解决看后面的脚本）&lt;/li&gt;
+&lt;li&gt;物理屏幕不会显示kvm的bois引导界面，要等到Windows登录界面之前 才会点亮。&lt;/li&gt;
+&lt;li&gt;Q35 机型会提醒IGD核显不能用传统模式 换到pc-i440fx-7.1 模式，vnc 设置none 没有提醒。物理屏依旧不会显示kvm的启动信息，所以没啥区别。&lt;/li&gt;
+&lt;li&gt;声卡直通和映射有坑没解决，没有pve下那么容易，远程用的话 Windows 下 rdp协议可以直接把声音传递到控制机。 macos下还没研究xrdp和其他协议。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="另外一个解决了vnc鼠标问题的脚本"&gt;另外一个解决了vnc鼠标问题的脚本
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-spice-smb-no-sound.sh" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/win-gpu-usb-wifi-bt-vnc-spice-smb-no-sound.sh&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="macos-efi"&gt;macos efi
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;蓝牙可用&lt;/li&gt;
+&lt;li&gt;鼠标键盘 usb 也可以用&lt;/li&gt;
+&lt;li&gt;以太网可用&lt;/li&gt;
+&lt;li&gt;smb 到宿主机 可用&lt;/li&gt;
+&lt;li&gt;但是有别的一点问题 需要自定义oc的efi&lt;/li&gt;
+&lt;li&gt;spice 声卡不可用&lt;/li&gt;
+&lt;li&gt;没有直通核显&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;留个坑，慢慢填&lt;/p&gt;
+&lt;p&gt;本文参考：https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)
+&lt;a class="link" href="https://github.com/patmagauran/i915ovmfPkg/issues/8" target="_blank" rel="noopener"
+&gt;https://github.com/patmagauran/i915ovmfPkg/issues/8&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm-进阶和相关小问题处理"&gt;kvm 进阶和相关小问题处理
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/all_list/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/all_list/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="我的kvm脚本参考"&gt;我的kvm脚本参考
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a&gt;&lt;/p&gt;</description></item><item><title>archlinux 安装kvm QEMU 替代pve和unraid 做all in one 服务器</title><link>https://dev.leiyanhui.com/kvm/arch-install-kvm/</link><pubDate>Tue, 01 Nov 2022 02:03:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/arch-install-kvm/</guid><description>&lt;p&gt;pve 不够灵活，unraid不单收费也不灵活，通过一段时间的使用，决定还是arch神教。&lt;a class="link" href="https://dev.leiyanhui.com/arch/base-install/" target="_blank" rel="noopener"
+&gt;已经基本安装了一个archlinux系统 &lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;内容占用 150-170M 硬盘占用1.9G左右。我efi分区有一个 功能完整带网络的winpe，还有一个 alpine 所以占用有700M，实际不会这么大&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;df -h
+Filesystem Size Used Avail Use% Mounted on
+dev 7.8G 0 7.8G 0% /dev
+run 7.8G 1.1M 7.8G 1% /run
+/dev/nvme0n1p3 4.9G 1.9G 2.7G 42% /
+tmpfs 7.8G 0 7.8G 0% /dev/shm
+tmpfs 7.8G 0 7.8G 0% /tmp
+/dev/nvme0n1p1 5.0G 710M 4.3G 14% /boot/efi
+tmpfs 1.6G 0 1.6G 0% /run/user/1000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;初始教程基于arch，后面可能会尝试用alpine 看时间和精力吧。&lt;/p&gt;
+&lt;h2 id="安装组件"&gt;安装组件
+&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;sudo pacman -S qemu-base # 大概 329M 84个包 保护 qemu-img工具
+capstone-4.0.2-6 dtc-1.6.1-4 edk2-ovmf-202208-1 fuse3-3.12.0-1 hicolor-icon-theme-0.17-2 libcacard-2.7.0-2 libdrm-2.4.114-1 libepoxy-1.5.10-1
+libglvnd-1.5.0-1 libnfs-5.0.2-1 libomxil-bellagio-0.9.3-3 libslirp-4.7.0-1 libssh-0.10.4-1 liburcu-0.13.2-1 libxdamage-1.1.5-4
+libxkbcommon-1.4.1-1 libxshmfence-1.3.1-1 libxxf86vm-1.1.5-1 libyaml-0.2.5-1 llvm-libs-14.0.6-3 lm_sensors-1:3.6.0.r41.g31d1f125-1 lzo-2.10-3
+mesa-22.2.1-1 multipath-tools-0.9.3-1 ndctl-74-1 numactl-2.0.16-1 pixman-0.42.2-1 qemu-audio-spice-7.1.0-10 qemu-block-curl-7.1.0-10
+qemu-block-dmg-7.1.0-10 qemu-block-nfs-7.1.0-10 qemu-block-ssh-7.1.0-10 qemu-chardev-spice-7.1.0-10 qemu-common-7.1.0-10
+qemu-hw-display-qxl-7.1.0-10 qemu-hw-display-virtio-gpu-7.1.0-10 qemu-hw-display-virtio-gpu-gl-7.1.0-10 qemu-hw-display-virtio-gpu-pci-7.1.0-10
+qemu-hw-display-virtio-gpu-pci-gl-7.1.0-10 qemu-hw-display-virtio-vga-7.1.0-10 qemu-hw-display-virtio-vga-gl-7.1.0-10
+qemu-hw-s390x-virtio-gpu-ccw-7.1.0-10 qemu-hw-usb-host-7.1.0-10 qemu-hw-usb-redirect-7.1.0-10 qemu-hw-usb-smartcard-7.1.0-10 qemu-img-7.1.0-10
+qemu-pr-helper-7.1.0-10 qemu-system-x86-7.1.0-10 qemu-system-x86-firmware-7.1.0-10 qemu-tools-7.1.0-10 qemu-ui-curses-7.1.0-10
+qemu-ui-opengl-7.1.0-10 qemu-ui-spice-app-7.1.0-10 qemu-ui-spice-core-7.1.0-10 qemu-virtiofsd-7.1.0-10 seabios-1.16.0-3 snappy-1.1.9-2
+spice-0.15.0-1 usbredir-0.13.0-1 vde2-2.3.3-3 virglrenderer-0.9.1-1 vulkan-icd-loader-1.3.226-1 wayland-1.21.0-1 wolfssl-5.5.3-1
+xkeyboard-config-2.37-1 qemu-base-7.1.0-10
+sudo usermod -a -G kvm user_name
+sudo pacman -S ovmf # efi的支持 可选安装 前面装qemu的时候 应该自动安装上了 edk2-ovmf 17M
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;kvm是内核内置的，不需要另外安装。&lt;/p&gt;
+&lt;p&gt;我是不建议使用libvirt的，因为shell方式更加灵活 也更简单。对了解qemu-system的也由帮助，后面所有教程和记录 全部基于shell&lt;/p&gt;
+&lt;p&gt;libvirt&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;sudo pacman -S libvirt #可选，命令行模式用的习惯，就不用这个工具，可以用xml管理虚拟机，libvirt是Linux上实现虚拟化功能的库，是长期稳定的C语言API，支持KVM/QEMU、Xen、LXC等主流虚拟化方案。 50M左右 5个包
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;查看其他相关包的包&lt;code&gt;sudo pacman -Ss qemu&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;音频映射，你能需要 多几个包： qemu-audio-alsa qemu-audio-pa 等几个包&lt;/p&gt;
+&lt;h2 id="挂载exfat-和机械盘分区"&gt;挂载exfat 和机械盘分区
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo pacman -S exfat-utils
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mkdir /mnt/hdd /mnt/ssd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/nvme0n1p2 /mnt/ssd
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo mount /dev/sda1 /mnt/hdd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="基本系统"&gt;基本系统
+&lt;/h2&gt;&lt;p&gt;只安装了一下包&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;base linux linux-headers linux-firmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#基本工具
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;openssh sudo nano
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#网络
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;dhcpd networkmanager
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#引导
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;grub efibootmgr
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;#个人需要的 exfat 和 fish
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;exfat-utils
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;fish
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# kvm相关的
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-base
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="qemu-system-x86_64-命令行方式-灵活-创建虚拟机"&gt;qemu-system-x86_64 命令行方式 灵活 创建虚拟机
+&lt;/h2&gt;&lt;p&gt;参数 参考 ：https://man.archlinux.org/man/qemu.1&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-name 设置虚拟机名称
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-m 指定虚拟机内存大小
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smp 设置虚拟机CPU数
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-cpu 选择CPU
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-hda 选择使用*.qcow2 作为IDE硬盘镜像
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-cdrom 选择使用*.iso作为cdrom安装镜像
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-boot 选择启动类型: floppy (a), hard disk ©, CD-ROM (d), network (n)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-enable-kvm 使能KVM支持：enable KVM full virtualization support
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-netdev 配置主机的虚拟网卡：configure a host TAP network backend with ID ‘str’
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;type 类型 ifname 名称 connected to a bridge (default=br0)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;script：use network scripts ‘file’ (default=/etc/qemu-ifup)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-device 配置虚拟机的网卡类型
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc 配置VNC端口
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="实例-先弄一个win10虚拟机"&gt;实例： 先弄一个win10虚拟机
+&lt;/h3&gt;&lt;h4 id="创建磁盘"&gt;创建磁盘
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;如果能自己 估算每一个虚拟机的磁盘占用，建议用raw格式，因为img文件兼容性更好一些，qcow2 在win下需要转换才可以访问。而且img文件可以用ventoy直接在物理机启动。各有优势吧，自己选择。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;pre&gt;&lt;code&gt; qemu-img create -f raw -o size=16G /mnt/exfat/win10.img
+#qcows2多一个是否初始分配空间的选项，也就是类似vhd的动态磁盘 具体含义这里不解释
+qemu-img create -f qcow2 -o preallocation=falloc|off|full|metadata size=10G q4.qcow2
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4 id="准备安装镜像和驱动iso"&gt;准备安装镜像和驱动iso
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;/mnt/hdd/iso/windows/Win10-21H2.iso
+/mnt/hdd/iso/virtio-win-0.1.225.iso
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;virtio驱动iso下载地址： &lt;a class="link" href="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/" target="_blank" rel="noopener"
+&gt;https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="查看机型和接口参数"&gt;查看机型和接口参数
+&lt;/h4&gt;&lt;p&gt;机型尽量用q35，对新特性支持好一些，新linux 或win8以上win 或者mac 接口尽量用virtio，accel当然多数情况都用kvm，或者直接 -enable-kvm 也可以&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;qemu-system-x86_64 -machine help
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;后面都选 pc-q35-7.1&lt;/p&gt;
+&lt;h4 id="启动一个virtio硬盘和桥接网卡的win10虚拟机-q35"&gt;启动一个virtio硬盘和桥接网卡的win10虚拟机 q35
+&lt;/h4&gt;&lt;pre&gt;&lt;code&gt; qemu-system-x86_64 -enable-kvm -machine pc-q35-7.1 -m 8192 \
+-drive index=1,media=disk,format=raw,if=virtio,file=/mnt/exfat/win10.img,cache=unsafe \
+-drive index=2,media=cdrom,file=/mnt/hdd/iso/windows/Win10-21H2.iso \
+-drive index=3,media=cdrom,file=/mnt/hdd/iso/virtio-win-0.1.225.iso \
+-vnc :1
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;不指定vnc的话，他默认是监听本地 类似::1:5900，其他机器是连不上的。所以这里指定一下:x&lt;/p&gt;
+&lt;p&gt;外部机器 vnc 链接 ip:5901 即可，鼠标可能会错位，多用键盘配合 可以顺利安装上win10&lt;/p&gt;
+&lt;h4 id="性能优化"&gt;性能优化
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;上了个厕所发现还没装完。。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;安装过程并不快，感觉还少了点什么。，然后想起来。。没指定cpu。。。大概是单核。。。哈哈哈&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;-smp 2,sockets=1 #一个cpu2个核心的意思
+-smp 12,sockets=1,cores=6 # 单cpu 双核4线程
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;重新执行 。顺带加上引导菜单 &lt;code&gt;-boot menu=on,strict=off &lt;/code&gt;
+windows主机可以再加 &lt;code&gt;-cpu host,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time&lt;/code&gt; 开启 Hyper-V enlightenments 提升性能
+如果linux虚拟机可以&lt;code&gt; -drive file=disk_image,if=virtio,aio=native,cache.direct=on&lt;/code&gt; 可以 启用内核页归并节省内
+网络 可以暂时用&lt;code&gt;-netdev user,id=mynet0,hostfwd=tcp::13389-:3389 -device e1000,netdev=mynet0&lt;/code&gt; 并映射端口13389到虚拟机的3389里面&lt;/p&gt;
+&lt;p&gt;使用一个ICH-9 AHCI控制器的仿真层 &lt;code&gt; -device ich9-ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0&lt;/code&gt;
+显卡也可以指定一下-vga 如果linux和win建议 virtio-vga / virtio-gpu，如果要跑黑苹果建议 vmware，我这里 选择vmware&lt;/p&gt;
+&lt;p&gt;同时再加多一个winpe &lt;code&gt;/mnt/hdd/iso/pe/FirPE-V1.8.1.iso&lt;/code&gt;方便学习测试&lt;/p&gt;
+&lt;p&gt;鼠标指针偏移尝试 &lt;code&gt; -usb -device usb-tablet&lt;/code&gt; 测试有效
+重启后开机按esc 选择 3 win10安装盘，重新安装&lt;/p&gt;
+&lt;p&gt;源码： &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/kvm-baseNet-seaeBois.sh" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/pve-unraid-kvm/kvm-baseNet-seaeBois.sh&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;注释如下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;qemu-system-x86_64 -enable-kvm -machine pc-q35-7.1 -m 8192 \ # 使用kvm加速 q35 机型 内存 8g
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-name w10 \ # 名称 可以不需要这行
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-cpu host,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time \ # 针对Windows开启 hyper的一个虚拟化加速支持
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-smp 12,sockets=1,cores=6 \ # cpu 单路6核12线
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-netdev user,id=mynet0,hostfwd=tcp::13389-:3389 -device e1000,netdev=mynet0 \ # 网络 ：用户网络，映射远程端口，设备e1000
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-boot menu=on,splash-time=15000 \ # 显示开机 菜单 等待15秒
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-usb -device usb-tablet \ # 修正vnc鼠标漂移 直接穿透
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vga vmware \ #显示器 用vmware
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=1,media=disk,format=raw,if=virtio,file=/mnt/exfat/win10.img,cache=unsafe \ # 主磁盘
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=2,media=cdrom,file=/mnt/hdd/iso/windows/Win10-21H2.iso \ # 安装磁盘
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=3,media=cdrom,file=/mnt/hdd/iso/virtio-win-0.1.225.iso \ # 驱动
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-drive index=4,media=cdrom,file=/mnt/hdd/iso/pe/FirPE-V1.8.1.iso \ #一个集成virtio驱动的winpe 可以上网
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-vnc :1 #允许外部机器vnc链接到 5901
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="进阶功能和相关记录文章"&gt;进阶功能和相关记录文章
+&lt;/h2&gt;&lt;h3 id="基本安装"&gt;基本安装
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/arch/install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="关于efi模式启动"&gt;关于efi模式启动
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/ovmf/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/ovmf/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="进阶配置桥接网络"&gt;进阶：配置桥接网络
+&lt;/h3&gt;&lt;p&gt;桥接网络：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/net-br/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/net-br/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="硬件直通--pci-和usb"&gt;硬件直通 pci 和usb
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="声卡的直通穿透"&gt;声卡的直通/穿透
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/sound-pass/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/sound-pass/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="我的一些配置文件记录"&gt;我的一些配置文件记录
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm-开机自动启动"&gt;kvm 开机自动启动
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/auto_start_vm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/auto_start_vm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm安装macos"&gt;kvm安装macos
+&lt;/h3&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm安装macos附加上一个win"&gt;kvm安装macos附加上一个win
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/macos_add_win10/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/macos_add_win10/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="我的kvm脚本参考"&gt;我的kvm脚本参考
+&lt;/h3&gt;&lt;p&gt;&lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a&gt;&lt;/p&gt;</description></item><item><title>kvm 自动启动vm，不使用libvirt</title><link>https://dev.leiyanhui.com/kvm/auto_start_vm/</link><pubDate>Tue, 01 Nov 2022 02:03:20 +0800</pubDate><guid>https://dev.leiyanhui.com/kvm/auto_start_vm/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;不想使用libvirt 因为占用50M硬盘，然后只是提供一个简单管理功能。有洁癖不喜欢。 而且徒增学习成本&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;所以需要手动处理自动启动脚本&lt;/p&gt;
+&lt;p&gt;我这里是用的archlinux，所以 就自己创建一个脚本了。&lt;/p&gt;
+&lt;p&gt;也很简单 用 systemctl 创建一个服务就ok了， &lt;a class="link" href="https://dev.leiyanhui.com/arch/autostar/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/autostar/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="进阶功能和相关记录文章"&gt;进阶功能和相关记录文章
+&lt;/h2&gt;&lt;h3 id="基本安装"&gt;基本安装
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/arch/install-kvm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/arch/install-kvm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="关于efi模式启动"&gt;关于efi模式启动
+&lt;/h3&gt;&lt;p&gt;查看这里： &lt;a class="link" href="https://dev.leiyanhui.com/kvm/ovmf/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/ovmf/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="进阶配置桥接网络"&gt;进阶：配置桥接网络
+&lt;/h3&gt;&lt;p&gt;桥接网络：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/net-br/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/net-br/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="硬件直通--pci-和usb"&gt;硬件直通 pci 和usb
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/pci-usb/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/pci-usb/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="声卡的直通穿透"&gt;声卡的直通/穿透
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/sound-pass/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/sound-pass/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="我的一些配置文件记录"&gt;我的一些配置文件记录
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/tree/main/pve-unraid-kvm&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm-开机自动启动"&gt;kvm 开机自动启动
+&lt;/h3&gt;&lt;p&gt;查看这里 &lt;a class="link" href="https://dev.leiyanhui.com/kvm/auto_start_vm/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/auto_start_vm/&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="kvm安装macos"&gt;kvm安装macos
+&lt;/h3&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/install-macos-base/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/install-macos-base/&lt;/a&gt;&lt;/p&gt;
+&lt;h4 id="kvm安装macos附加上一个win"&gt;kvm安装macos附加上一个win
+&lt;/h4&gt;&lt;p&gt;查看这里：&lt;a class="link" href="https://dev.leiyanhui.com/kvm/macos_add_win10/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/kvm/macos_add_win10/&lt;/a&gt;&lt;/p&gt;</description></item></channel></rss>

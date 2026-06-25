@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Live on 小类随手记</title><link>https://dev.leiyanhui.com/categories/live/</link><description>Recent content in Live on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 03 Jun 2023 00:01:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/live/index.xml" rel="self" type="application/rss+xml"/><item><title>linux-live环境定制 可U盘硬盘或者iso启动</title><link>https://dev.leiyanhui.com/linux/linux-live-diy/</link><pubDate>Sat, 03 Jun 2023 00:01:20 +0800</pubDate><guid>https://dev.leiyanhui.com/linux/linux-live-diy/</guid><description>&lt;h1 id="目标"&gt;目标
+&lt;/h1&gt;&lt;p&gt;创建一个可以在fat/exfat/ext4 以及U盘 光盘可以启动的自定义linux系统环境&lt;/p&gt;
+&lt;h1 id="基于"&gt;基于
+&lt;/h1&gt;&lt;p&gt;debian11 ：http://mirror.lzu.edu.cn/debian-cd/11.7.0/amd64/iso-dvd/debian-11.7.0-amd64-DVD-1.iso&lt;br&gt;
+其他linux系统差不多
+脚本工具：http://linux-live.org/&lt;/p&gt;
+&lt;h1 id="原理"&gt;原理
+&lt;/h1&gt;&lt;p&gt;基于自定义的initramfs挂载和启动到squashfs只读镜像启动默认的linux环境。&lt;br&gt;
+在只读媒体上，修改点映射到内存。&lt;br&gt;
+在linux原生磁盘分区上，修改内容映射到指定目录。 在fat exfat等磁盘分区上修改内容映射到data文件（限制12-16G）&lt;/p&gt;
+&lt;h1 id="基本步骤实现"&gt;基本步骤实现
+&lt;/h1&gt;&lt;p&gt;新机器安装一个干净的linux 并必须安装以下工具包&lt;code&gt;squashfs-tools genisoimage 或者 mkisofs zip&lt;/code&gt;
+另外 需要 &lt;code&gt; xz rsync sshd sudo wget unzip nano&lt;/code&gt; 等&lt;/p&gt;
+&lt;h1 id="打包"&gt;打包
+&lt;/h1&gt;&lt;h2 id="打包工具"&gt;打包工具
+&lt;/h2&gt;&lt;p&gt;用 linux-live.org 的&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir /mklive &amp;amp; cd /mklive
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;wget https://github.com/Tomas-M/linux-live/archive/refs/heads/master.zip
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;unzip master.zip
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cd linux-live-master
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="配置"&gt;配置
+&lt;/h2&gt;&lt;p&gt;需要配置config 文件里面分别是&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;LIVEKITNAME 目录 通常不需要修改&lt;/li&gt;
+&lt;li&gt;VMLINUZ 内核位置，非chroot情况可以不修改，chroot过来的花需要修改为实际的内核路径，并且需要修改引导的cfg&lt;/li&gt;
+&lt;li&gt;KERNEL 内核版本 通常不需要修改&lt;/li&gt;
+&lt;li&gt;MKMOD 包含的目录，通常不需要修改，如果你有其他目录 单独加上&lt;/li&gt;
+&lt;li&gt;NETWORK 是否支持网络引导 通常不需要修改&lt;/li&gt;
+&lt;li&gt;LIVEKITDATA 最后打包的目标目录，其中包含 syslinux引导以及squashfs镜像和一些其他文件&lt;/li&gt;
+&lt;li&gt;BEXT squashfs文件后缀名称 通常不需要修改&lt;/li&gt;
+&lt;li&gt;LMK 内核ko模块目录，通常不需要修改&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="创建"&gt;创建
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;./build
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;会在LIVEKITDATA指定的目录创建sb文件 initramfs 和其他需要的文件 也会吧内核复制一份过去
+如果是alpine的话需要注意base的处理，另外&lt;code&gt;initramfs/initramfs_create&lt;/code&gt; 也需要执行权限。&lt;/p&gt;
+&lt;h2 id="打包-1"&gt;打包
+&lt;/h2&gt;&lt;p&gt;最终的文件 是 在 /tmp/linux-data-XXX 目录 直接执行&lt;code&gt;/tmp/gen_linux_zip.sh&lt;/code&gt; 就可以了打包成zip 了，解压到U盘 或者硬盘 linux 或许win 执行里面的 bootinst.sh/bat 即可在对应设备上创建好引导。默认是用的syslinux引导的。
+如果打包iso的话，默认不支持EFI启动。&lt;/p&gt;
+&lt;h2 id="启动背景"&gt;启动背景
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/tmp/linux-data-XXX/linux/boot/bootlogo.png
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;网上找了一个 &lt;a class="link" href="https://raw.githubusercontent.com/xenlism/Grub-themes/main/xenlism-grub-1080p-Debian/Xenlism-Debian/background.png" target="_blank" rel="noopener"
+&gt;https://raw.githubusercontent.com/xenlism/Grub-themes/main/xenlism-grub-1080p-Debian/Xenlism-Debian/background.png&lt;/a&gt;
+不合适&lt;/p&gt;
+&lt;h4 id="修改readme"&gt;修改readme
+&lt;/h4&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat &amp;gt; ./readme.txt &amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;Default (SeaBIOS) use syslinux
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;OVMF (UEFI) use grub
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;打包iso&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/tmp/gen_linux_iso.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h1 id="测试"&gt;测试
+&lt;/h1&gt;&lt;p&gt;pve 宿主机复制出来&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rsync yanhui@10.1.1.239:/tmp/linux-x86_64.iso /exfat/iso/
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h1 id="efi启动"&gt;efi启动
+&lt;/h1&gt;&lt;h2 id="硬盘efigrub启动"&gt;硬盘efi+grub启动
+&lt;/h2&gt;&lt;p&gt;自带一硬盘启动的sh和bat自动处理脚本，并支持 bios+syslinux 和 efi+syslinux
+如果要修改为grub参考
+&lt;a class="link" href="https://github.com/beatfan/UEFI_grub2/" target="_blank" rel="noopener"
+&gt;https://github.com/beatfan/UEFI_grub2/&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="iso-efi-启动支持"&gt;iso efi 启动支持
+&lt;/h2&gt;&lt;p&gt;自创建的iso支持bios启动，如果efi参考
+&lt;a class="link" href="https://github.com/beatfan/USB_Boot_With_Grub_Grub2_ISOLINUX" target="_blank" rel="noopener"
+&gt;https://github.com/beatfan/USB_Boot_With_Grub_Grub2_ISOLINUX&lt;/a&gt;&lt;/p&gt;</description></item></channel></rss>

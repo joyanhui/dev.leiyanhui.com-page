@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Serverless on 小类随手记</title><link>https://dev.leiyanhui.com/categories/serverless/</link><description>Recent content in Serverless on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 13 Nov 2023 00:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/serverless/index.xml" rel="self" type="application/rss+xml"/><item><title>传统项目上serverless 函数计算的 初步说明</title><link>https://dev.leiyanhui.com/web/up-serverless/</link><pubDate>Mon, 13 Nov 2023 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/web/up-serverless/</guid><description>&lt;p&gt;项目逐步切换到golang后 部分项目想逐步迁移到serverless。但是第一次折腾 遇到一些问题，而文档很乱看的云里雾里。慢慢解决后，这里简单记录一下。&lt;/p&gt;
+&lt;p&gt;下文主要是以aliyun为例&lt;/p&gt;
+&lt;h2 id="传统迁移serverless的几个注意点"&gt;传统迁移serverless的几个注意点
+&lt;/h2&gt;&lt;h3 id="关于脱离对云厂商的依赖"&gt;关于脱离对云厂商的依赖
+&lt;/h3&gt;&lt;p&gt;之前以为必须要引入厂商的sdk才可以，后来发现 多数云厂商已经不需要。&lt;/p&gt;
+&lt;h3 id="关于冻结"&gt;关于冻结
+&lt;/h3&gt;&lt;p&gt;在处理完成一个事件后（http请求、定时器、消息等），整个进程都会被冻结。直到下次事件执行。&lt;br&gt;
+这也是所谓的无状态服务，也会同时导致，你没有完成的协程被冻结！&lt;/p&gt;
+&lt;h3 id="关于http类程序"&gt;关于http类程序
+&lt;/h3&gt;&lt;p&gt;可以直接用http事件触发，大概就是函数计算 算是一个nginx,转发客户请求到到你的后端程序(http://:9000)。
+这里需要注意的是，函数计算会附加一些header信息大概有1.5k的数据过来，除了前置网关没有办法关闭这些信息。&lt;br&gt;
+如果你和我一样私有协议并严格限制了信息长度， 这里是一个小坑。&lt;/p&gt;
+&lt;h3 id="关于非http类程序"&gt;关于非http类程序
+&lt;/h3&gt;&lt;p&gt;比如 定时器触发的一个功能。我之前理解以为 定时器事件触发 我们的程序，然后执行完成程序推出，资源回收/冻结。&lt;br&gt;
+期间遇到 code 0的坑，也出现程序一直被多次反复不按照预期的执行。 在阿里云售后群和发工单后依旧没有头绪。&lt;br&gt;
+最后才弄明白，针对这类应用，阿里云有两种处理方式：任务处理函数 和 服务&amp;gt;函数。而我主要用的区域是阿里云的华北1青岛，不支持任务处理函数，也没注意到这点。所以我看的文档是任务处理函数，但是却在服务&amp;gt;函数里面 调试的&amp;hellip;.&lt;/p&gt;
+&lt;h4 id="任务处理函数"&gt;任务处理函数
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://fcnext.console.aliyun.com/cn-" target="_blank" rel="noopener"
+&gt;https://fcnext.console.aliyun.com/cn-&lt;/a&gt;区域/tasks&lt;br&gt;
+如果采用docker部署，我们的程序在正常执行完成后 进程 exit 0 即可。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;阿里云官网提示: 在使用非 Web Server 模式时，成功处理完请求后，您需要主动退出进程，并且 ExitCode 需要为 0。此外，请求的“事件参数”会以环境变量 FC_CUSTOM_CONTAINER_EVENT 的形式传递给函数。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;而任务处理函数，又分为 运行时和docker两种方案。这里特指docker方案。运行时方案我没有尝试，但是看起来和服务函数的差距不大。&lt;/p&gt;
+&lt;h4 id="服务函数"&gt;服务函数
+&lt;/h4&gt;&lt;p&gt;&lt;a class="link" href="https://fcnext.console.aliyun.com/cn-" target="_blank" rel="noopener"
+&gt;https://fcnext.console.aliyun.com/cn-&lt;/a&gt;区域/services &lt;br&gt;
+这里依旧是 需要开httpserver响应/invoke 路径的post&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-go" data-lang="go"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kd"&gt;func&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;main&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nx"&gt;http&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nf"&gt;HandleFunc&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#34;/invoke&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;func&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;w&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nx"&gt;http&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;ResponseWriter&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nx"&gt;r&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="nx"&gt;http&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;Request&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="cp"&gt;//这里处理 业务功能&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nx"&gt;fmt&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nf"&gt;Fprintf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;w&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;Hello 定时器&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;})&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nx"&gt;http&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nf"&gt;ListenAndServe&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#34;:9000&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kc"&gt;nil&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id="两者的区别"&gt;两者的区别
+&lt;/h4&gt;&lt;p&gt;个人体验后看法，如果不想改动代码，你原来的程序就是执行完成后自动推出的。那么就用 任务处理函数。 &lt;br&gt;
+如果你方便修改代码 而且 你程序在初始化的时候 需要进行一些消耗性能的操作，那么尽量迁移到服务模式。&lt;br&gt;
+另外一点 ：服务模式的函数，如果你请求频繁，比如 定时器事件 1分钟 执行一次，那么，你的实例基本不会被释放。虽然闲置cpu不计费，但是你还需要为内存买单。在咨询阿里云技术后得知，你需要为整个实例的内存（最小128m）买单。&lt;br&gt;
+这是和任务处理函数 的一个很大的区别。&lt;/p&gt;
+&lt;h3 id="关于消息订阅"&gt;关于消息订阅
+&lt;/h3&gt;&lt;p&gt;基本上是没法用了。暂时不知道怎么处理。&lt;br&gt;
+一些简单实时性要求不高的数据更新，可以在每次响应http的时候 检查上次执行时间然后再从数据库/oss/nas复查的方式。&lt;/p&gt;
+&lt;h3 id="关于异步的协程"&gt;关于异步的协程
+&lt;/h3&gt;&lt;p&gt;暂时只能由http唤起，然后等协程执行完成后再fmt.Fprintf(w,&amp;quot;&amp;quot;) 回去&lt;/p&gt;
+&lt;h2 id="关于阿里云的fc-30"&gt;关于阿里云的fc 3.0
+&lt;/h2&gt;&lt;p&gt;3.0去掉了服务的概念，只剩下 应用和函数 两个概念。应用 没研究，应该是需要绑定云厂商。 &lt;br&gt;
+函数 对应之前的 服务函数，概念变为： 事件函数 web函数 docker镜像（青岛地区不支持，其他地区不清楚）。 &lt;br&gt;
+我目前只测试成功了他的web函数方式，我自己上传zip包的方法。docker方式，因为我们的docker目前都在青岛地区，所以无从测试。关于3.0的事件函数 因为我没有打算引入阿里云的sdk,按照http server /invoke 的方式没测试成功。&lt;br&gt;
+然后在2.0 里面的 自定义运行时的任务函数概念 好像取消了。&lt;br&gt;
+同时他的web函数方式，兼容 httpserver 的 /invoke 模式。不过他会自动创建一个http触发器，自己去关闭即可。&lt;br&gt;
+但&lt;/p&gt;
+&lt;h3 id="关于30带来的好处"&gt;关于3.0带来的好处
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;关于3.0 目前感觉最大的好处就是 可以用 其他事件 + http的方式触发 。例如：&lt;br&gt;
+定时器1小时运行一次 /invoke ，然后我们需要强制运行的时候，可以外部访问 http://url//invoke?token=jwt的方式来主动触发。&lt;/li&gt;
+&lt;li&gt;可以单独为一个函数关闭日志。阿里云的日志服务是要钱的&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="关于其他厂商"&gt;关于其他厂商
+&lt;/h3&gt;&lt;p&gt;aws 那边没有弄明白，腾讯这个和阿里云相差不大，但是腾讯那边有月租费，但是不打算花时间和精力去测试。&lt;br&gt;
+Azure 那边支持有状态服务，没有仔细去看。&lt;/p&gt;
+&lt;p&gt;而华为云这边，貌似事件/触发器函数 必须要引入华为的sdk,http类的 强制入口文件 是bootstrap 貌似是一个类似shell的脚本。
+虽然如此，不过可以用内置的nodejs py等方式配置事件函数，然后在时间函数中去curl（带token） 另外一个http的函数来实现不引用sdk的方式实现事件函数. 同时 阿里云那边支持 jwt认证，而华为这边是 Appkey&amp;amp;Appsecret 认证。&lt;/p&gt;
+&lt;p&gt;另外华为云这边事件函数的 需要&lt;br&gt;
+响应 curl -sS -LD &amp;ldquo;$HEADERS&amp;rdquo; -X GET &amp;ldquo;http://$RUNTIME_API_ADDR/v1/runtime/invocation/request&lt;br&gt;
+返回 curl -X POST &amp;ldquo;http://$RUNTIME_API_ADDR/v1/runtime/invocation/response/$REQUEST_ID&amp;rdquo; -d &amp;ldquo;$RESPONSE&amp;rdquo;
+华为有给出实例 &lt;a class="link" href="https://support.huaweicloud.com/usermanual-functiongraph/functiongraph_01_0406.html#section4" target="_blank" rel="noopener"
+&gt;https://support.huaweicloud.com/usermanual-functiongraph/functiongraph_01_0406.html#section4&lt;/a&gt;
+最方便的无痛迁移方式，就是直接用华为给的实例代码 一次性运行 ,不然就要在原始代码中二次修改&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cat &amp;gt;bootstrap&lt;span class="s"&gt;&amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;#!/bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;set -o pipefail
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;while true
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;do
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; HEADERS=&amp;#34;$(mktemp)&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; EVENT_DATA=$(curl -sS -LD &amp;#34;$HEADERS&amp;#34; -X GET &amp;#34;http://$RUNTIME_API_ADDR/v1/runtime/invocation/request&amp;#34;)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; REQUEST_ID=$(grep -Fi x-cff-request-id &amp;#34;$HEADERS&amp;#34; | tr -d &amp;#39;[:space:]&amp;#39; | cut -d: -f2)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; if [ -z &amp;#34;$REQUEST_ID&amp;#34; ]; then
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; continue
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; fi
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; $RUNTIME_CODE_ROOT/你的golang编译后的可执行文件
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; RESPONSE=&amp;#34;Echoing request: &amp;#39;$EVENT_DATA&amp;#39;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt; curl -sS -X POST &amp;#34;http://$RUNTIME_API_ADDR/v1/runtime/invocation/response/$REQUEST_ID&amp;#34; -d &amp;#34;$RESPONSE&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;done
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="关于接口被刷的问题"&gt;关于接口被刷的问题
+&lt;/h2&gt;&lt;h3 id="弹性伸缩限制规则"&gt;弹性伸缩限制规则
+&lt;/h3&gt;&lt;p&gt;可以设置上限，并通过报警规则处理。&lt;/p&gt;
+&lt;h3 id="被ddos-cc"&gt;被ddos cc
+&lt;/h3&gt;&lt;p&gt;短期jwt 最简单，jwt失败的好像不会计费。 &lt;br&gt;
+但是负责分发的jwt的服务依旧存在风险。&lt;/p&gt;
+&lt;h2 id="什么业务适合上serverless"&gt;什么业务适合上serverless
+&lt;/h2&gt;&lt;p&gt;一句话主要是 边缘微服务 其次一些比较特殊的。可以达到省钱 省精力 高可用性目的情况下才适合切换&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;一定是一些非核心的业务并且不把sevless作为主服务：云也大面积宕机&lt;/li&gt;
+&lt;li&gt;一些会不定期占用大量资源的业务，免得影响主业务&lt;/li&gt;
+&lt;li&gt;代码迭代不是很频繁的业务：函数计算调试困难，日志分析功能非常依赖云厂商&lt;/li&gt;
+&lt;li&gt;某些对实时性要求不高的异步业务： 常见的比如邮件发送、数据库整理 等&lt;/li&gt;
+&lt;li&gt;核心业务主服务器的备用节点： 主服务器全部宕机的情况下可以临时顶上，这算是最大的诱惑了。毕竟平时不用维护&lt;/li&gt;
+&lt;li&gt;监控类业务：比如定时监控各个服务的状态，自动处理或者报警&lt;/li&gt;
+&lt;li&gt;其他一些特殊的，平时没访问量的：例如，企业网站的cdn回源端&lt;/li&gt;
+&lt;li&gt;线上临时使用的GPU业务&lt;/li&gt;
+&lt;li&gt;其他一些需要临时线上执行但是可能会影响自己的服务器资源占用或者会导致管理混乱的&lt;/li&gt;
+&lt;li&gt;不想暴露自己的域名和ip等信息的业务，可以用函数计算的http触发器的域名和证书&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="我目前适合迁移的"&gt;我目前适合迁移的
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;入口文件自动部署： 自动检索所有api节点，创建json文件分发到cdn 供物联网设备端和app搜索可以用节点&lt;/li&gt;
+&lt;li&gt;物联网设备上线离线检测功能：这个请求数和并发都不低，可用性要求极高，但是带宽占用非常低，serverless这边做备用节点。&lt;/li&gt;
+&lt;li&gt;物联网设备的历史数据上报功能：并发不高，可用性要求不高，但是带宽占用有一些，serverless这边依旧是 备用节点。&lt;/li&gt;
+&lt;li&gt;app段的接口： 并发和带宽都不高，可用性要求高，servless这边依旧是备用节点。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="完全不适合迁移servless"&gt;完全不适合迁移servless
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;平台管理类：这个只能内网访问，部署到servless没太大意义&lt;/li&gt;
+&lt;li&gt;消息队列服务：不适合，但是部分实时性要求不高的可以简单修改一下逻辑用servless处理。&lt;/li&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="部署方式"&gt;部署方式
+&lt;/h2&gt;&lt;p&gt;nodejs python 之类的都是可以在线编辑在线部署的，go java rust之类的就只能上传二进制或者docker。&lt;br&gt;
+当然 go 因为编译速度飞快 非生产部署 也可以 用 go run 。&lt;br&gt;
+亚马逊那边 貌似不支持 zip和文件夹上传的方式部署，只能在线编辑和docker部署。&lt;/p&gt;
+&lt;h2 id="一些有趣的想法"&gt;一些有趣的想法
+&lt;/h2&gt;&lt;h3 id="gitea-等-web为主的应用"&gt;gitea 等 web为主的应用
+&lt;/h3&gt;&lt;p&gt;之前看到有人在serverless 部署gitea,数据持久化问题好解决，但是gitea实际上是有很多后台任务需要执行的。&lt;br&gt;
+注意到 弹性伸缩限制规则 里面可以配置某一个时段保活一个实例，好像就可以解决一部分情况了。&lt;br&gt;
+不过 数据每次传输量不能超过32M&lt;/p&gt;
+&lt;h3 id="对象储存转webdav"&gt;对象储存转webdav
+&lt;/h3&gt;&lt;p&gt;同上&lt;/p&gt;
+&lt;h3 id="私有化-bitwarden"&gt;私有化 bitwarden
+&lt;/h3&gt;&lt;p&gt;同上&lt;/p&gt;
+&lt;h2 id="对云厂商以及serverless的一些看法"&gt;对云厂商以及serverless的一些看法
+&lt;/h2&gt;&lt;h3 id="跨云部署"&gt;跨云部署
+&lt;/h3&gt;&lt;p&gt;在我调试期间 再次遇到 阿里云大面积宕机事件（2023-12-12），控制面板无法登出(2023-11-14) 腾讯云那边也不是一次两次出问题，所以跨云部署已经是必不可少的方案。&lt;/p&gt;
+&lt;h3 id="serverless和云厂商的绑定"&gt;serverless和云厂商的绑定
+&lt;/h3&gt;&lt;p&gt;而传统的servless 对云厂商深度绑定，只是近几年开始有一些内卷，已经可以二进制或docker 不修改任何代码直接部署，所以如果可以尽量不绑定云厂商的sdk以及相关业务的的情况下，可以跨云部署一些函数上去。&lt;/p&gt;</description></item></channel></rss>

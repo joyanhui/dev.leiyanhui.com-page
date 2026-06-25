@@ -1,0 +1,568 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="升级目的 受阿里云(2023-11-12)故障事件影响，虽然项目一开始都跨云跨地区部署，但是我们的部分业务依旧受到牵连，遭遇重挫。所以此次升级主要是跨云大量零碎小数据储存，更换为网络kv储存（之前是定时合并文件后同步到阿里云oss）。 彻底解决业务对阿里云oss的依赖。阿里云oss和腾讯cos都改为数据备份专用，不再和业务有关联。\n本月逐步使用podman 替代docker 使用keydb替代redis。 因为打算上keydb,所以原有redis集群也替换为keydb。 并新建一个集群用于储存海量碎数据。\n关于podman podman的好处对我们目前的物联网项目来说主要是可以免root用户部署维护。\n在试运行一段时间后，从几台服务器线上使用后没问题到全部服务器都开始替换docker，历时两个月没出现任何问题。\nkeydb 而keydb经过一周的反复测试，在实际应用场景下 keydb6.3.x 性能远远超过redis6.2.13和redis7.2.3。因为跨云公网集群，所以tls是必须的，而keydb的tls性能经过测试要比redis7.2.3的qps高出6-10倍。tcp性能高出40%-2倍。\nkeydb完全兼容redis6.2.x 一周的线上部分节点测试中没发现问题。\n遇到的几个坑 华为云和debian11 腾讯云和阿里云都很顺利，主要是华为云那边。华为云没有提供debian12的镜像，在手动升级到debian12后 容器无法启动。因为时间紧张没有去检查是华为云镜像里面内置的华为组件导致的还是别的的问题。 以下记录 基于debian12 华为云部分基于debian11\nlxc主机下的podman 和docker不太一样，非特权lxc也要解决cgroup2\nsu切换用户的丢失XDG_RUNTIME_DIR 1 2 export XDG_RUNTIME_DIR=/run/user/$(id -u) echo $XDG_RUNTIME_DIR keydb集群维护和redis7不一样的地方 keydb 6.2.3 应该是基于redis6.x的，在集群创建和添加节点的，不支持用域名和hostname的方式，需要手动指定ip,否则集群无法通讯。\n阿里云的域名问题 因为为了隔离实体，这次升级，我们新使用了一个和我个人以及公司不相关的域名（未在阿里云备案）组建redis集群。结果在阿里云那边 tls频繁被重置。 集群也经常卡掉。 反复检查后，并和阿里云技术沟通几次后发现确实是备案的问题。（非web业务域名也要备案）\n后更换一个在阿里云备案过的域名 没有再出问题。\n我朝这些政策真的是。。。\nACL keydb6.3.4 依旧不支持Redis 7.X ACL，部分业务代码需要调整。之前说2023年中支持，好像跳票了。但是目前最新代码中已经有acl相关的内容 unstable 版本未测试\n其他可选的kv储存 一开始是打算先在部分需要储存的业务上替换目前的s3储存，新方案需要去中心化跨云的集群，加上我们对go-reids sdk针对性的优化过，所以优先考察了几个兼容redis协议的 以及minio集群。\n主要是 minio kvrocks tendis redrock Pika\nminio集群 去中心化，但是扩展需要指数扩展，另外etcd联邦方案过于复杂。我们实际情况是大量小数据段，写入多但是读取也不少，在实际测试后minio集群方式带来的费用可能比直接使用云厂商的对象储存反还要高。 tendis 未尝试，因为不支持tls不跨云部署。 redrock 个人开发者，作者在知乎，github不活跃，代码已经许久没维护，文档不全。简单测试后性能和redis差不多，低于keydb。 kvrocks 花费大量时间测试和权衡后得到的结论：他的集群的管理以及故障转移方式虽然没有gossip开支，需要一个外部节点来自动进行故障转移，另外就是他的热数据是基于rocks的cache来管理在qps比较高的时候的表现一般，在测试过几轮后和redis6/7的差距较大（不知道为什么所有kv数据去vs redis的时候都去和单线程的redis比较&mldr;）。 pika 看起来不是完全去中心化的，和我们实际需求不相符。\n主要是我们还需要热数据查询速度好一些，虽然另外有一个redis集群，但是本着尽可能独立的原则。剩下也就keydb 和 kvrocks可选了。\n因为线下模拟测试和线上实际情况有出入，而kvrocks和keydb都是兼容redis cluster，我们目前情况是qps较高而节点数量并不多，gossip协议对我们影响不大，所以我们最终决定先逐步在线上用keydb替代redis和kv储存。日后再调研kvrocks keydb的硬盘存储功能，也就是flash功能，目前还是测试版。但是这是从keydb专业版合并到开源版本的功能，所以简单的 get set 经过一周测试稳定性和性能都没有问题。\n"><title>podman跨云部署keydb集群替代docker+redis的过程和几个坑</title><link rel=canonical href=https://dev.leiyanhui.com/container/podman-keydb/><link rel=stylesheet href=/scss/style.min.86591c898bd806857815fbb8c47e8d3fed97c133b78e83d9bfc27b164dd0aa2b.css><meta property='og:title' content="podman跨云部署keydb集群替代docker+redis的过程和几个坑"><meta property='og:description' content="升级目的 受阿里云(2023-11-12)故障事件影响，虽然项目一开始都跨云跨地区部署，但是我们的部分业务依旧受到牵连，遭遇重挫。所以此次升级主要是跨云大量零碎小数据储存，更换为网络kv储存（之前是定时合并文件后同步到阿里云oss）。 彻底解决业务对阿里云oss的依赖。阿里云oss和腾讯cos都改为数据备份专用，不再和业务有关联。\n本月逐步使用podman 替代docker 使用keydb替代redis。 因为打算上keydb,所以原有redis集群也替换为keydb。 并新建一个集群用于储存海量碎数据。\n关于podman podman的好处对我们目前的物联网项目来说主要是可以免root用户部署维护。\n在试运行一段时间后，从几台服务器线上使用后没问题到全部服务器都开始替换docker，历时两个月没出现任何问题。\nkeydb 而keydb经过一周的反复测试，在实际应用场景下 keydb6.3.x 性能远远超过redis6.2.13和redis7.2.3。因为跨云公网集群，所以tls是必须的，而keydb的tls性能经过测试要比redis7.2.3的qps高出6-10倍。tcp性能高出40%-2倍。\nkeydb完全兼容redis6.2.x 一周的线上部分节点测试中没发现问题。\n遇到的几个坑 华为云和debian11 腾讯云和阿里云都很顺利，主要是华为云那边。华为云没有提供debian12的镜像，在手动升级到debian12后 容器无法启动。因为时间紧张没有去检查是华为云镜像里面内置的华为组件导致的还是别的的问题。 以下记录 基于debian12 华为云部分基于debian11\nlxc主机下的podman 和docker不太一样，非特权lxc也要解决cgroup2\nsu切换用户的丢失XDG_RUNTIME_DIR 1 2 export XDG_RUNTIME_DIR=/run/user/$(id -u) echo $XDG_RUNTIME_DIR keydb集群维护和redis7不一样的地方 keydb 6.2.3 应该是基于redis6.x的，在集群创建和添加节点的，不支持用域名和hostname的方式，需要手动指定ip,否则集群无法通讯。\n阿里云的域名问题 因为为了隔离实体，这次升级，我们新使用了一个和我个人以及公司不相关的域名（未在阿里云备案）组建redis集群。结果在阿里云那边 tls频繁被重置。 集群也经常卡掉。 反复检查后，并和阿里云技术沟通几次后发现确实是备案的问题。（非web业务域名也要备案）\n后更换一个在阿里云备案过的域名 没有再出问题。\n我朝这些政策真的是。。。\nACL keydb6.3.4 依旧不支持Redis 7.X ACL，部分业务代码需要调整。之前说2023年中支持，好像跳票了。但是目前最新代码中已经有acl相关的内容 unstable 版本未测试\n其他可选的kv储存 一开始是打算先在部分需要储存的业务上替换目前的s3储存，新方案需要去中心化跨云的集群，加上我们对go-reids sdk针对性的优化过，所以优先考察了几个兼容redis协议的 以及minio集群。\n主要是 minio kvrocks tendis redrock Pika\nminio集群 去中心化，但是扩展需要指数扩展，另外etcd联邦方案过于复杂。我们实际情况是大量小数据段，写入多但是读取也不少，在实际测试后minio集群方式带来的费用可能比直接使用云厂商的对象储存反还要高。 tendis 未尝试，因为不支持tls不跨云部署。 redrock 个人开发者，作者在知乎，github不活跃，代码已经许久没维护，文档不全。简单测试后性能和redis差不多，低于keydb。 kvrocks 花费大量时间测试和权衡后得到的结论：他的集群的管理以及故障转移方式虽然没有gossip开支，需要一个外部节点来自动进行故障转移，另外就是他的热数据是基于rocks的cache来管理在qps比较高的时候的表现一般，在测试过几轮后和redis6/7的差距较大（不知道为什么所有kv数据去vs redis的时候都去和单线程的redis比较&mldr;）。 pika 看起来不是完全去中心化的，和我们实际需求不相符。\n主要是我们还需要热数据查询速度好一些，虽然另外有一个redis集群，但是本着尽可能独立的原则。剩下也就keydb 和 kvrocks可选了。\n因为线下模拟测试和线上实际情况有出入，而kvrocks和keydb都是兼容redis cluster，我们目前情况是qps较高而节点数量并不多，gossip协议对我们影响不大，所以我们最终决定先逐步在线上用keydb替代redis和kv储存。日后再调研kvrocks keydb的硬盘存储功能，也就是flash功能，目前还是测试版。但是这是从keydb专业版合并到开源版本的功能，所以简单的 get set 经过一周测试稳定性和性能都没有问题。\n"><meta property='og:url' content='https://dev.leiyanhui.com/container/podman-keydb/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Container'><meta property='article:published_time' content='2023-11-20T00:01:20+08:00'><meta property='article:modified_time' content='2023-11-20T00:01:20+08:00'><meta name=twitter:title content="podman跨云部署keydb集群替代docker+redis的过程和几个坑"><meta name=twitter:description content="升级目的 受阿里云(2023-11-12)故障事件影响，虽然项目一开始都跨云跨地区部署，但是我们的部分业务依旧受到牵连，遭遇重挫。所以此次升级主要是跨云大量零碎小数据储存，更换为网络kv储存（之前是定时合并文件后同步到阿里云oss）。 彻底解决业务对阿里云oss的依赖。阿里云oss和腾讯cos都改为数据备份专用，不再和业务有关联。\n本月逐步使用podman 替代docker 使用keydb替代redis。 因为打算上keydb,所以原有redis集群也替换为keydb。 并新建一个集群用于储存海量碎数据。\n关于podman podman的好处对我们目前的物联网项目来说主要是可以免root用户部署维护。\n在试运行一段时间后，从几台服务器线上使用后没问题到全部服务器都开始替换docker，历时两个月没出现任何问题。\nkeydb 而keydb经过一周的反复测试，在实际应用场景下 keydb6.3.x 性能远远超过redis6.2.13和redis7.2.3。因为跨云公网集群，所以tls是必须的，而keydb的tls性能经过测试要比redis7.2.3的qps高出6-10倍。tcp性能高出40%-2倍。\nkeydb完全兼容redis6.2.x 一周的线上部分节点测试中没发现问题。\n遇到的几个坑 华为云和debian11 腾讯云和阿里云都很顺利，主要是华为云那边。华为云没有提供debian12的镜像，在手动升级到debian12后 容器无法启动。因为时间紧张没有去检查是华为云镜像里面内置的华为组件导致的还是别的的问题。 以下记录 基于debian12 华为云部分基于debian11\nlxc主机下的podman 和docker不太一样，非特权lxc也要解决cgroup2\nsu切换用户的丢失XDG_RUNTIME_DIR 1 2 export XDG_RUNTIME_DIR=/run/user/$(id -u) echo $XDG_RUNTIME_DIR keydb集群维护和redis7不一样的地方 keydb 6.2.3 应该是基于redis6.x的，在集群创建和添加节点的，不支持用域名和hostname的方式，需要手动指定ip,否则集群无法通讯。\n阿里云的域名问题 因为为了隔离实体，这次升级，我们新使用了一个和我个人以及公司不相关的域名（未在阿里云备案）组建redis集群。结果在阿里云那边 tls频繁被重置。 集群也经常卡掉。 反复检查后，并和阿里云技术沟通几次后发现确实是备案的问题。（非web业务域名也要备案）\n后更换一个在阿里云备案过的域名 没有再出问题。\n我朝这些政策真的是。。。\nACL keydb6.3.4 依旧不支持Redis 7.X ACL，部分业务代码需要调整。之前说2023年中支持，好像跳票了。但是目前最新代码中已经有acl相关的内容 unstable 版本未测试\n其他可选的kv储存 一开始是打算先在部分需要储存的业务上替换目前的s3储存，新方案需要去中心化跨云的集群，加上我们对go-reids sdk针对性的优化过，所以优先考察了几个兼容redis协议的 以及minio集群。\n主要是 minio kvrocks tendis redrock Pika\nminio集群 去中心化，但是扩展需要指数扩展，另外etcd联邦方案过于复杂。我们实际情况是大量小数据段，写入多但是读取也不少，在实际测试后minio集群方式带来的费用可能比直接使用云厂商的对象储存反还要高。 tendis 未尝试，因为不支持tls不跨云部署。 redrock 个人开发者，作者在知乎，github不活跃，代码已经许久没维护，文档不全。简单测试后性能和redis差不多，低于keydb。 kvrocks 花费大量时间测试和权衡后得到的结论：他的集群的管理以及故障转移方式虽然没有gossip开支，需要一个外部节点来自动进行故障转移，另外就是他的热数据是基于rocks的cache来管理在qps比较高的时候的表现一般，在测试过几轮后和redis6/7的差距较大（不知道为什么所有kv数据去vs redis的时候都去和单线程的redis比较&mldr;）。 pika 看起来不是完全去中心化的，和我们实际需求不相符。\n主要是我们还需要热数据查询速度好一些，虽然另外有一个redis集群，但是本着尽可能独立的原则。剩下也就keydb 和 kvrocks可选了。\n因为线下模拟测试和线上实际情况有出入，而kvrocks和keydb都是兼容redis cluster，我们目前情况是qps较高而节点数量并不多，gossip协议对我们影响不大，所以我们最终决定先逐步在线上用keydb替代redis和kv储存。日后再调研kvrocks keydb的硬盘存储功能，也就是flash功能，目前还是测试版。但是这是从keydb专业版合并到开源版本的功能，所以简单的 get set 经过一周测试稳定性和性能都没有问题。\n"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-src target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>links</span></a></li><li><a href=/contact/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>contact</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#升级目的>升级目的</a></li><li><a href=#关于podman>关于podman</a></li><li><a href=#keydb>keydb</a></li><li><a href=#遇到的几个坑>遇到的几个坑</a><ol><li><a href=#华为云和debian11>华为云和debian11</a></li><li><a href=#lxc主机下的podman>lxc主机下的podman</a></li><li><a href=#su切换用户的丢失xdg_runtime_dir>su切换用户的丢失XDG_RUNTIME_DIR</a></li><li><a href=#keydb集群维护和redis7不一样的地方>keydb集群维护和redis7不一样的地方</a></li><li><a href=#阿里云的域名问题>阿里云的域名问题</a></li><li><a href=#acl>ACL</a></li><li><a href=#其他可选的kv储存>其他可选的kv储存</a></li></ol></li><li><a href=#部署过程>部署过程</a><ol><li><a href=#系统环境准备>系统环境准备</a></li><li><a href=#独立用户>独立用户</a></li><li><a href=#tls证书>tls证书</a></li><li><a href=#keydb模板>keydb模板</a></li><li><a href=#通过模板创建n个keydb配置文件>通过模板创建N个keydb配置文件</a></li><li><a href=#创建容器>创建容器</a></li><li><a href=#开放端口>开放端口</a></li><li><a href=#主集群连接>主集群连接</a></li><li><a href=#添加从节点>添加从节点</a></li><li><a href=#手动调整主节点>手动调整主节点</a></li><li><a href=#导入历史数据>导入历史数据</a></li><li><a href=#防止主节点过于集中>防止主节点过于集中</a></li><li><a href=#防止主从同步带宽占用过大>防止主从同步带宽占用过大</a></li></ol></li><li><a href=#对redis的一些看法>对redis的一些看法</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/container/ style=background-color:#beebef;color:#0f3a3d>Container
+</a><a href=/categories/docker/ style=background-color:#bedaef;color:#0f2a3d>Docker
+</a><a href=/categories/lxc/ style=background-color:#efbed9;color:#3d0f29>Lxc
+</a><a href=/categories/lxd/ style=background-color:#beefd0;color:#0f3d21>Lxd
+</a><a href=/categories/sudo/ style=background-color:#efcebe;color:#3d1f0f>Sudo
+</a><a href=/categories/podman/ style=background-color:#c4beef;color:#150f3d>Podman
+</a><a href=/categories/keydb/ style=background-color:#efc3be;color:#3d140f>Keydb</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/container/podman-keydb/>podman跨云部署keydb集群替代docker+redis的过程和几个坑</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-11-20T00:01:20+08:00>2023-11-20</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><h2 id=升级目的>升级目的</h2><p>受阿里云(2023-11-12)故障事件影响，虽然项目一开始都跨云跨地区部署，但是我们的部分业务依旧受到牵连，遭遇重挫。所以此次升级主要是跨云大量零碎小数据储存，更换为网络kv储存（之前是定时合并文件后同步到阿里云oss）。<br>彻底解决业务对阿里云oss的依赖。阿里云oss和腾讯cos都改为数据备份专用，不再和业务有关联。<br>本月逐步使用podman 替代docker 使用keydb替代redis。<br>因为打算上keydb,所以原有redis集群也替换为keydb。 并新建一个集群用于储存海量碎数据。</p><h2 id=关于podman>关于podman</h2><p>podman的好处对我们目前的物联网项目来说主要是可以免root用户部署维护。<br>在试运行一段时间后，从几台服务器线上使用后没问题到全部服务器都开始替换docker，历时两个月没出现任何问题。</p><h2 id=keydb>keydb</h2><p>而keydb经过一周的反复测试，在实际应用场景下 keydb6.3.x 性能远远超过redis6.2.13和redis7.2.3。因为跨云公网集群，所以tls是必须的，而keydb的tls性能经过测试要比redis7.2.3的qps高出6-10倍。tcp性能高出40%-2倍。<br>keydb完全兼容redis6.2.x 一周的线上部分节点测试中没发现问题。</p><h2 id=遇到的几个坑>遇到的几个坑</h2><h3 id=华为云和debian11>华为云和debian11</h3><p>腾讯云和阿里云都很顺利，主要是华为云那边。华为云没有提供debian12的镜像，在手动升级到debian12后 容器无法启动。因为时间紧张没有去检查是华为云镜像里面内置的华为组件导致的还是别的的问题。 以下记录 基于debian12 华为云部分基于debian11</p><h3 id=lxc主机下的podman>lxc主机下的podman</h3><p>和docker不太一样，非特权lxc也要解决cgroup2</p><h3 id=su切换用户的丢失xdg_runtime_dir>su切换用户的丢失XDG_RUNTIME_DIR</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl><span class=nb>export</span> <span class=nv>XDG_RUNTIME_DIR</span><span class=o>=</span>/run/user/<span class=k>$(</span>id -u<span class=k>)</span>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=nv>$XDG_RUNTIME_DIR</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=keydb集群维护和redis7不一样的地方>keydb集群维护和redis7不一样的地方</h3><p>keydb 6.2.3 应该是基于redis6.x的，在集群创建和添加节点的，不支持用域名和hostname的方式，需要手动指定ip,否则集群无法通讯。</p><h3 id=阿里云的域名问题>阿里云的域名问题</h3><p>因为为了隔离实体，这次升级，我们新使用了一个和我个人以及公司不相关的域名（未在阿里云备案）组建redis集群。结果在阿里云那边 tls频繁被重置。 集群也经常卡掉。 反复检查后，并和阿里云技术沟通几次后发现确实是备案的问题。（非web业务域名也要备案）<br>后更换一个在阿里云备案过的域名 没有再出问题。<br>我朝这些政策真的是。。。</p><h3 id=acl>ACL</h3><p>keydb6.3.4 依旧不支持Redis 7.X ACL，部分业务代码需要调整。之前说2023年中支持，好像跳票了。但是目前最新代码中已经有acl相关的内容<br>unstable 版本未测试</p><h3 id=其他可选的kv储存>其他可选的kv储存</h3><p>一开始是打算先在部分需要储存的业务上替换目前的s3储存，新方案需要去中心化跨云的集群，加上我们对go-reids sdk针对性的优化过，所以优先考察了几个兼容redis协议的 以及minio集群。<br>主要是 minio kvrocks tendis redrock Pika</p><ul><li>minio集群 去中心化，但是扩展需要指数扩展，另外etcd联邦方案过于复杂。我们实际情况是大量小数据段，写入多但是读取也不少，在实际测试后minio集群方式带来的费用可能比直接使用云厂商的对象储存反还要高。</li><li>tendis 未尝试，因为不支持tls不跨云部署。</li><li>redrock 个人开发者，作者在知乎，github不活跃，代码已经许久没维护，文档不全。简单测试后性能和redis差不多，低于keydb。</li><li>kvrocks 花费大量时间测试和权衡后得到的结论：他的集群的管理以及故障转移方式虽然没有gossip开支，需要一个外部节点来自动进行故障转移，另外就是他的热数据是基于rocks的cache来管理在qps比较高的时候的表现一般，在测试过几轮后和redis6/7的差距较大（不知道为什么所有kv数据去vs redis的时候都去和单线程的redis比较&mldr;）。</li><li>pika 看起来不是完全去中心化的，和我们实际需求不相符。<br>主要是我们还需要热数据查询速度好一些，虽然另外有一个redis集群，但是本着尽可能独立的原则。剩下也就keydb 和 kvrocks可选了。<br>因为线下模拟测试和线上实际情况有出入，而kvrocks和keydb都是兼容redis cluster，我们目前情况是qps较高而节点数量并不多，gossip协议对我们影响不大，所以我们最终决定先逐步在线上用keydb替代redis和kv储存。日后再调研kvrocks</li></ul><blockquote><p>keydb的硬盘存储功能，也就是flash功能，目前还是测试版。但是这是从keydb专业版合并到开源版本的功能，所以简单的 get set 经过一周测试稳定性和性能都没有问题。</p></blockquote><h2 id=部署过程>部署过程</h2><h3 id=系统环境准备>系统环境准备</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>wget https://github代理站/https://github.com/rclone/rclone/releases/download/v1.64.2/rclone-v1.64.2-linux-amd64.deb
+</span></span><span class=line><span class=cl>apt install ./rclone-v1.64.2-linux-amd64.deb
+</span></span><span class=line><span class=cl>rm ./rclone-v1.64.2-linux-amd64.deb
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>#apt install docker-compose</span>
+</span></span><span class=line><span class=cl>apt-get -y install podman crun  slirp4netns fuse-overlayfs
+</span></span><span class=line><span class=cl>systemctl <span class=nb>enable</span> --now podman  <span class=c1># debian11 需要</span>
+</span></span><span class=line><span class=cl><span class=c1># 别名 alpine的写到 /etc/profile</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>cp /etc/containers/registries.conf /etc/containers/registries.conf-bak
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>cat &gt; /etc/containers/registries.conf<span class=s>&lt;&lt; EOF
+</span></span></span><span class=line><span class=cl><span class=s>unqualified-search-registries =  [&#39;registry.redhat.io&#39;, &#39;docker.io&#39;]
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>[[registry]]
+</span></span></span><span class=line><span class=cl><span class=s>prefix = &#34;docker.io&#34;
+</span></span></span><span class=line><span class=cl><span class=s>location = &#34;docker.io&#34;
+</span></span></span><span class=line><span class=cl><span class=s>[[registry.mirror]]
+</span></span></span><span class=line><span class=cl><span class=s>location = &#34;docker.nju.edu.cn&#34;
+</span></span></span><span class=line><span class=cl><span class=s>[[registry.mirror]]
+</span></span></span><span class=line><span class=cl><span class=s>location = &#34;docker.mirrors.sjtug.sjtu.edu.cn&#34;
+</span></span></span><span class=line><span class=cl><span class=s>[[registry.mirror]]
+</span></span></span><span class=line><span class=cl><span class=s>location = &#34;阿里云容器镜像加速地址.mirror.aliyuncs.com&#34;
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>mkdir  -p ~/.config/rclone/
+</span></span><span class=line><span class=cl>cat &gt; ~/.config/rclone/rclone.conf <span class=s>&lt;&lt; EOF
+</span></span></span><span class=line><span class=cl><span class=s>[oss-hz]
+</span></span></span><span class=line><span class=cl><span class=s>type = s3
+</span></span></span><span class=line><span class=cl><span class=s>provider = Alibaba
+</span></span></span><span class=line><span class=cl><span class=s>access_key_id = XXXXX
+</span></span></span><span class=line><span class=cl><span class=s>secret_access_key = XXXX
+</span></span></span><span class=line><span class=cl><span class=s>endpoint = oss-cn-shanghai.aliyuncs.com
+</span></span></span><span class=line><span class=cl><span class=s>acl = private
+</span></span></span><span class=line><span class=cl><span class=s>storage_class = STANDARD
+</span></span></span><span class=line><span class=cl><span class=s>bucket_acl = private
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=独立用户>独立用户</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>adduser --shell /bin/bash keydb
+</span></span><span class=line><span class=cl>loginctl enable-linger keydb <span class=c1># 允许用户常驻</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>##需要给 检查sudo权限，否则容器的一些目录他没有权限删除，</span>
+</span></span><span class=line><span class=cl>usermod -aG sudo keydb <span class=c1>#部署完成后 移除sudo</span>
+</span></span><span class=line><span class=cl>sudo -l -U keydb
+</span></span><span class=line><span class=cl><span class=c1># 部分云主机（腾讯云）改动过sudoer文件  需要手动添加 sudo用户组</span>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;%sudo	ALL=(ALL:ALL) ALL&#34;</span> &gt;  /etc/sudoers.d/sudogrup
+</span></span><span class=line><span class=cl><span class=c1># 配置证书</span>
+</span></span><span class=line><span class=cl>su keydb
+</span></span><span class=line><span class=cl>mkdir  -p ~/.ssh/ 
+</span></span><span class=line><span class=cl>cat &gt; ~/.ssh/authorized_keys <span class=s>&lt;&lt; \EOF
+</span></span></span><span class=line><span class=cl><span class=s>ssh-rsa AAAXXXXXXXX
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span><span class=line><span class=cl>chmod -R <span class=m>600</span> ~/.ssh/authorized_keys 
+</span></span></code></pre></td></tr></table></div></div><p>推出ssh,重新用 keydb用户登陆到服务器，后面操作都是基于keydb</p><h3 id=tls证书>tls证书</h3><p>用rclone 从oss获取</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>rclone  copyto oss-hz:/XXXX/redis_tls  ~/redis_tls
+</span></span><span class=line><span class=cl>rm -rf ~/.config/rclone/rclone.conf <span class=c1># 用完删掉配置文件</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=keydb模板>keydb模板</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>cat &gt; ~/etc/keydb_tpl_all.conf <span class=s>&lt;&lt; \EOF
+</span></span></span><span class=line><span class=cl><span class=s># flash版本
+</span></span></span><span class=line><span class=cl><span class=s># 主要设置 maxmemory128mb
+</span></span></span><span class=line><span class=cl><span class=s>maxmemory {MaxMem}
+</span></span></span><span class=line><span class=cl><span class=s># allkeys-lfu allkeys-lru
+</span></span></span><span class=line><span class=cl><span class=s>maxmemory-policy allkeys-lfu
+</span></span></span><span class=line><span class=cl><span class=s>maxmemory-samples 5
+</span></span></span><span class=line><span class=cl><span class=s># storage-provider flash /path/to/flash/db
+</span></span></span><span class=line><span class=cl><span class=s>storage-provider flash /data/flash
+</span></span></span><span class=line><span class=cl><span class=s># === 持久化
+</span></span></span><span class=line><span class=cl><span class=s>appendonly yes
+</span></span></span><span class=line><span class=cl><span class=s>appendfilename &#34;appendonly.aof&#34;
+</span></span></span><span class=line><span class=cl><span class=s>appendfsync everysec
+</span></span></span><span class=line><span class=cl><span class=s>rdbcompression yes
+</span></span></span><span class=line><span class=cl><span class=s>rdbchecksum yes
+</span></span></span><span class=line><span class=cl><span class=s>dbfilename dump.rdb
+</span></span></span><span class=line><span class=cl><span class=s>rdb-del-sync-files no
+</span></span></span><span class=line><span class=cl><span class=s>dir /data
+</span></span></span><span class=line><span class=cl><span class=s>hz 10
+</span></span></span><span class=line><span class=cl><span class=s>dynamic-hz yes
+</span></span></span><span class=line><span class=cl><span class=s>aof-rewrite-incremental-fsync yes
+</span></span></span><span class=line><span class=cl><span class=s>rdb-save-incremental-fsync yes
+</span></span></span><span class=line><span class=cl><span class=s>no-appendfsync-on-rewrite no
+</span></span></span><span class=line><span class=cl><span class=s>auto-aof-rewrite-percentage 100
+</span></span></span><span class=line><span class=cl><span class=s>auto-aof-rewrite-min-size 64mb
+</span></span></span><span class=line><span class=cl><span class=s>aof-load-truncated yes
+</span></span></span><span class=line><span class=cl><span class=s>aof-use-rdb-preamble yes
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s># ======= 密码
+</span></span></span><span class=line><span class=cl><span class=s>requirepass &#34;{password}&#34;
+</span></span></span><span class=line><span class=cl><span class=s>masterauth &#34;{password}&#34;
+</span></span></span><span class=line><span class=cl><span class=s># ======== tls
+</span></span></span><span class=line><span class=cl><span class=s>tls-port {tlsPort}
+</span></span></span><span class=line><span class=cl><span class=s>tls-cert-file {tlsCert}/redis.crt
+</span></span></span><span class=line><span class=cl><span class=s>tls-key-file {tlsCert}/redis.key
+</span></span></span><span class=line><span class=cl><span class=s>tls-client-cert-file {tlsCert}/client.crt
+</span></span></span><span class=line><span class=cl><span class=s>tls-client-key-file {tlsCert}/client.key
+</span></span></span><span class=line><span class=cl><span class=s>tls-client-key-file-pass {tlsCert}/secret
+</span></span></span><span class=line><span class=cl><span class=s>tls-dh-params-file {tlsCert}/redis.dh
+</span></span></span><span class=line><span class=cl><span class=s>tls-ca-cert-file {tlsCert}/ca.crt
+</span></span></span><span class=line><span class=cl><span class=s>tls-ca-cert-dir {tlsCert}
+</span></span></span><span class=line><span class=cl><span class=s>tls-auth-clients no
+</span></span></span><span class=line><span class=cl><span class=s>tls-auth-clients optional
+</span></span></span><span class=line><span class=cl><span class=s>tls-replication yes
+</span></span></span><span class=line><span class=cl><span class=s>tls-cluster yes
+</span></span></span><span class=line><span class=cl><span class=s>tls-protocols &#34;TLSv1.2 TLSv1.3&#34;
+</span></span></span><span class=line><span class=cl><span class=s>tls-ciphers DEFAULT:!MEDIUM
+</span></span></span><span class=line><span class=cl><span class=s>tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256
+</span></span></span><span class=line><span class=cl><span class=s>tls-prefer-server-ciphers yes
+</span></span></span><span class=line><span class=cl><span class=s>tls-session-caching no
+</span></span></span><span class=line><span class=cl><span class=s>tls-session-cache-size 5000
+</span></span></span><span class=line><span class=cl><span class=s>tls-session-cache-timeout 60
+</span></span></span><span class=line><span class=cl><span class=s>#=== 集群
+</span></span></span><span class=line><span class=cl><span class=s>cluster-enabled yes
+</span></span></span><span class=line><span class=cl><span class=s>cluster-config-file &#34;nodes.conf&#34;
+</span></span></span><span class=line><span class=cl><span class=s>cluster-node-timeout 5000
+</span></span></span><span class=line><span class=cl><span class=s>cluster-announce-ip {domian}
+</span></span></span><span class=line><span class=cl><span class=s>cluster-announce-bus-port {PORT_BUS}
+</span></span></span><span class=line><span class=cl><span class=s># ======= 其他
+</span></span></span><span class=line><span class=cl><span class=s>protected-mode no
+</span></span></span><span class=line><span class=cl><span class=s>bind * -::*  
+</span></span></span><span class=line><span class=cl><span class=s>port {port}
+</span></span></span><span class=line><span class=cl><span class=s>tcp-backlog 511
+</span></span></span><span class=line><span class=cl><span class=s>timeout 0
+</span></span></span><span class=line><span class=cl><span class=s>tcp-keepalive 300
+</span></span></span><span class=line><span class=cl><span class=s>supervised no
+</span></span></span><span class=line><span class=cl><span class=s>pidfile /var/run/keydb.pid
+</span></span></span><span class=line><span class=cl><span class=s>#loglevel notice warning
+</span></span></span><span class=line><span class=cl><span class=s>loglevel notice
+</span></span></span><span class=line><span class=cl><span class=s>databases 16
+</span></span></span><span class=line><span class=cl><span class=s>always-show-logo no
+</span></span></span><span class=line><span class=cl><span class=s>set-proc-title yes
+</span></span></span><span class=line><span class=cl><span class=s>proc-title-template &#34;{title} {listen-addr} {server-mode}&#34;
+</span></span></span><span class=line><span class=cl><span class=s>save 900 1
+</span></span></span><span class=line><span class=cl><span class=s>save 300 10
+</span></span></span><span class=line><span class=cl><span class=s>save 60 10000
+</span></span></span><span class=line><span class=cl><span class=s>stop-writes-on-bgsave-error yes
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>replica-serve-stale-data yes
+</span></span></span><span class=line><span class=cl><span class=s>replica-read-only yes
+</span></span></span><span class=line><span class=cl><span class=s>repl-diskless-sync no
+</span></span></span><span class=line><span class=cl><span class=s>repl-diskless-sync-delay 5
+</span></span></span><span class=line><span class=cl><span class=s>repl-diskless-load disabled
+</span></span></span><span class=line><span class=cl><span class=s>repl-disable-tcp-nodelay no
+</span></span></span><span class=line><span class=cl><span class=s>replica-priority 100
+</span></span></span><span class=line><span class=cl><span class=s>acllog-max-len 128
+</span></span></span><span class=line><span class=cl><span class=s>lazyfree-lazy-eviction no
+</span></span></span><span class=line><span class=cl><span class=s>lazyfree-lazy-expire no
+</span></span></span><span class=line><span class=cl><span class=s>lazyfree-lazy-server-del no
+</span></span></span><span class=line><span class=cl><span class=s>replica-lazy-flush no
+</span></span></span><span class=line><span class=cl><span class=s>lazyfree-lazy-user-del no
+</span></span></span><span class=line><span class=cl><span class=s>lazyfree-lazy-user-flush no
+</span></span></span><span class=line><span class=cl><span class=s>oom-score-adj no
+</span></span></span><span class=line><span class=cl><span class=s>oom-score-adj-values 0 200 800
+</span></span></span><span class=line><span class=cl><span class=s>disable-thp yes
+</span></span></span><span class=line><span class=cl><span class=s>lua-time-limit 5000
+</span></span></span><span class=line><span class=cl><span class=s>slowlog-log-slower-than 10000
+</span></span></span><span class=line><span class=cl><span class=s>slowlog-max-len 128
+</span></span></span><span class=line><span class=cl><span class=s>latency-monitor-threshold 0
+</span></span></span><span class=line><span class=cl><span class=s>notify-keyspace-events &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s>hash-max-ziplist-entries 512
+</span></span></span><span class=line><span class=cl><span class=s>hash-max-ziplist-value 64
+</span></span></span><span class=line><span class=cl><span class=s>list-max-ziplist-size -2
+</span></span></span><span class=line><span class=cl><span class=s>list-compress-depth 0
+</span></span></span><span class=line><span class=cl><span class=s>set-max-intset-entries 512
+</span></span></span><span class=line><span class=cl><span class=s>zset-max-ziplist-entries 128
+</span></span></span><span class=line><span class=cl><span class=s>zset-max-ziplist-value 64
+</span></span></span><span class=line><span class=cl><span class=s>hll-sparse-max-bytes 3000
+</span></span></span><span class=line><span class=cl><span class=s>stream-node-max-bytes 4096
+</span></span></span><span class=line><span class=cl><span class=s>stream-node-max-entries 100
+</span></span></span><span class=line><span class=cl><span class=s>activerehashing yes
+</span></span></span><span class=line><span class=cl><span class=s>client-output-buffer-limit normal 0 0 0
+</span></span></span><span class=line><span class=cl><span class=s>client-output-buffer-limit replica 256mb 64mb 60
+</span></span></span><span class=line><span class=cl><span class=s>client-output-buffer-limit pubsub 32mb 8mb 60
+</span></span></span><span class=line><span class=cl><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>jemalloc-bg-thread yes
+</span></span></span><span class=line><span class=cl><span class=s>server-threads 2
+</span></span></span><span class=line><span class=cl><span class=s>replica-weighting-factor 2
+</span></span></span><span class=line><span class=cl><span class=s>active-client-balancing yes
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=通过模板创建n个keydb配置文件>通过模板创建N个keydb配置文件</h3><p>下面创建了 5+5 10个，每个实例需要3个端口</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>get_keydb_conf<span class=o>()</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>   mkdir -p ~/etc <span class=o>&amp;&amp;</span> <span class=nb>cd</span> ~/etc
+</span></span><span class=line><span class=cl>   rm -rf ./keydb<span class=nv>$PORT_TCP</span>.conf
+</span></span><span class=line><span class=cl>  cp ./keydb_tpl_all.conf ./<span class=nv>$PORT_TCP</span>.conf <span class=c1># 模板</span>
+</span></span><span class=line><span class=cl>   sed  -i <span class=s2>&#34;s/{port}/</span><span class=nv>$PORT_TCP</span><span class=s2>/g&#34;</span>      ./<span class=nv>$PORT_TCP</span>.conf <span class=c1>#tcp 端口</span>
+</span></span><span class=line><span class=cl>   sed  -i <span class=s2>&#34;s/{tlsPort}/</span><span class=nv>$PORT_TLS</span><span class=s2>/g&#34;</span>   ./<span class=nv>$PORT_TCP</span>.conf <span class=c1>#tls 端口</span>
+</span></span><span class=line><span class=cl>   sed  -i <span class=s2>&#34;s/{PORT_BUS}/</span><span class=nv>$PORT_BUS</span><span class=s2>/g&#34;</span>  ./<span class=nv>$PORT_TCP</span>.conf <span class=c1>#BUS 端口</span>
+</span></span><span class=line><span class=cl>   sed  -i <span class=s2>&#34;s/{domian}/</span><span class=nv>$KEYDB_DOMAIN</span><span class=s2>/g&#34;</span>   ./<span class=nv>$PORT_TCP</span>.conf <span class=c1>#域名</span>
+</span></span><span class=line><span class=cl>   sed  -i <span class=s2>&#34;s/{tlsCert}/\/redis_tls/g&#34;</span>   ./<span class=nv>$PORT_TCP</span>.conf <span class=c1>#证书</span>
+</span></span><span class=line><span class=cl>   sed  -i <span class=s2>&#34;s/{password}/</span><span class=nv>$KEYDB_PSW</span><span class=s2>/g&#34;</span>    ./<span class=nv>$PORT_TCP</span>.conf <span class=c1>#密码</span>
+</span></span><span class=line><span class=cl>   sed  -i <span class=s2>&#34;s/{MaxMem}/</span><span class=nv>$MaxMem</span><span class=s2>/g&#34;</span>    ./<span class=nv>$PORT_TCP</span>.conf <span class=c1>#最大内存</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=k>if</span> <span class=o>[[</span> <span class=k>$(</span>uname -m<span class=k>)</span> <span class=o>==</span> arm* <span class=o>||</span> <span class=k>$(</span>uname -m<span class=k>)</span> <span class=o>==</span> aarch* <span class=o>]]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>      <span class=nb>echo</span> <span class=s2>&#34;当前是 ARM 架构 需要添加一行 ARM64-COW-BUG &#34;</span>
+</span></span><span class=line><span class=cl>      <span class=nb>echo</span> <span class=s2>&#34;ignore-warnings ARM64-COW-BUG&#34;</span>&gt;&gt; ./<span class=nv>$PORT_TCP</span>.conf <span class=c1># arm需要这个</span>
+</span></span><span class=line><span class=cl>   <span class=k>fi</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nv>KEYDB_PSW</span><span class=o>=</span>mypasswd
+</span></span><span class=line><span class=cl><span class=nv>MaxMem</span><span class=o>=</span><span class=s2>&#34;512mb&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>KEYDB_DOMAIN</span><span class=o>=</span><span class=s2>&#34;serv-ali-1.leiyanhui.com&#34;</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> i in <span class=o>{</span>1..5<span class=o>}</span><span class=p>;</span> <span class=k>do</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_TCP</span><span class=o>=</span><span class=k>$((</span><span class=m>4000</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_TLS</span><span class=o>=</span><span class=k>$((</span><span class=m>4100</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_BUS</span><span class=o>=</span><span class=k>$((</span><span class=m>14100</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  get_keydb_conf
+</span></span><span class=line><span class=cl><span class=k>done</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nv>MaxMem</span><span class=o>=</span><span class=s2>&#34;1024mb&#34;</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> i in <span class=o>{</span>1..5<span class=o>}</span><span class=p>;</span> <span class=k>do</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_TCP</span><span class=o>=</span><span class=k>$((</span><span class=m>5000</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_TLS</span><span class=o>=</span><span class=k>$((</span><span class=m>5100</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_BUS</span><span class=o>=</span><span class=k>$((</span><span class=m>15100</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  get_keydb_conf
+</span></span><span class=line><span class=cl><span class=k>done</span>
+</span></span><span class=line><span class=cl>nano 6001.conf
+</span></span></code></pre></td></tr></table></div></div><h3 id=创建容器>创建容器</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>get_podman<span class=o>()</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>   podman stop keydb<span class=nv>$PORT_TCP</span><span class=o>&amp;&amp;</span>podman rm keydb<span class=nv>$PORT_TCP</span>
+</span></span><span class=line><span class=cl>   sudo rm -rf ~/storage<span class=nv>$PORT_TCP</span> <span class=o>&amp;&amp;</span> mkdir ~/storage<span class=nv>$PORT_TCP</span> <span class=c1># 先sudo 删除储存目录</span>
+</span></span><span class=line><span class=cl>   podman run -itd --name keydb<span class=nv>$PORT_TCP</span> --hostname keydb<span class=nv>$PORT_TCP</span> --network host <span class=se>\
+</span></span></span><span class=line><span class=cl>      -v ~/etc:/keydb_etc <span class=se>\
+</span></span></span><span class=line><span class=cl>      -v ~/redis_tls:/redis_tls <span class=se>\
+</span></span></span><span class=line><span class=cl>      -v ~/storage<span class=nv>$PORT_TCP</span>:/data <span class=se>\
+</span></span></span><span class=line><span class=cl>      -e <span class=nv>TZ</span><span class=o>=</span>Asia/Shanghai <span class=se>\
+</span></span></span><span class=line><span class=cl>      --restart<span class=o>=</span>always  <span class=se>\
+</span></span></span><span class=line><span class=cl>      --shm-size 128M <span class=se>\
+</span></span></span><span class=line><span class=cl>      -d <span class=nv>$DOCKEIMAGE</span> keydb-server /keydb_etc/<span class=nv>$PORT_TCP</span>.conf 
+</span></span><span class=line><span class=cl>  <span class=c1># 处理用户服务</span>
+</span></span><span class=line><span class=cl>  mkdir -p ~/.config/systemd/user <span class=o>&amp;&amp;</span> <span class=nb>cd</span>   ~/.config/systemd/user 
+</span></span><span class=line><span class=cl>  rm -rf ./container-keydb<span class=nv>$PORT_TCP</span>.service 
+</span></span><span class=line><span class=cl>  podman generate systemd --name  keydb<span class=nv>$PORT_TCP</span> --files --new
+</span></span><span class=line><span class=cl>  systemctl --user daemon-reload
+</span></span><span class=line><span class=cl>  systemctl --user <span class=nb>enable</span> container-keydb<span class=nv>$PORT_TCP</span>.service
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>DOCKEIMAGE</span><span class=o>=</span>docker.io/eqalpha/keydb:alpine_x86_64_v6.3.4
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>for</span> i in <span class=o>{</span>1..5<span class=o>}</span><span class=p>;</span> <span class=k>do</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_TCP</span><span class=o>=</span><span class=k>$((</span><span class=m>4000</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  get_podman
+</span></span><span class=line><span class=cl><span class=k>done</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>for</span> i in <span class=o>{</span>1..5<span class=o>}</span><span class=p>;</span> <span class=k>do</span>
+</span></span><span class=line><span class=cl>  <span class=nv>PORT_TCP</span><span class=o>=</span><span class=k>$((</span><span class=m>5000</span> <span class=o>+</span> i<span class=k>))</span>
+</span></span><span class=line><span class=cl>  get_podman
+</span></span><span class=line><span class=cl><span class=k>done</span>
+</span></span><span class=line><span class=cl>ls
+</span></span><span class=line><span class=cl>podman ps -a
+</span></span></code></pre></td></tr></table></div></div><h3 id=开放端口>开放端口</h3><p>去各家云主机控制面板 防火墙 开放端口<br>4101-4105,14101-14105, 5101-5105,15101-15105</p><h3 id=主集群连接>主集群连接</h3><p>keydb必须使用ip连接</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>podman <span class=nb>exec</span> -it keydb6001 keydb-cli --tls <span class=se>\
+</span></span></span><span class=line><span class=cl>    --cacert /redis_tls/ca.crt <span class=se>\
+</span></span></span><span class=line><span class=cl>    -a  密码  <span class=se>\
+</span></span></span><span class=line><span class=cl>  --cluster create 18.18.18.18:4101 18.18.18.18:4102 18.18.18.18:4103 18.18.18.18:4104 18.18.18.18:4105
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>podman <span class=nb>exec</span> -it keydb6001 keydb-cli --tls <span class=se>\
+</span></span></span><span class=line><span class=cl>    --cacert /redis_tls/ca.crt <span class=se>\
+</span></span></span><span class=line><span class=cl>    -a  密码  <span class=se>\
+</span></span></span><span class=line><span class=cl>  --cluster create 18.18.18.18:5101 18.18.18.18:5102 18.18.18.18:5103 18.18.18.18:5104 18.18.18.18:5105
+</span></span></code></pre></td></tr></table></div></div><h3 id=添加从节点>添加从节点</h3><p>也必须用ip方式</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>podman <span class=nb>exec</span> -it keydb6001 keydb-cli --tls <span class=se>\
+</span></span></span><span class=line><span class=cl>    --cacert /redis_tls/ca.crt <span class=se>\
+</span></span></span><span class=line><span class=cl>    -a  密码 <span class=se>\
+</span></span></span><span class=line><span class=cl>    --cluster add-node  新节点:4105 现有任意一个旧节点ip:4101  <span class=se>\
+</span></span></span><span class=line><span class=cl>    --cluster-slave --cluster-master-id &lt;本节点的主节点id&gt;
+</span></span></code></pre></td></tr></table></div></div><h3 id=手动调整主节点>手动调整主节点</h3><p>逐个连接到要提为主节点上执行，这里可以用域名了哈</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>podman <span class=nb>exec</span> -it keydb6001 keydb-cli --tls <span class=se>\
+</span></span></span><span class=line><span class=cl>    --cacert /redis_tls/ca.crt <span class=se>\
+</span></span></span><span class=line><span class=cl>    -a  密码 <span class=se>\
+</span></span></span><span class=line><span class=cl>    -h 要提为主节点的从节点的ip或者域名 -p <span class=m>4104</span> <span class=se>\
+</span></span></span><span class=line><span class=cl>    CLUSTER FAILOVER TAKEOVER
+</span></span></code></pre></td></tr></table></div></div><h3 id=导入历史数据>导入历史数据</h3><p>方法1 、 <a class=link href=https://github.com/joyanhui/redis-back target=_blank rel=noopener>https://github.com/joyanhui/redis-back</a><br>方法2、 aof 和 rdb文件直接恢复<br>实际3、 集群未停机，主节点都在线，所以直接接入</p><h3 id=防止主节点过于集中>防止主节点过于集中</h3><p>某些极端情况下，多数主节点会被集群迁移到其中一台机器上（目前是4台机器，每个集群5个主节点）。如果有3个主节点被集群自动迁移到一台机器上，刚好这台机器宕机。那么整个集群会无法自愈。<br>需要另外运行一个脚本定时执行<code>CLUSTER NODES</code>检查节点部分情况。<br>我们是部署在云函数上的golang+shell脚本实现 定时器事件触发，具体实现略</p><h3 id=防止主从同步带宽占用过大>防止主从同步带宽占用过大</h3><p>每个集群是 1主2从 1从和它的主放在同一个云上，修改hosts为内网ip，另外一从跨云。<br>这样尽可能的降低主从同步的带宽占用。在经济性和高可用性之间找平衡。</p><h2 id=对redis的一些看法>对redis的一些看法</h2><p>其实无论是keydb还是dragonfly实际运行环境中，性能都已经远远超过redis，连接数比较多的时候cpu和内存的开支也都比redis小很多。 甚至kvrocks在ramdis或者傲腾下，性能都超过redis 所以如果和我一样是自建的话，尽早切换吧。<br>redis的设计逻辑有一些固执，或许这也是redis一开始成功的原因。</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/container/chroot-devpts/><div class=article-details><h2 class=article-title>chroot 进去后的系统 devpts错误</h2></div></a></article><article><a href=/container/chroot-dns/><div class=article-details><h2 class=article-title>chroot 进去后的系统无网络或者dns错误</h2></div></a></article><article><a href=/container/chroot-sudo/><div class=article-details><h2 class=article-title>chroot的sudo setuid错误的处理</h2></div></a></article><article><a href=/container/chroot/><div class=article-details><h2 class=article-title>chroot的使用方法 替代docker/lxc/lxd</h2></div></a></article><article><a href=/linux/android-linux/><div class=article-details><h2 class=article-title>安卓运行lxc/docker方法（非虚拟机）</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.34.2>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
