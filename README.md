@@ -10,7 +10,7 @@ joyanhui/note (私有)                          joyanhui/dev.leiyanhui.com-page
 │ dev.leiyanhui.com/      │  push 触发       │ main 分支:                      │
 │   ├── config/           │ ──────────────→  │   .github/workflows/page_build.yml
 │   ├── assets/           │  repository_dispatch  │                              │
-│   ├── content/          │  (TOKEN_G)       │ CI 执行：                       │
+│   ├── content/          │  (TOKEN_GH)      │ CI 执行：                       │
 │   ├── go.mod            │                  │   1. clone joyanhui/note        │
 │   └── go.sum            │                  │   2. cd dev.leiyanhui.com       │
 │                         │                  │   3. hugo --minify --gc         │
@@ -25,8 +25,7 @@ joyanhui/note (私有)                          joyanhui/dev.leiyanhui.com-page
 
 | Secret | 作用 |
 |---|---|
-| `TOKEN_GH` | CI clone 私有库 `joyanhui/note` 时使用（需 `repo` 权限） |
-| `TOKEN_G` | 配置在 `joyanhui/note` 仓库，用于触发本仓库的 CI |
+| `TOKEN_GH` | 两个仓库共用：note 用来触发本仓库 dispatch，本仓库用来 clone 私有库 `joyanhui/note`（需 `repo` 权限） |
 
 ## 分支说明
 
