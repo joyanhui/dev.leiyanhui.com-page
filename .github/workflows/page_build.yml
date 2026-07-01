@@ -35,9 +35,18 @@ jobs:
         run: hugo --minify --gc
 
       - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./note-repo/dev.leiyanhui.com/public
-          publish_branch: gh-pages
-          cname: dev.leiyanhui.com
+        working-directory: note-repo/dev.leiyanhui.com
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp assets/favicon.ico public/favicon.ico
+          cd public
+          rm -rf .git*
+          echo "dev2.leiyanhui.com" > CNAME
+          git init
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -A
+          git commit -m "Auto deploy from $GITHUB_SHA"
+          git remote add origin https://x-access-token:${GITHUB_TOKEN}@github.com/joyanhui/dev.leiyanhui.com-page.git
+          git push origin master:gh-pages -f -q
