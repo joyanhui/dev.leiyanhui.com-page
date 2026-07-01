@@ -1,0 +1,43 @@
+name: page_build
+
+on:
+  repository_dispatch:
+    types: [content_update]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout note repo
+        uses: actions/checkout@v4
+        with:
+          repository: joyanhui/note
+          token: ${{ secrets.TOKEN_GH }}
+          path: note-repo
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '^1.17.0'
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
+        with:
+          hugo-version: 'latest'
+          extended: true
+
+      - name: Build with Hugo
+        working-directory: note-repo/dev.leiyanhui.com
+        run: hugo --minify --gc
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./note-repo/dev.leiyanhui.com/public
+          publish_branch: gh-pages
+          cname: dev.leiyanhui.com
