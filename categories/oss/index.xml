@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Oss on 小类随手记</title><link>https://dev.leiyanhui.com/categories/oss/</link><description>Recent content in Oss on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 29 Nov 2022 00:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/oss/index.xml" rel="self" type="application/rss+xml"/><item><title>hugo、hexo、mdbook自动部署到GitHub私有库和阿里云oss 并嵌套腾讯cdn的完整方案</title><link>https://dev.leiyanhui.com/mdbook/hugo-to-oss/</link><pubDate>Tue, 29 Nov 2022 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/mdbook/hugo-to-oss/</guid><description>&lt;p&gt;本文以hugo为例，hexo同理
+实现目的，&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;无服务器 如同本站&lt;/li&gt;
+&lt;li&gt;接近0费用 只有cdn和oss费用 cdn本身费用很低 oss 那边看cdn配置和文章更新频繁程度&lt;/li&gt;
+&lt;li&gt;搭建文章网站。实现博客或者帮助文档在线公开浏览。&lt;/li&gt;
+&lt;li&gt;国外访客直接走githubpage 国内访客 走腾讯-&amp;gt; 阿里云oss&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;.md&lt;/code&gt;原文件 不暴露到公网&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;部署到 oss 会增加大概100多秒的actions执行时间，也会导致oss那边产生一些写入费用。
+我的actions 从一开始的18-25秒执行时间，变成2m30s左右。单独上传到alioss 差不多需要2分钟。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="github上部署hugo-或者mdbook-hexo到私有库"&gt;GitHub上部署hugo 或者mdbook hexo到私有库
+&lt;/h3&gt;&lt;p&gt;hugo ： &lt;a class="link" href="https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/mdbook/hugo-install-nolocal/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;mdbook: &lt;a class="link" href="https://dev.leiyanhui.com/mdbook/siyou/" target="_blank" rel="noopener"
+&gt;https://dev.leiyanhui.com/mdbook/siyou/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;hexo 已经弃用很久，自己搞定 都差不多。&lt;/p&gt;
+&lt;h3 id="在阿里云创建oss和相关key"&gt;在阿里云创建oss和相关key
+&lt;/h3&gt;&lt;p&gt;详细步骤略，主要是 拿到 &lt;code&gt;AccessKey ID &lt;/code&gt;和 &lt;code&gt;AccessKey Secret&lt;/code&gt;, 对应的Bucket 权限 应该是所有人可读
+我创建了一个 青岛 &lt;code&gt;mydev-bolg.oss-cn-qingdao.aliyuncs.com&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;在对应的Bucket的配置 域名配置 里面绑定一个临时域名 &lt;code&gt;oss.dev.leiyanhui.com&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;然后在数据管理静态页面中设置 首页 index.html 打开子目录首页 Redirect 404页面 404.html&lt;/p&gt;
+&lt;h3 id="域名解析部分"&gt;域名解析部分
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;dev.leiyanhui.com 境外到xxx.gitHub.io&lt;/li&gt;
+&lt;li&gt;dev.leiyanhui.com 境内到cdn，我这里到腾讯cdn&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="修改github私有库上的自动部署脚本"&gt;修改GitHub私有库上的自动部署脚本
+&lt;/h3&gt;&lt;p&gt;以下操作在github的私有库上操作&lt;/p&gt;
+&lt;h4 id="先配置环境变量"&gt;先配置环境变量
+&lt;/h4&gt;&lt;p&gt;依次点击 &lt;code&gt;/settings/secrets/actions&lt;/code&gt; 添加变量&lt;code&gt;OSS_ACCESS_KEY_ID&lt;/code&gt; &lt;code&gt;OSS_ACCESS_KEY_SERCRET&lt;/code&gt; 对应阿里云的 &lt;code&gt;AccessKey ID &lt;/code&gt;和 &lt;code&gt;AccessKey Secret&lt;/code&gt;
+原来的变量&lt;code&gt;FOR_PAGE_SSHKEY&lt;/code&gt; 参考上面私有库配置的文章。&lt;br&gt;
+这样做是为了防止在编译过程日志里面显示敏感信息&lt;/p&gt;
+&lt;h4 id="编辑github-actions文件"&gt;编辑github actions文件
+&lt;/h4&gt;&lt;p&gt;&lt;code&gt;/.github/workflows/deploy.yml&lt;/code&gt; 原始文件内容参考 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-whis-theme-deploy.yml" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-whis-theme-deploy.yml&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;添加内容 就是增加一段到alioss的配置 我们用&lt;code&gt;manyuanrong/setup-ossutil@v1.0&lt;/code&gt; 这个
+注意run 那行我们是 复制 public 文件到 &lt;code&gt;oss://Bucket名称/&lt;/code&gt;（Bucket名称） 如果你用其他程序，需要自己修改以下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - name: setup aliyun oss
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; uses: manyuanrong/setup-ossutil@master
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; with:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; endpoint: oss-cn-qingdao.aliyuncs.com
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SERCRET }}
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - name: cp files to aliyun
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; run: |
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; rm -rf .git*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; rm -rf public/.git*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ossutil cp -rf public oss://mydev-bolg/ # 将mydev-bolg改为创建的Bucket名称，-rf表示覆盖
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;完整文件：&lt;a class="link" href="https://dev.leiyanhui.com/" target="_blank" rel="noopener"
+&gt;https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/hugo-Private-to-public-to-Alioss-whis-theme-deploy.yml&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="测试"&gt;测试
+&lt;/h3&gt;&lt;p&gt;actions 执行完成后，打开域名&lt;code&gt;mydev-bolg.oss-cn-qingdao.aliyuncs.com&lt;/code&gt; 测试，可以打开&lt;/p&gt;
+&lt;h3 id="推送到腾讯cos的配置"&gt;推送到腾讯cos的配置
+&lt;/h3&gt;&lt;p&gt;没有买cos，感觉贵一些,所以这里没相关配置，实际和上面操作 大同小异&lt;/p&gt;
+&lt;h3 id="配置cdn"&gt;配置cdn
+&lt;/h3&gt;&lt;p&gt;我这里cdn用的腾讯的，之所以套一个cdn 而不是直接用alioss 静态页面功能，当然是为了省钱。。。&lt;/p&gt;
+&lt;p&gt;阿里oss 删掉这个域名，或者直接添加一个 域名 dev.leiyanhui.com&lt;/p&gt;
+&lt;p&gt;在腾讯cdn 域名管理中 添加 回源地址 GitHub作为 热备源站，主站用&lt;code&gt;oss-cn-qingdao.aliyuncs.com&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="进阶"&gt;进阶
+&lt;/h3&gt;&lt;h4 id="节省oss费用降低写入次数--设置为定时执行"&gt;节省oss费用，降低写入次数。 设置为定时执行
+&lt;/h4&gt;&lt;p&gt;默认的情况是 当向master分支push代码或提交pull request的时候触发&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;on:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; push:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; branches: [ master ]
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; pull_request:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; branches: [ master ]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;看手册 &lt;a class="link" href="https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows" target="_blank" rel="noopener"
+&gt;https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows&lt;/a&gt;
+如果想要实现，push 并且距离上次时间 超过1小时，因为cron 不支持这个操作，而我们acions内的脚本 无法持久保存文件。所以不好实现。&lt;/p&gt;
+&lt;h5 id="schedule-cron的方式"&gt;schedule cron的方式
+&lt;/h5&gt;&lt;p&gt;手册：https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;on:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; schedule:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - cron: &amp;#39;30 5,17 * * *&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以定时执行，但是也和我们预期效果不一样。因为我们不是每天或者每小时都要更新内容。&lt;/p&gt;
+&lt;h5 id="手动执行发方法"&gt;手动执行发方法
+&lt;/h5&gt;&lt;p&gt;最简单 办法 是用 workflow_dispatch，想同步的时候，手动执行一次&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;on:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; workflow_dispatch:
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h5 id="定时和手动结合"&gt;定时和手动结合
+&lt;/h5&gt;&lt;p&gt;手动加定时任务&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;on:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; workflow_dispatch:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; schedule:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # 第二位小时数，要北京时间-8 后输入 比如 2是10点
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - cron: &amp;#34;16 5 */3 * *&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;手动触发 ，或者 每间隔3天的13点16分自动执行一次&lt;/p&gt;
+&lt;h5 id="完美添加时间戳的方法"&gt;完美：添加时间戳的方法
+&lt;/h5&gt;&lt;p&gt;原理：在阿里云oss上创建一个文本记录上次同步到阿里云的时间戳，然后每次同步到阿里云之前比较一下时间戳，如果超过指定的时间&lt;code&gt;3600&lt;/code&gt; 那么就同步一次，否则 不执行。
+新建一个文件&lt;code&gt;last_update.txt&lt;/code&gt;内容&lt;code&gt;last_update=0&lt;/code&gt; 手动上传到阿里云oss&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - name: setup aliyun oss
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; uses: manyuanrong/setup-ossutil@master
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; with:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; endpoint: oss-cn-qingdao.aliyuncs.com
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SERCRET }}
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - name: cp files to aliyun
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; run: |
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; #获取当前时间戳
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; current=`date &amp;#34;+%Y-%m-%d %H:%M:%S&amp;#34;`
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; timeStamp=`date -d &amp;#34;$current&amp;#34; +%s`
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; currentTimeStamp=$(((timeStamp*1000+10#`date &amp;#34;+%N&amp;#34;`/1000000)/1000)) #将current转换为时间戳，精确到秒
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; #获取上次更新的时间戳到变量last_update
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; curl -o last_update.txt https://你的地址.oss-cn-qingdao.aliyuncs.com/last_update.txt?$GITHUB_SHA
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; source last_update.txt
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; Time_over_val=`expr $currentTimeStamp - $last_update`
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; if [ &amp;#34;$Time_over_val&amp;#34; -ge &amp;#34;3600&amp;#34; ];then
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; echo &amp;#34;阿里oss 记录时间&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; echo &amp;#34;last_update=$currentTimeStamp&amp;#34; &amp;gt; public/last_update.txt
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; rm -rf .git*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; rm -rf public/.git*
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ossutil cp -rf public oss://你的Bucket/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; else
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; echo &amp;#34;跳过更新阿里oss&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; fi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;同时 修改触发条件为，每次改动，或手动,并添加定时，防止最后一次push后未同步的情况下 不能自动提交给阿里云的情况。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;on:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; workflow_dispatch:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; schedule:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; # 第二位小时数，要北京时间-8 后输入 比如 2是10点
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; - cron: &amp;#34;33 2 * * *&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; push:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; branches: [master]
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; pull_request:
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; branches: [master]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最终文件 &lt;a class="link" href="https://github.com/joyanhui/file.leiyanhui.com/blob/main/github-actions/hugo/%E9%97%B4%E9%9A%94%E5%90%8C%E6%AD%A5%E5%88%B0%E9%98%BF%E9%87%8C%E4%BA%91oss%E5%92%8C%E8%87%AA%E5%8A%A8%E5%90%8C%E6%AD%A5%E5%88%B0%E7%A7%81%E6%9C%89%E5%BA%93.yaml" target="_blank" rel="noopener"
+&gt;点击这里&lt;/a&gt;&lt;/p&gt;
+&lt;h5 id="小问题"&gt;小问题
+&lt;/h5&gt;&lt;p&gt;&lt;code&gt;manyuanrong/setup-ossutil@master&lt;/code&gt; 是从 &lt;code&gt; http://gosspublic.alicdn.com/ossutil/1.7.7/ossutil64&lt;/code&gt; 下载安装，git去下载话 有时候偶尔抽风速度不是很理想。有时候需要4分钟。。占用actions时间。&lt;/p&gt;</description></item></channel></rss>

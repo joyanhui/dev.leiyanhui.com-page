@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Qhs on 小类随手记</title><link>https://dev.leiyanhui.com/qh/</link><description>Recent content in Qhs on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 21 Dec 2022 22:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/qh/index.xml" rel="self" type="application/rss+xml"/><item><title>群晖7.1.1 开启ssl 并开启自动续签 非docker方法</title><link>https://dev.leiyanhui.com/qh/ssl/</link><pubDate>Wed, 21 Dec 2022 22:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/qh/ssl/</guid><description>&lt;p&gt;首先，你要有公网ip。 ipv6 也行&lt;/p&gt;
+&lt;p&gt;群晖下ssl证书有几种处理方法，&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;是docker 或者vm 运行一个 支持证书续签的服务 然后用-v挂载出来或者用计划任务复制出来&lt;/li&gt;
+&lt;li&gt;常用的宝塔 docker acme.sh 等
+实际上可以直接处理，但是需要pythone3 这个依赖。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="准备"&gt;准备
+&lt;/h2&gt;&lt;h3 id="首先只有一个默认证书才可以"&gt;首先只有一个默认证书才可以
+&lt;/h3&gt;&lt;p&gt;控制面板 安全性 证书 查看只有一个自签证书的情况下&lt;/p&gt;
+&lt;h3 id="域名商处理"&gt;域名商处理
+&lt;/h3&gt;&lt;h4 id="域名商那边获取id-key之类的"&gt;域名商那边获取id key之类的
+&lt;/h4&gt;&lt;p&gt;过程参考对应域名厂商。&lt;/p&gt;
+&lt;h4 id="域名那边创建两个子域名"&gt;域名那边创建两个子域名
+&lt;/h4&gt;&lt;p&gt;例如 &lt;code&gt;jia.leiyanhui.com&lt;/code&gt; A记录到任意一个ip&lt;br&gt;
+然后 &lt;code&gt;*.jia.leiyanhui.com&lt;/code&gt; Cnama 到 &lt;code&gt;jia.leiyanhui.com&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="配置ddns"&gt;配置DDNS
+&lt;/h3&gt;&lt;p&gt;可以在路由器处理，也可以直接在群晖里面处理&lt;/p&gt;
+&lt;h3 id="配置ssl续签脚本"&gt;配置ssl续签脚本
+&lt;/h3&gt;&lt;p&gt;在 file 里面创建一个目录 下载 的脚本 上传到对应目录解压。 &lt;br&gt;
+项目地址：https://github.com/andyzhshg/syno-acme&lt;br&gt;
+详情参考：http://www.up4dev.com/2018/05/29/synology-ssl-wildcard-cert-update/&lt;br&gt;
+注意一点 最后的脚本内容有一个 &lt;code&gt;cert-up.sh update&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update &amp;gt;&amp;gt; /volume1/system_file/syno-acme_log.txt 2&amp;gt;&amp;amp;1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以先手动指定执行一次&lt;code&gt;sudo bash /volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update&lt;/code&gt;
+查看日志：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo cat /volume1/system_file/syno-acme_log.txt
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;没问题的话 &lt;code&gt;&amp;gt;&amp;gt;&lt;/code&gt; 和后面的内容可以删掉，也可以改为 &lt;code&gt;&amp;gt;&lt;/code&gt; 例如下面两行都可以&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update &amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;/volume1/system_file/syno-acme-0.3.0_dsm7_beta/cert-up.sh update
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="http自动跳转https"&gt;http自动跳转https
+&lt;/h3&gt;&lt;p&gt;打开控制面板找到登录门户，在网页服务处勾选自动将DSM桌面的HTTP连接重定向到HTTPS后点击保存。&lt;/p&gt;
+&lt;h3 id="路由器注意转发端口过来"&gt;路由器注意转发端口过来
+&lt;/h3&gt;&lt;p&gt;过程略&lt;/p&gt;</description></item></channel></rss>

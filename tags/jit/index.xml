@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Jit on 小类随手记</title><link>https://dev.leiyanhui.com/tags/jit/</link><description>Recent content in Jit on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 07 Sep 2022 19:56:11 +0000</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/jit/index.xml" rel="self" type="application/rss+xml"/><item><title>php8的性能竟比php7.4提升了接近一倍</title><link>https://dev.leiyanhui.com/c/php8-jit/</link><pubDate>Wed, 07 Sep 2022 19:56:11 +0000</pubDate><guid>https://dev.leiyanhui.com/c/php8-jit/</guid><description>&lt;h1 id="php8的性能竟比php74提升了接近一倍"&gt;php8的性能竟比php7.4提升了接近一倍
+&lt;/h1&gt;&lt;p&gt;php终于支持jit了，而1996年java已经支持jit&lt;/p&gt;
+&lt;p&gt;php8.0 默认情况下 和php7.4性能基本接近，但是开启jit后 在cpu密集计算的情况下可以提升92%左右的性能，比php5 性能提升5-7倍&lt;/p&gt;
+&lt;p&gt;PHP 8 的 JIT（Just In Time）编译器将作为扩展集成到 php 中 Opcache 扩展 用于运行时将某些操作码直接转换为从 cpu 指令，大概来说就是之前版本的Opcache 可以跳过编译解释直接机器码到zend，而jit跳过zend 直接到cpu指令 。PHP 的 JIT 使用了名为** DynASM (Dynamic Assembler) 的库**，该库将一种特定格式的一组 CPU 指令映射为许多不同 CPU 类型的汇编代码。 因此，编译器只需要使用 DynASM 就可以将 Opcodes 转换为特定结构体的机器码。&lt;/p&gt;
+&lt;p&gt;JIT编译原理&lt;/p&gt;
+&lt;p&gt;1、检查opcodes是否缓存&lt;/p&gt;
+&lt;p&gt;2、zend compiler编译器进行编译生成opcodes&lt;/p&gt;
+&lt;p&gt;3、optimizer优化器生成优化后的opcodes&lt;/p&gt;
+&lt;p&gt;4、把优化后的opcodes放入opcodes cache缓存&lt;/p&gt;
+&lt;p&gt;5、jit编译器把optimized opcodes再次编译成汇编机器码machine codes&lt;/p&gt;
+&lt;p&gt;6、进入zend vm虚拟前先检查是否开启jit引擎&lt;/p&gt;
+&lt;p&gt;7、如果已经开启了jit引擎则直接读取机器码中的jit buffer代码片段&lt;/p&gt;
+&lt;p&gt;8、送入x86 cpu架构进行执行&lt;/p&gt;
+&lt;p&gt;其他要明白的&lt;/p&gt;
+&lt;p&gt;1、Opcache会做opcode层面的优化，比如图中的两条opcode合并为一条&lt;/p&gt;
+&lt;p&gt;2、PHP8的JIT目前是在Opcache之中提供的&lt;/p&gt;
+&lt;p&gt;3、JIT在Opcache优化之后的基础上，结合Runtime的信息再次优化，直接生成机器码&lt;/p&gt;
+&lt;p&gt;4、JIT不是原来Opcache优化的替代，是增强&lt;/p&gt;
+&lt;p&gt;5、目前PHP8只支持x86架构的CPU arm还要等着&lt;/p&gt;
+&lt;p&gt;当然如果php只是处理一些io操作，那么你用php5 还是php8 都差不多，因为性能瓶颈在io上而不是cpu上。如果是IO 密集型操作的 应用，开启jit反而可能会有10%左右的性能消耗 ，尤其是Laravel。&lt;/p&gt;
+&lt;p&gt;在密集计算的情况下，对比php7.4 和 未开机jit的php8 性能提升差不多是92%-120% ，也就是1倍左右。&lt;/p&gt;
+&lt;p&gt;当然 即便是开启了 jit，在密集计算上，php的性能依旧被 node.js java C# go C++ 吊打&lt;/p&gt;
+&lt;p&gt;&lt;a class="link" href="https://pages-lyh.oss-accelerate.aliyuncs.com/wp-content/uploads/2022/08/yunsuan.png" target="_blank" rel="noopener"
+&gt;&lt;img src="https://pages-lyh.oss-accelerate.aliyuncs.com/wp-content/uploads/2022/08/yunsuan.png"
+loading="lazy"
+&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;至于为什么使用php 这个各取所需的话题没啥可说的 所以还是尽快升级到php8&lt;/p&gt;
+&lt;p&gt;刚刚在宝塔中查看，已经支持到8.1.9 性能再提升4%左右 新项目不用考虑 直接上了。&lt;/p&gt;
+&lt;p&gt;在php.ini 中看到&lt;/p&gt;
+&lt;p&gt;opcache.jit_buffer_size=128m&lt;br&gt;
+opcache.jit=1205&lt;/p&gt;
+&lt;p&gt;宝塔默认帮开启了，opcache.jit这个配置由4个独立的数字组成，分别代表&lt;/p&gt;
+&lt;p&gt;是否使用AVX指令 寄存器分配策略 JIT触发策略 JIT优化策略 具体查看php8手册&lt;/p&gt;
+&lt;p&gt;值得注意的时php8.1.9下 部分扩展可能尚未支持&lt;/p&gt;
+&lt;p&gt;libssh2 【依赖关系如下：PECL/ssh2 –&amp;gt; libssh2 –&amp;gt; openssl】&lt;/p&gt;
+&lt;p&gt;sg11&lt;/p&gt;
+&lt;p&gt;常用的扩展 swoole redis之类的肯定都是没问题的&lt;/p&gt;
+&lt;p&gt;最终使用一段时间后，发现jit虽然提升了性能，但是再io频繁的情况下，没有任何感觉&lt;/p&gt;
+&lt;p&gt;php8 虽然已经很不错了，但是依旧是吃性能离谱，考虑到每日的用户暴涨和服务器费用，最终选择用golang重写，彻底抛弃php&lt;/p&gt;
+&lt;p&gt;以后 加上本博客最近也从wordpress 迁移到了 vuepress静态生成，以后用php的地方 可能就只是几个小动态页和maccms看看电影了&lt;/p&gt;</description></item></channel></rss>

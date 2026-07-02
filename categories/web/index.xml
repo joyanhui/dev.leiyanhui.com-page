@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Web on 小类随手记</title><link>https://dev.leiyanhui.com/categories/web/</link><description>Recent content in Web on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 04 Apr 2026 20:50:43 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/web/index.xml" rel="self" type="application/rss+xml"/><item><title>对于不同性能的性能的硬件环境的密码hash的设计</title><link>https://dev.leiyanhui.com/web/passwd-hash/</link><pubDate>Sat, 04 Apr 2026 20:50:43 +0800</pubDate><guid>https://dev.leiyanhui.com/web/passwd-hash/</guid><description>&lt;p&gt;本方案适合从32Mb极端的边缘设计到高性能服务器的密码安全hash的设计。 在安全性和性能之间寻找平衡并支持平衡迁移无感自动升级。&lt;/p&gt;
+&lt;p&gt;主要是解决随着GPU性能暴涨，传统的密码hash已经无法满足目前的安全需求。&lt;/p&gt;
+&lt;h3 id="灵活可演进的密码哈希方案-适用"&gt;灵活可演进的密码哈希方案 (适用)
+&lt;/h3&gt;&lt;p&gt;本方案通过&lt;strong&gt;算法版本化 (Versioning)&lt;/strong&gt; 适配从 低性能设备到高性能服务器的跨度，兼顾性能、并发与安全。&lt;/p&gt;
+&lt;h4 id="1-数据库存储结构"&gt;1. 数据库存储结构
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;&lt;code&gt;password_hash&lt;/code&gt;&lt;/strong&gt;: 完整的哈希字符串（含参数和有可能存在的盐）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;code&gt;password_type&lt;/code&gt; (uint8/int)&lt;/strong&gt;: 算法类型标识。 方便在代码里写 &lt;code&gt;switch-case&lt;/code&gt; 分发给不同的加密库
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;1&lt;/code&gt;: &lt;strong&gt;SHA256&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;2&lt;/code&gt;: &lt;strong&gt;Bcrypt&lt;/strong&gt; (标准模式，建议 Cost 10-12)。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;3&lt;/code&gt;: &lt;strong&gt;Argon2id&lt;/strong&gt; (高安全模式，建议内存 64MB)。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id="2-系统运行逻辑"&gt;2. 系统运行逻辑
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;全局配置&lt;/strong&gt;: 管理员根据当前硬件算力（如 0.125 Core 或 32MB RAM）设置&lt;strong&gt;系统当前默认算法&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;新用户/改密&lt;/strong&gt;: 强制采用“当前默认算法”进行加密并记录 &lt;code&gt;password_type&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;登录校验&lt;/strong&gt;: &lt;strong&gt;不参考全局配置&lt;/strong&gt;，直接读取该用户的 &lt;code&gt;password_type&lt;/code&gt; 调用对应算法库进行验证。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id="3-平滑迁移与自动升级"&gt;3. 平滑迁移与自动升级
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;向下兼容&lt;/strong&gt;: 允许数据库中同时存在三种算法的哈希数据，确保从高性能迁移到低性能设备时，老用户仍能登录。
+&lt;strong&gt;无感升级 (静默重哈希)&lt;/strong&gt;:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当用户登录成功后，程序对比 &lt;code&gt;user.password_type&lt;/code&gt; 与 `system.default_password_type。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;若用户算法版本不是系统配置，趁内存中持有&lt;strong&gt;明文密码&lt;/strong&gt;，立即用新算法重算并覆盖数据库，实现数据随硬件升级而自动加固。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id="4-性能与安全平衡建议"&gt;4. 性能与安全平衡建议
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;32MB 设备&lt;/strong&gt;: 默认选 &lt;code&gt;1&lt;/code&gt;。PBKDF2 内存占用近乎零，且比单次 SHA256 更能抵抗暴力破解。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;普通服务器&lt;/strong&gt;: 默认选 &lt;code&gt;2&lt;/code&gt;。Bcrypt 仅需 4KB 内存，能承受极高并发而不会导致 OOM。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;安全型服务器&lt;/strong&gt;: 默认选 &lt;code&gt;3&lt;/code&gt;。Argon2id 提供最强的抗 GPU 破解能力。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;p&gt;第一性原则:在低性能硬件可以降低密码安全性换取高性能，在高性能硬件可以牺牲算力和内存换取密码安全。&lt;/p&gt;
+&lt;p&gt;开发过程注意点&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;数据库结构需要同时兼容sqlite和pgsql&lt;/li&gt;
+&lt;li&gt;把密码相关的单独封装到一个crate ，yh-password-hash&lt;/li&gt;
+&lt;li&gt;需要完善系统设置的可视化的性能配置模板，对其默认密码算法。&lt;/li&gt;
+&lt;li&gt;新增配置项目
+&lt;ul&gt;
+&lt;li&gt;user_center.passwd_type # 当前默认算法：1-SHA256(PBKDF2), 2-Bcrypt, 3-Argon2&lt;/li&gt;
+&lt;li&gt;user_center.passwd_auto_upgrade &lt;a class="link" href="#%e9%bb%98%e8%ae%a4true" &gt;#默认true&lt;/a&gt; 登录成功后是否自动升级到当前默认算法&lt;/li&gt;
+&lt;li&gt;user_center.passwd_Argon2_mem &lt;a class="link" href="#%e9%bb%98%e8%ae%a432M" &gt;#默认32M&lt;/a&gt; 32768&lt;/li&gt;
+&lt;li&gt;user_center.passwd_Argon2_t &lt;a class="link" href="#%e9%bb%98%e8%ae%a43" &gt;#默认3&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;user_center.passwd_Argon2_p &lt;a class="link" href="#%e9%bb%98%e8%ae%a41" &gt;#默认1&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;user_center.passwd_bcrypt_cost &lt;a class="link" href="#%e9%bb%98%e8%ae%a410" &gt;#默认10&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;user_center.passwd_sha256_iterations &lt;a class="link" href="#%e9%bb%98%e8%ae%a4%e5%be%85%e5%ae%9a" &gt;#默认待定&lt;/a&gt; - &lt;strong&gt;默认迭代次数&lt;/strong&gt;：建议 &lt;code&gt;user_center.passwd_sha256_iterations&lt;/code&gt; 默认值为 &lt;strong&gt;310,000&lt;/strong&gt; (OWASP 最新推荐标准)。对于 64MB 的极低功耗路由，可以允许用户下调至 50,000 以换取秒开体验。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;因为 每种加密算法 需要记录的信息不同 ，Bcrypt 和 Argon2 有标准的 MCF/PHC 格式，但 PBKDF2 比较乱。为了兼容性，你需要规定一个存储标准：- &lt;strong&gt;建议格式&lt;/strong&gt;：&lt;code&gt;$pbkdf2-sha256$i=310000$salt$hash&lt;/code&gt;（仿照 Argon2 格式）。&lt;/li&gt;
+&lt;li&gt;password_hash 长度：在 PG 中用 &lt;code&gt;TEXT&lt;/code&gt;，在 SQLite 中也用 &lt;code&gt;TEXT&lt;/code&gt;。不要设定过短的 &lt;code&gt;VARCHAR(255)&lt;/code&gt;，Argon2 的完整字符串可能很长。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;原子更新&lt;/strong&gt;：在执行“无感升级（静默重哈希）”时，代码必须在一个&lt;strong&gt;事务&lt;/strong&gt;内完成，或者确保即使更新失败也不影响当前的登录会话（Session）&lt;/li&gt;
+&lt;li&gt;性能保护 实现一个简单的 &lt;strong&gt;并发校验限制&lt;/strong&gt;。例如：同时进行的 Argon2 校验任务不得超过 &lt;code&gt;N&lt;/code&gt; 个，或者在校验失败后强制 &lt;code&gt;sleep&lt;/code&gt; 几百毫秒。这在低功耗设备上是保命的&lt;/li&gt;
+&lt;li&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-rust" data-lang="rust"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 登录校验伪代码逻辑 伪代码 只是这个意思
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kd"&gt;let&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;db&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;get_user&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;username&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kd"&gt;let&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;is_valid&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;match&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;password_type&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;pbkdf2&lt;/span&gt;::&lt;span class="n"&gt;verify&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;input_password&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;password_hash&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;bcrypt&lt;/span&gt;::&lt;span class="n"&gt;verify&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;input_password&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;password_hash&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;3&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;argon2&lt;/span&gt;::&lt;span class="n"&gt;verify&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;input_password&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;password_hash&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;_&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Error&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#34;Unknown algorithm&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;};&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;is_valid&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;passwd_auto_upgrade&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;password_type&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;!=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;passwd_type&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 异步或同步执行：用新算法重算并 Update 数据库
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;let&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;new_hash&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;hash_with_config&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;input_password&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;db&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;update_password&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;new_hash&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;config&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;passwd_type&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="最终补充-checklist"&gt;最终补充 Checklist：
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;错误处理&lt;/strong&gt;：如果配置文件中的算法参数（如 Argon2 内存）超过了物理机剩余内存，系统应报明确的错误，尽量避免直接panic&lt;/li&gt;
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;依赖库选型&lt;/strong&gt;：建议使用 Rust 的 &lt;code&gt;RustCrypto&lt;/code&gt; 组织下的仓库（如 &lt;code&gt;argon2&lt;/code&gt;, &lt;code&gt;bcrypt&lt;/code&gt;, &lt;code&gt;pbkdf2&lt;/code&gt;），它们是纯 Rust 实现，跨平台支持（交叉编译到嵌入式设备）最好。&lt;/li&gt;
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;常量定义&lt;/strong&gt;：将算法 ID (1, 2, 3) 定义为 Enum，增强代码可读性。&lt;/li&gt;
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;日志脱敏&lt;/strong&gt;：在执行 &lt;code&gt;passwd_auto_upgrade&lt;/code&gt; 时，记录一条 &lt;code&gt;INFO&lt;/code&gt; 日志，但绝对禁止打印哈希值或明文。&lt;/li&gt;
+&lt;/ul&gt;</description></item></channel></rss>
