@@ -1,0 +1,75 @@
+<aside id="menu-drawer" class="menu-drawer">
+    <div class="drawer-header">
+        {{ with .Site.Params.sidebar.avatar }}
+            {{ if (default true .enabled) }}
+            <figure class="drawer-avatar">
+                {{ if not .local }}
+                    <img src="{{ .src }}" width="80" height="80" class="site-logo" loading="lazy" alt="Avatar">
+                {{ else }}
+                    {{ $avatar := resources.Get (.src) }}
+                    {{ if $avatar }}
+                        {{ $avatarResized := $avatar.Resize "160x" }}
+                        <img src="{{ $avatarResized.RelPermalink }}" width="80" height="80" class="site-logo" loading="lazy" alt="Avatar">
+                    {{ end }}
+                {{ end }}
+                {{ with $.Site.Params.sidebar.emoji }}
+                    <span class="emoji">{{ . }}</span>
+                {{ end }}
+            </figure>
+            {{ end }}
+        {{ end }}
+
+        <div class="drawer-meta">
+            <div class="site-name"><a href="{{ .Site.BaseURL | relLangURL }}">{{ .Site.Title }}</a></div>
+            <div class="site-description">{{ .Site.Params.sidebar.subtitle }}</div>
+        </div>
+    </div>
+
+    {{ if .Site.Menus.main }}
+    <nav class="drawer-nav">
+        <ol class="menu">
+            {{ $currentPage := . }}
+            {{ range .Site.Menus.main }}
+                {{ $active := or (eq $currentPage.RelPermalink .URL) (or ($currentPage.HasMenuCurrent "main" .) ($currentPage.IsMenuCurrent "main" .)) }}
+                <li {{ if $active }} class="current" {{ end }}>
+                    <a href="{{ .URL }}" {{ if eq .Params.newTab true }}target="_blank"{{ end }}>
+                        {{ $icon := default .Pre .Params.Icon }}
+                        {{ with $icon }}
+                            {{ partial "helper/icon" . }}
+                        {{ end }}
+                        <span>{{- .Name -}}</span>
+                    </a>
+                </li>
+            {{ end }}
+        </ol>
+    </nav>
+    {{ end }}
+
+    {{ if .Site.Menus.social }}
+    <div class="drawer-social">
+        <ol class="menu-social">
+            {{ range .Site.Menus.social }}
+                <li>
+                    <a href="{{ .URL }}" {{ if eq (default true .Params.newTab) true }}target="_blank"{{ end }} title="{{ .Name }}" rel="me">
+                        {{ $icon := default "link" .Params.Icon }}
+                        {{ with $icon }}
+                            {{ partial "helper/icon" . }}
+                        {{ end }}
+                    </a>
+                </li>
+            {{ end }}
+        </ol>
+    </div>
+    {{ end }}
+
+    {{ if (default false .Site.Params.colorScheme.toggle) }}
+    <div class="drawer-bottom">
+        <button id="dark-mode-toggle-drawer" class="dark-mode-toggle" aria-label="{{ T `darkMode` }}">
+            {{ partial "helper/icon" "sun" }}
+            {{ partial "helper/icon" "moon" }}
+            <span>{{ T "darkMode" }}</span>
+        </button>
+    </div>
+    {{ end }}
+</aside>
+<div class="drawer-overlay"></div>
