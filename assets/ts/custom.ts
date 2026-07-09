@@ -95,8 +95,12 @@
 
     var ctx = canvas.getContext('2d');
     var particles = [];
-    var PARTICLE_COUNT = 70;
+    var PARTICLE_COUNT = 60;
+    var MAX_PARTICLES = 130;
     var isDark = document.documentElement.dataset.scheme === 'dark';
+    var mx = -999, my = -999;
+    var lastSpawn = 0;
+    var mouseInside = false;
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -104,6 +108,59 @@
     }
     window.addEventListener('resize', resize);
     resize();
+
+    document.addEventListener('mousemove', function (e) {
+        mx = e.clientX;
+        my = e.clientY;
+        mouseInside = true;
+        spawnMouseParticles();
+    });
+
+    document.addEventListener('mouseleave', function () {
+        mouseInside = false;
+        mx = -999;
+        my = -999;
+    });
+
+    // Touch support
+    document.addEventListener('touchmove', function (e) {
+        var touch = e.touches[0];
+        if (touch) {
+            mx = touch.clientX;
+            my = touch.clientY;
+            mouseInside = true;
+            spawnMouseParticles();
+        }
+    });
+
+    document.addEventListener('touchend', function () {
+        mouseInside = false;
+        mx = -999;
+        my = -999;
+    });
+
+    function spawnMouseParticles() {
+        var now = Date.now();
+        if (now - lastSpawn < 60) return;
+        if (particles.length >= MAX_PARTICLES) return;
+        lastSpawn = now;
+
+        var colors = getColors();
+        var palette = [colors.p1, colors.p2, colors.p3];
+        for (var s = 0; s < 2; s++) {
+            var p = new Particle();
+            p.x = mx + (Math.random() - 0.5) * 40;
+            p.y = my + (Math.random() - 0.5) * 40;
+            p.size = Math.random() * 2 + 0.8;
+            p.speedY = -(Math.random() * 0.35 + 0.15);
+            p.speedX = (Math.random() - 0.5) * 0.25;
+            p.opacity = Math.random() * 0.4 + 0.3;
+            p.color = palette[Math.floor(Math.random() * palette.length)];
+            p.pulse = Math.random() * Math.PI * 2;
+            p.pulseSpeed = Math.random() * 0.03 + 0.01;
+            particles.push(p);
+        }
+    }
 
     function getColors() {
         isDark = document.documentElement.dataset.scheme === 'dark';
@@ -148,10 +205,27 @@
 
         var colors = getColors();
 
+        // Trim excess particles
+        if (particles.length > MAX_PARTICLES) {
+            particles.splice(0, particles.length - MAX_PARTICLES);
+        }
+
         for (var i = 0; i < particles.length; i++) {
             var p = particles[i];
             p.pulse += p.pulseSpeed;
             var currentOpacity = p.opacity * (0.6 + 0.4 * Math.sin(p.pulse));
+
+            // Mouse repulsion
+            if (mouseInside) {
+                var dx = p.x - mx;
+                var dy = p.y - my;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150 && dist > 0) {
+                    var force = (1 - dist / 150) * 0.8;
+                    p.x += (dx / dist) * force;
+                    p.y += (dy / dist) * force;
+                }
+            }
 
             p.y += p.speedY;
             p.x += p.speedX;
