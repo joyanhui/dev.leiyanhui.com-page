@@ -95,8 +95,8 @@
 
     var ctx = canvas.getContext('2d');
     var particles = [];
-    var PARTICLE_COUNT = 120;
-    var MAX_PARTICLES = 600;
+    var PARTICLE_COUNT = 35;
+    var MAX_PARTICLES = 300;
     var isDark = document.documentElement.dataset.scheme === 'dark';
     var mx = -999, my = -999;
     var lastSpawn = 0;
@@ -180,10 +180,10 @@
         var palette = [colors.p1, colors.p2, colors.p3];
         this.x = Math.random() * canvas.width;
         this.y = Math.random() * canvas.height;
-        this.size = Math.random() * 4 + 1.5;
+        this.size = Math.random() * 2.5 + 0.8;
         this.speedY = -(Math.random() * 0.3 + 0.1);
         this.speedX = (Math.random() - 0.5) * 0.15;
-        this.opacity = Math.random() * 0.6 + 0.3;
+        this.opacity = Math.random() * 0.5 + 0.2;
         this.color = palette[Math.floor(Math.random() * palette.length)];
         this.pulse = Math.random() * Math.PI * 2;
         this.pulseSpeed = Math.random() * 0.02 + 0.005;
@@ -262,13 +262,13 @@
                 var dx = particles[i].x - particles[j].x;
                 var dy = particles[i].y - particles[j].y;
                 var dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 160) {
-                    var lineOpacity = (1 - dist / 160) * 0.25;
+                if (dist < 120) {
+                    var lineOpacity = (1 - dist / 120) * 0.15;
                     ctx.beginPath();
                     ctx.moveTo(particles[i].x, particles[i].y);
                     ctx.lineTo(particles[j].x, particles[j].y);
                     ctx.strokeStyle = 'rgba(' + colors.p1 + ', ' + lineOpacity + ')';
-                    ctx.lineWidth = 1;
+                    ctx.lineWidth = 0.6;
                     ctx.stroke();
                 }
             }
