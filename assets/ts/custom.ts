@@ -96,7 +96,7 @@
     var ctx = canvas.getContext('2d');
     var particles = [];
     var PARTICLE_COUNT = 35;
-    var MAX_PARTICLES = 200;
+    var MAX_PARTICLES = 300;
     var isDark = document.documentElement.dataset.scheme === 'dark';
     var mx = -999, my = -999;
     var lastSpawn = 0;
@@ -142,12 +142,15 @@
     function spawnMouseParticles() {
         var now = Date.now();
         if (now - lastSpawn < 40) return;
-        if (particles.length >= MAX_PARTICLES) return;
         lastSpawn = now;
 
+        // Remove oldest particles to make room for new ones
         var colors = getColors();
         var palette = [colors.p1, colors.p2, colors.p3];
         for (var s = 0; s < 2; s++) {
+            if (particles.length >= MAX_PARTICLES) {
+                particles.splice(0, 1);
+            }
             var p = new Particle();
             p.x = mx + (Math.random() - 0.5) * 40;
             p.y = my + (Math.random() - 0.5) * 40;
