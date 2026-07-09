@@ -95,8 +95,8 @@
 
     var ctx = canvas.getContext('2d');
     var particles = [];
-    var PARTICLE_COUNT = 35;
-    var MAX_PARTICLES = 300;
+    var PARTICLE_COUNT = 20;
+    var MAX_PARTICLES = 150;
     var isDark = document.documentElement.dataset.scheme === 'dark';
     var mx = -999, my = -999;
     var lastSpawn = 0;
