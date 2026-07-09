@@ -1,49 +1,79 @@
-# dev.leiyanhui.com 开发指南
+# dev.leiyanhui.com-page 构建与主题仓库
+
+本仓库管理 dev.leiyanhui.com 的 Hugo 构建和部署。
+
+## 职责边界
+
+| 本仓库所有 | joyanhui/note 所有 |
+|---|---|
+| config/ (Hugo 配置) | content/ (Markdown 文章) |
+| layouts/ (Hugo 模板) | |
+| assets/ (scss/ts/图标/favicon) | |
+| go.mod / go.sum (Go 模块) | |
+| .github/workflows/ (CI 部署) | |
+
+注意：构建时 CI 会从 `joyanhui/note` 拉取 `content/`，与本仓库的 config/layouts/assets 合并构建。
 
 ## 技术栈
 
-Hugo + [hugo-theme-stack v3](https://github.com/CaiJimmy/hugo-theme-stack) + Disqus 评论。md文件同时需要兼容obsidian
+Hugo + [hugo-theme-stack v3](https://github.com/CaiJimmy/hugo-theme-stack) (Go module) + Disqus
 
 ## 目录结构
 
 ```
-dev.leiyanhui.com/
-├── config/_default/       # Hugo 配置
+├── config/_default/       # Hugo 全部配置
 │   ├── config.toml        # 站点基础配置（baseURL, title, 语言等）
-│   ├── module.toml        # Hugo 模块导入（theme stack v3）
-│   ├── params.toml        # 主题参数
-│   ├── menu.toml          # 菜单配置
+│   ├── module.toml        # Hugo 模块导入
+│   ├── params.toml        # 主题参数（含 mainSections、社交链接等）
+│   ├── menu.toml          # 菜单与社交链接
 │   ├── languages.toml     # 多语言
-│   ├── markup.toml        # Markdown 渲染配置
+│   ├── markup.toml        # Markdown 渲染（goldmark、TOC、highlight）
 │   ├── permalinks.toml    # 永久链接格式
-│   └── related.toml       # 相关文章
-├── layouts/               # Hugo 模板（覆盖主题）
-├── assets/                # 静态资源（scss, ts, icons, favicon）
-├── public/                # 构建产物（gitignore）
-├── resources/             # Hugo 缓存（gitignore）
-├── go.mod / go.sum        # Go 模块
-├── .github/workflows/     # CI 构建与部署
+│   └── related.toml       # 相关文章配置
+├── layouts/               # Hugo 模板（覆盖主题默认模板）
+│   ├── _default/baseof.html
+│   ├── page/search.html
+│   ├── shortcodes/
+│   └── partials/ (header/footer/sidebar/head)
+├── assets/                # 静态资源
+│   ├── scss/custom.scss   # 自定义样式
+│   ├── ts/custom.ts       # 自定义脚本（粒子背景/深色模式/抽屉菜单）
+│   ├── icons/             # SVG 图标
+│   ├── img/avatar.png     # 头像
+│   └── favicon.ico        # 站点图标
+├── go.mod / go.sum        # Go/Hugo 模块依赖
+├── .github/workflows/     # CI：构建并部署到 gh-pages
 ├── .gitignore
+├── AGENTS.md
 └── README.md
 ```
 
-注意：content/ 由 joyanhui/note 仓库管理，构建时 CI 会自动合并。
+## 构建与发布
+
+### CI 流程
+
+1. `joyanhui/note` 收到 push，通过 `trigger-page-build.yml` 向本仓库发送 `repository_dispatch`
+2. 本仓库 CI 启动：
+   - checkout `joyanhui/note` → 只取 `dev.leiyanhui.com/content/`
+   - checkout 本仓库 → 获取 config/layouts/assets/go.mod
+   - 合并 content/ 到本仓库，执行 `hugo --minify --gc`
+   - 将 `public/` 强制推送到 `gh-pages` 分支
+
+### 本地操作
+
+- 禁止本地构建和预览，禁止执行 `hugo` 命令
+- 禁止直接推送 `public/` 或操作 `gh-pages` 分支
+
+## 内容相关注意事项
+
+虽然 content/ 由 note 仓库管理，但以下操作需要两边配合：
+
+- 新增分类：需在 note 仓库 `content/` 下创建分类目录，**同时修改本仓库** `config/_default/params.toml` 的 `mainSections` 配置
+- 新增特殊页面（搜索/归档/友链）：需在本仓库 `layouts/` 中添加对应模板
+- 头像/网站图标：在本仓库 `assets/` 中替换
 
 ## 内容规范
 
-- 文章使用 Markdown，front matter 必须包含 `title`、`date`、`categories`
-- 分类目录名使用英文（如 `linux/`、`docker/`、`golang/`），文章内 categories 字段保持一致
-- 图片资源放入 `assets/` 目录，通过 Hugo `resources` 引用
-- 每篇文章一个独立 `.md` 文件，放在对应分类目录下
-
-## 构建与发布
-
-- 禁止本地构建和预览。
-- **禁止在本地执行 `hugo deploy` 或直接推送 `public/`**
-- 发布流程：`joyanhui/note` 内容变更 → 触发本仓库 CI → Hugo 构建 → 推送到 `gh-pages` 分支
-
-## 通用规则
-
-- 分类名称使用英文小写，保持语义清晰
-- 新增分类时，在 `content/` 下创建同名目录，可能还需要修改config/目录的下的配置不然不会识别到首页
-- 修改主题相关配置在 `config/_default/` 下，不要修改 `themes/` 下的源码
+- 文章 front matter 必须包含 `title`、`date`、`categories`
+- 分类目录名使用英文小写
+- 图片资源通过 Hugo `resources` 引用
