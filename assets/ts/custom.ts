@@ -1,5 +1,5 @@
 (function () {
-    // ========== Drawer ==========
+    // ========== 抽屉菜单 ==========
     var toggleBtn = document.getElementById('toggle-drawer');
     var drawer = document.getElementById('menu-drawer');
     var overlay = document.querySelector('.drawer-overlay');
@@ -29,7 +29,7 @@
         });
     }
 
-    // ========== Dark Mode Sync ==========
+    // ========== 深色模式同步 ==========
     var toggleBtns = document.querySelectorAll('.dark-mode-toggle');
     if (toggleBtns.length > 1) {
         toggleBtns.forEach(function (btn) {
@@ -42,7 +42,7 @@
         });
     }
 
-    // ========== Reading Progress ==========
+    // ========== 阅读进度 ==========
     var progressBar = document.getElementById('reading-progress-bar');
     if (progressBar) {
         function updateProgress() {
@@ -62,7 +62,7 @@
         updateProgress();
     }
 
-    // ========== Entrance Animations ==========
+    // ========== 入场动画 ==========
     if ('IntersectionObserver' in window) {
         var cards = document.querySelectorAll('.article-list article, .article-list--compact article');
         if (cards.length > 0) {
@@ -78,7 +78,7 @@
         }
     }
 
-    // ========== Smooth Anchors ==========
+    // ========== 平滑锚点 ==========
     document.querySelectorAll('a[href^="#"]').forEach(function (a) {
         a.addEventListener('click', function (e) {
             var target = document.querySelector(this.getAttribute('href'));
@@ -89,7 +89,7 @@
         });
     });
 
-    // ========== Particle Background ==========
+    // ========== 粒子背景 ==========
     var canvas = document.getElementById('bg-canvas');
     if (!canvas) return;
 
@@ -122,7 +122,7 @@
         my = -999;
     });
 
-    // Touch support
+    // 触摸支持
     document.addEventListener('touchmove', function (e) {
         var touch = e.touches[0];
         if (touch) {
@@ -144,7 +144,7 @@
         if (now - lastSpawn < 40) return;
         lastSpawn = now;
 
-        // Remove oldest particles to make room for new ones
+        // 移除最旧的粒子以容纳新粒子
         var colors = getColors();
         var palette = [colors.p1, colors.p2, colors.p3];
         for (var s = 0; s < 2; s++) {
@@ -197,7 +197,7 @@
     }
     initParticles();
 
-    // Observe color scheme changes
+    // 监听配色方案变化
     var schemeObserver = new MutationObserver(function () {
         isDark = document.documentElement.dataset.scheme === 'dark';
     });
@@ -208,7 +208,7 @@
 
         var colors = getColors();
 
-        // Trim excess particles
+        // 修剪多余粒子
         if (particles.length > MAX_PARTICLES) {
             particles.splice(0, particles.length - MAX_PARTICLES);
         }
@@ -218,7 +218,7 @@
             p.pulse += p.pulseSpeed;
             var currentOpacity = p.opacity * (0.6 + 0.4 * Math.sin(p.pulse));
 
-            // Mouse repulsion
+            // 鼠标排斥
             if (mouseInside) {
                 var dx = p.x - mx;
                 var dy = p.y - my;
@@ -256,7 +256,7 @@
             ctx.fill();
         }
 
-        // Connecting lines between close particles
+        // 连接相邻粒子之间的线
         for (var i = 0; i < particles.length; i++) {
             for (var j = i + 1; j < particles.length; j++) {
                 var dx = particles[i].x - particles[j].x;
