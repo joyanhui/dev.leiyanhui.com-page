@@ -31,7 +31,10 @@ Hugo + [hugo-theme-stack v3](https://github.com/CaiJimmy/hugo-theme-stack) (Go m
 │   ├── permalinks.toml    # 永久链接格式
 │   └── related.toml       # 相关文章配置
 ├── layouts/               # Hugo 模板（覆盖主题默认模板）
-│   ├── _default/baseof.html
+│   ├── _default/
+│   │   ├── baseof.html
+│   │   └── _markup/
+│   │       └── render-link.html   # .md 内部链接 → Hugo URL 自动转换
 │   ├── page/search.html
 │   ├── shortcodes/
 │   └── partials/ (header/footer/sidebar/head)
@@ -77,3 +80,29 @@ Hugo + [hugo-theme-stack v3](https://github.com/CaiJimmy/hugo-theme-stack) (Go m
 - 文章 front matter 必须包含 `title`、`date`、`categories`
 - 分类目录名使用英文小写
 - 图片资源通过 Hugo `resources` 引用
+
+## Link Render Hook — `.md` 内部链接自动转换
+
+`layouts/_default/_markup/render-link.html` 实现类似 Jekyll `jekyll-relative-links` 的功能。
+
+### 原理
+
+构建时，Markdown 中的 `](file.md)` 或 `](file.md#锚点)` 被 Goldmark link render hook 拦截：
+1. 分离锚点，去掉 `.md` 后缀
+2. 用 `.Page.GetPage` 解析目标 Hugo 页面
+3. 输出页面实际 `.RelPermalink` + 锚点
+
+### 示例
+
+| Markdown 写法 | 当前文章 | 构建后 URL |
+|---|---|---|
+| `](file.md)` | `arch/swapfile.md` | `/arch/file/` |
+| `](file.md#安装)` | `arch/swapfile.md` | `/arch/file/#安装` |
+| `](../pve/lxc-nas.md)` | `arch/swapfile.md` | `/pve/lxc-nas/` |
+
+### 迁移指南
+
+逐步将现有链接统一为 `.md` 相对路径风格：
+
+- `https://dev.leiyanhui.com/pve/lxc-nas` → `](../pve/lxc-nas.md)`
+- `](/codeserver/install-codeserver)` → `](../codeserver/install-codeserver.md)`
