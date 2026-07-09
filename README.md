@@ -8,17 +8,18 @@
 joyanhui/note (私有)                          joyanhui/dev.leiyanhui.com-page
 ┌─────────────────────────┐                  ┌─────────────────────────────────┐
 │ dev.leiyanhui.com/      │  push 触发       │ main 分支:                      │
-│   ├── config/           │ ──────────────→  │   .github/workflows/page_build.yml
-│   ├── assets/           │  repository_dispatch  │                              │
-│   ├── content/          │  (TOKEN_GH)      │ CI 执行：                       │
-│   ├── go.mod            │                  │   1. clone joyanhui/note        │
-│   └── go.sum            │                  │   2. cd dev.leiyanhui.com       │
-│                         │                  │   3. hugo --minify --gc         │
-│ 另有 workflow：         │                  │   4. push public/ → gh-pages   │
-│   .github/workflows/    │                  │                                  │
-│    trigger-page-build.yml│                 │ gh-pages 分支: 静态 HTML        │
+│   ├── content/          │ ──────────────→  │   config/_default/  Hugo 配置   │
+│                         │  repository_dispatch  │   layouts/          主题模板        │
+│ 另有 workflow：         │  (TOKEN_GH)      │   assets/          资源文件     │
+│   .github/workflows/    │                  │   .github/workflows/ CI 配置    │
+│    trigger-page-build.yml│                 │                                  │
+│                         │                  │ CI 执行：                       │
+│ 注：本仓库不管理        │                  │   1. clone joyanhui/note        │
+│   config/ assets/       │                  │   2. 合并 content/ 到本仓库     │
+│   layouts/ go.mod       │                  │   3. hugo --minify --gc         │
+│   这些由 page 仓库统一管理│                  │   4. push public/ → gh-pages   │
 └─────────────────────────┘                  └─────────────────────────────────┘
-                                                     ↑ GitHub Pages 从此分支 serve
+                                                      ↑ GitHub Pages 从此分支 serve
 ```
 
 ## 密钥
@@ -29,5 +30,5 @@ joyanhui/note (私有)                          joyanhui/dev.leiyanhui.com-page
 
 ## 分支说明
 
-- **main** — Hugo 配置 + CI workflow（构建源）
-- **gh-pages** — 构建后的静态 HTML（由 page_build CI 自动推送）
+- **main** — Hugo 配置 + 主题模板 + 资源 + CI workflow（构建源）
+- **gh-pages** — 构建后的静态 HTML（由 CI 自动推送）

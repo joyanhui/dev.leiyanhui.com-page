@@ -12,23 +12,24 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout note repo
+      - name: Checkout note repo (content only)
         uses: actions/checkout@v4
         with:
           repository: joyanhui/note
           token: ${{ secrets.TOKEN_GH }}
           path: note-repo
 
-      - name: Checkout theme repo
+      - name: Checkout page repo (theme, config, assets)
         uses: actions/checkout@v4
         with:
-          path: theme-repo
+          path: page-repo
 
-      - name: Merge theme into note repo
+      - name: Merge content and theme
         run: |
-          mkdir -p note-repo/dev.leiyanhui.com/layouts note-repo/dev.leiyanhui.com/assets
-          cp -r theme-repo/layouts/* note-repo/dev.leiyanhui.com/layouts/
-          cp -r theme-repo/assets/* note-repo/dev.leiyanhui.com/assets/
+          rm -rf page-repo/content page-repo/go.mod page-repo/go.sum page-repo/AGENTS.md
+          cp -r note-repo/dev.leiyanhui.com/content page-repo/content
+          cp note-repo/dev.leiyanhui.com/go.mod page-repo/go.mod
+          cp note-repo/dev.leiyanhui.com/go.sum page-repo/go.sum
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -42,15 +43,14 @@ jobs:
           extended: true
 
       - name: Build with Hugo
-        working-directory: note-repo/dev.leiyanhui.com
+        working-directory: page-repo
         run: hugo --minify --gc
 
       - name: Deploy to gh-pages
-        working-directory: note-repo/dev.leiyanhui.com
+        working-directory: page-repo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp assets/favicon.ico public/favicon.ico
           cd public
           rm -rf .git*
           echo "dev.leiyanhui.com" > CNAME
