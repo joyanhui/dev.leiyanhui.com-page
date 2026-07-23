@@ -1,0 +1,250 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="用 NixOS + home-manager 在 Fish Shell 中定义一个交互式 gcp 函数，结合 Conventional Commits 规范实现带中文提示的 Git 提交与推送。"><title>一个简单使用的git提交工具，基于fish自定义函数</title><link rel=canonical href=https://dev.leiyanhui.com/nixos/gcp-fish-interactive-git-commit/><link rel=stylesheet href=/scss/style.min.6cabb79c8be9daa6d6f70473c955ed2e3ff799787e95f86427bf518fd03cd069.css><link rel=stylesheet href=/scss/custom.min.aa6e52681d683200bdf34d2e36d1f3f0d5f04719dad911e16f4b47da0190a423.css><meta property='og:title' content="一个简单使用的git提交工具，基于fish自定义函数"><meta property='og:description' content="用 NixOS + home-manager 在 Fish Shell 中定义一个交互式 gcp 函数，结合 Conventional Commits 规范实现带中文提示的 Git 提交与推送。"><meta property='og:url' content='https://dev.leiyanhui.com/nixos/gcp-fish-interactive-git-commit/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Nixos'><meta property='article:tag' content='nixos'><meta property='article:tag' content='fish'><meta property='article:tag' content='bash'><meta property='article:tag' content='linux'><meta property='article:tag' content='git'><meta property='article:tag' content='home-manager'><meta property='article:tag' content='conventional-commits'><meta property='article:published_time' content='2026-07-12T00:00:00+08:00'><meta property='article:modified_time' content='2026-07-12T00:00:00+08:00'><meta name=twitter:title content="一个简单使用的git提交工具，基于fish自定义函数"><meta name=twitter:description content="用 NixOS + home-manager 在 Fish Shell 中定义一个交互式 gcp 函数，结合 Conventional Commits 规范实现带中文提示的 Git 提交与推送。"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><canvas id=bg-canvas aria-hidden=true></canvas><div id=reading-progress-bar></div><div class=page-wrapper><header class="top-header mobile-only"><button class="hamburger hamburger--spin" type=button id=toggle-drawer aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span>
+</span></button>
+<a href=/ class=header-title>小类随手记</a><div class=header-right><button id=dark-mode-toggle-header class=dark-mode-toggle aria-label=暗色模式>
+<svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg></button></div></header><aside id=menu-drawer class=menu-drawer><div class=drawer-header><figure class=drawer-avatar><img src=/img/avatar_hu_9fe511a6e3e257e4.png width=80 height=80 class=site-logo loading=lazy alt=Avatar>
+<span class=emoji>🐟</span></figure><div class=drawer-meta><div class=site-name><a href=/>小类随手记</a></div><div class=site-description>just so so.</div></div></div><nav class=drawer-nav><ol class=menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>关于本站</span></a></li></ol></nav><div class=drawer-social><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-page target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol></div><div class=drawer-bottom><button id=dark-mode-toggle-drawer class=dark-mode-toggle aria-label=暗色模式>
+<svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg>
+<span>暗色模式</span></button></div></aside><div class=drawer-overlay></div><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-page target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>关于本站</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle class=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/nixos/ style=background-color:#beefcc;color:#0f3d1d>Nixos</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/nixos/gcp-fish-interactive-git-commit/>一个简单使用的git提交工具，基于fish自定义函数</a></h2><h3 class=article-subtitle>用 NixOS + home-manager 在 Fish Shell 中定义一个交互式 gcp 函数，结合 Conventional Commits 规范实现带中文提示的 Git 提交与推送。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-07-12T00:00:00+08:00>2026-07-12</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 3 分钟</time></div></footer></div></header><section class=article-content><h2 id=背景>背景</h2><p>日常开发中，Git 提交是高频操作。虽然 <code>git commit -m "xxx"</code> 足够简单，但团队协作中遵循 <strong>Conventional Commits</strong> 规范能显著提升提交信息的可读性和自动化能力（自动生成 CHANGELOG、语义化版本 bump 等）。</p><p>然而每次提交都要手动输入 <code>feat:</code>、<code>fix:</code> 等前缀，偶尔还会拼错。如果能有一个交互式工具，先显示当前变更概览，再通过菜单选择提交类型，最后自动拼装并推送，显然会更高效。</p><p>本项目基于 <strong>NixOS + home-manager</strong> 管理整个系统配置，Fish Shell 作为默认交互式 Shell，自然希望将这样的工具函数纳入 Nix 声明式管理，一次部署、全局生效。</p><h2 id=设计思路>设计思路</h2><ul><li><strong>用 Fish Shell 函数实现</strong>：不引入外部依赖，利用 Fish 内置的 <code>read</code>、<code>switch</code>、<code>git status --short</code> 等能力</li><li><strong>Nix 化</strong>：通过 home-manager 的 <code>programs.fish.functions</code> 以声明式方式定义函数，随系统 rebuild 自动部署</li><li><strong>交互流程</strong>：<ol><li>先调用 <code>git status --short</code> 显示变更概览（新增/修改/删除的文件）</li><li>列出 Conventional Commits 10 种类型及中文说明</li><li>用户选择序号，输入提交描述</li><li>自动执行 <code>git add . && git commit -m "type: desc" && git push</code></li></ol></li></ul><h2 id=完整代码>完整代码</h2><p>文件路径：<code>modules/apps/git_fiash_fun.nix</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span><span class=lnt>71
+</span><span class=lnt>72
+</span><span class=lnt>73
+</span><span class=lnt>74
+</span><span class=lnt>75
+</span><span class=lnt>76
+</span><span class=lnt>77
+</span><span class=lnt>78
+</span><span class=lnt>79
+</span><span class=lnt>80
+</span><span class=lnt>81
+</span><span class=lnt>82
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>pkgs</span><span class=o>,</span>
+</span></span><span class=line><span class=cl>  <span class=n>username</span><span class=o>,</span>
+</span></span><span class=line><span class=cl>  <span class=o>...</span>
+</span></span><span class=line><span class=cl><span class=p>}:</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>programs</span><span class=o>.</span><span class=n>fish</span><span class=o>.</span><span class=n>functions</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>gcp</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;交互式 Git 提交与推送（Conventional Commits）&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>          <span class=n>body</span> <span class=o>=</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>            set -l types \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;feat     — 新功能，包含实质性逻辑的新文件&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;fix      — 修复 bug&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;docs     — 仅文档变更（README、注释、文档字符串）&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;style    — 格式调整、空白、缺少分号（无代码逻辑变化）&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;refactor — 代码重构，非新增功能或修复 bug&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;perf     — 性能改进&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;test     — 添加或修改测试&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;build    — 构建系统、依赖、CI 配置&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;chore    — 维护、工具、配置文件、gitignore&#34; \
+</span></span></span><span class=line><span class=cl><span class=s1>                &#34;revert   — 回退之前的提交&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;========== 变更概览 ==========&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            git status --short
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;==============================&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;请选择提交类型 (Conventional Commits):&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            for i in (seq (count $types))
+</span></span></span><span class=line><span class=cl><span class=s1>                if test $i -lt 10
+</span></span></span><span class=line><span class=cl><span class=s1>                    echo &#34;  $i)  &#34;$types[$i]
+</span></span></span><span class=line><span class=cl><span class=s1>                else
+</span></span></span><span class=line><span class=cl><span class=s1>                    echo &#34;  $i) &#34;$types[$i]
+</span></span></span><span class=line><span class=cl><span class=s1>                end
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            read -l -P &#34;输入序号 (1-10) [默认 1]: &#34; type_idx
+</span></span></span><span class=line><span class=cl><span class=s1>            if test -z &#34;$type_idx&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                set type_idx 1
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            set -l prefix
+</span></span></span><span class=line><span class=cl><span class=s1>            switch $type_idx
+</span></span></span><span class=line><span class=cl><span class=s1>                case 1;  set prefix &#34;feat&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 2;  set prefix &#34;fix&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 3;  set prefix &#34;docs&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 4;  set prefix &#34;style&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 5;  set prefix &#34;refactor&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 6;  set prefix &#34;perf&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 7;  set prefix &#34;test&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 8;  set prefix &#34;build&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 9;  set prefix &#34;chore&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case 10; set prefix &#34;revert&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                case &#39;*&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>                    echo &#34;无效输入，已取消。&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                    return 1
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            read -l -P &#34;输入提交描述: &#34; commit_msg
+</span></span></span><span class=line><span class=cl><span class=s1>            if test -z &#34;$commit_msg&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                echo &#34;描述不能为空，已取消。&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                return 1
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;即将执行: git add . &amp;&amp; git commit -m \&#34;$prefix: $commit_msg\&#34; &amp;&amp; git push&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            git add .
+</span></span></span><span class=line><span class=cl><span class=s1>            git commit -m &#34;$prefix: $commit_msg&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            and git push
+</span></span></span><span class=line><span class=cl><span class=s1>            or echo &#34;提交或推送失败，请检查错误信息。&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>          &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>};</span>
+</span></span><span class=line><span class=cl>      <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=在模块调度中心注册>在模块调度中心注册</h2><p>在 <code>app_and_modules_list.nix</code> 中按条件引入（此处对所有机器生效）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=o>++</span> <span class=n>importIf</span> <span class=n>IsAll</span> <span class=sr>./modules/apps/git_fiash_fun.nix</span>
+</span></span></code></pre></td></tr></table></div></div><p>因为该函数依赖 Fish Shell，而 Fish 已通过 <code>IsAll</code> 条件全局启用，所以此模块也在 <code>IsAll</code> 下引入。</p><h2 id=关键细节>关键细节</h2><h3 id=1-如何让-fish-函数被-nix-管理>1. 如何让 Fish 函数被 Nix 管理</h3><p>home-manager 提供 <code>programs.fish.functions</code> 属性集，每个 key 是一个函数名，value 包含 <code>description</code> 和 <code>body</code>。rebuild 后函数文件自动生成在 <code>~/.config/fish/functions/gcp.fish</code>，Fish 启动时自动 source。</p><h3 id=2-为什么不用-fzf>2. 为什么不用 fzf</h3><p>最初考虑过用 <code>fzf</code> 做模糊搜索选择器，体验更流畅。但为了保持零额外依赖、纯 Fish 内置能力实现，选择了编号菜单——这在 Fish 的任何安装环境下都能工作，无需额外安装 <code>fzf</code>。</p><h3 id=3-为何是-git-add--而非选择性暂存>3. 为何是 <code>git add .</code> 而非选择性暂存</h3><p><code>gcp</code> 的设计场景是"我想把当前所有变更一次性提交并推送"，类似一个快捷发布命令。如果需要精细控制暂存哪些文件，应使用 <code>lazygit</code>、<code>gitui</code> 或原生 <code>git add -p</code>。</p><h3 id=4-提交信息语言>4. 提交信息语言</h3><p>函数本身不限制提交描述语言——交互提示是中文，但实际 commit message 内容由用户自由输入。建议团队项目中保持英文描述以保持一致性。</p><h3 id=5-nix-特性字符串路径-vs-nix-path-literal>5. Nix 特性：字符串路径 vs Nix path literal</h3><p>注意 <code>body = ''...''</code> 使用的是 Nix 多行字符串。函数体作为字符串嵌入 Nix 表达式中，最终由 home-manager 写入 Fish 函数文件。这是 Nix 声明式管理配置文件的典型模式——配置内容以字符串形式存在于 Nix 模块中，而非独立的配置文件。</p><h2 id=使用方式>使用方式</h2><p>在任意 Git 仓库中 直接运行 <code>gcp</code> ,输出示例：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>========== 变更概览 ==========
+</span></span><span class=line><span class=cl> M modules/apps/git_fiash_fun.nix
+</span></span><span class=line><span class=cl>?? modules/apps/git_fiash_fun.nix
+</span></span><span class=line><span class=cl>==============================
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>请选择提交类型 (Conventional Commits):
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  1)  feat     — 新功能，包含实质性逻辑的新文件
+</span></span><span class=line><span class=cl>  2)  fix      — 修复 bug
+</span></span><span class=line><span class=cl>  3)  docs     — 仅文档变更（README、注释、文档字符串）
+</span></span><span class=line><span class=cl>  4)  style    — 格式调整、空白、缺少分号（无代码逻辑变化）
+</span></span><span class=line><span class=cl>  5)  refactor — 代码重构，非新增功能或修复 bug
+</span></span><span class=line><span class=cl>  6)  perf     — 性能改进
+</span></span><span class=line><span class=cl>  7)  test     — 添加或修改测试
+</span></span><span class=line><span class=cl>  8)  build    — 构建系统、依赖、CI 配置
+</span></span><span class=line><span class=cl>  9)  chore    — 维护、工具、配置文件、gitignore
+</span></span><span class=line><span class=cl>  10) revert   — 回退之前的提交
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>输入序号 (1-10) [默认 1]: 9
+</span></span><span class=line><span class=cl>输入提交描述: 整理配置
+</span></span></code></pre></td></tr></table></div></div><p>最终执行：<code>git commit -m "chore: 整理配置" && git push</code></p><h2 id=总结>总结</h2><p>这个 <code>gcp</code> 函数虽然只有几十行，但体现了 NixOS 配置管理的一个核心理念：<strong>一切皆声明</strong>。工具函数不再是散落在各台机器 <code>~/.config/fish/config.fish</code> 中的手写片段，而是作为 Nix 模块的一部分，版本化、可复用、按条件加载。</p><p>配合 Nix Flakes 和 home-manager，新增一个函数 = 写一个 <code>.nix</code> 文件 → 在调度中心注册 → rebuild，整个过程声明式、可追溯、可复现。</p><p>扩展：可以集成到 nvim/emacs。</p><blockquote><p>后续演进：当 Lazygit 也加入同样的前缀选择功能后，两份定义开始分叉。如何用 Nix 将它们收敛回单一数据源？见 <a href=/nixos/fish-lazygit-git-commit-prefix-nixos/>Fish + Lazygit 自定义 Git 提交前缀：用 NixOS 统一管理</a></p></blockquote></section><footer class=article-footer><section class=article-tags><a href=/tags/nixos/>Nixos</a>
+<a href=/tags/fish/>Fish</a>
+<a href=/tags/bash/>Bash</a>
+<a href=/tags/linux/>Linux</a>
+<a href=/tags/git/>Git</a>
+<a href=/tags/home-manager/>Home-Manager</a>
+<a href=/tags/conventional-commits/>Conventional-Commits</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><ul class=related-content-list><li><a href=/c/13/>ubuntu下可视化git工具安装和使用 试过一堆以后 最终选择smartgit</a></li></ul></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><div class=footer-stats><span class=stat-item><span class=stat-number>517</span>
+<span class=stat-label>文章</span>
+</span><span class=stat-sep>·</span>
+<span class=stat-item><span class=stat-number>255</span>
+<span class=stat-label>分类</span>
+</span><span class=stat-sep>·</span>
+<span class=stat-item><span class=stat-number>106</span>
+<span class=stat-label>标签</span></span></div><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=theme-info>Theme <a href=https://stack.jimmycai.com target=_blank rel=noopener>Stack</a></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#背景>背景</a></li><li><a href=#设计思路>设计思路</a></li><li><a href=#完整代码>完整代码</a></li><li><a href=#在模块调度中心注册>在模块调度中心注册</a></li><li><a href=#关键细节>关键细节</a><ol><li><a href=#1-如何让-fish-函数被-nix-管理>1. 如何让 Fish 函数被 Nix 管理</a></li><li><a href=#2-为什么不用-fzf>2. 为什么不用 fzf</a></li><li><a href=#3-为何是-git-add--而非选择性暂存>3. 为何是 <code>git add .</code> 而非选择性暂存</a></li><li><a href=#4-提交信息语言>4. 提交信息语言</a></li><li><a href=#5-nix-特性字符串路径-vs-nix-path-literal>5. Nix 特性：字符串路径 vs Nix path literal</a></li></ol></li><li><a href=#使用方式>使用方式</a></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script type=text/javascript src=/ts/custom.e8e057ab93e6bc63b8b01817cae56d9f064dc47e4b5e62f7c997a2c1ef41b0cd.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></div></body></html>

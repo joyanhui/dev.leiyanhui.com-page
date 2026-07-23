@@ -1,0 +1,427 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="Fish 的 gcp 函数和 Lazygit custom command 各自维护一份 Conventional Commits 前缀列表，改一处容易忘另一处。用 Nix 抽成共享数据文件，两处自动同步。 同样的思路还可以扩展到 AI agent skill 的 commit 格式定义。"><title>NixOS 中统一管理 fish lazygit 以及SKILL的git Commits 前缀定义</title><link rel=canonical href=https://dev.leiyanhui.com/nixos/fish-lazygit-git-commit-prefix-nixos/><link rel=stylesheet href=/scss/style.min.6cabb79c8be9daa6d6f70473c955ed2e3ff799787e95f86427bf518fd03cd069.css><link rel=stylesheet href=/scss/custom.min.aa6e52681d683200bdf34d2e36d1f3f0d5f04719dad911e16f4b47da0190a423.css><meta property='og:title' content="NixOS 中统一管理 fish lazygit 以及SKILL的git Commits 前缀定义"><meta property='og:description' content="Fish 的 gcp 函数和 Lazygit custom command 各自维护一份 Conventional Commits 前缀列表，改一处容易忘另一处。用 Nix 抽成共享数据文件，两处自动同步。 同样的思路还可以扩展到 AI agent skill 的 commit 格式定义。"><meta property='og:url' content='https://dev.leiyanhui.com/nixos/fish-lazygit-git-commit-prefix-nixos/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Nixos'><meta property='article:published_time' content='2026-07-23T10:00:00+08:00'><meta property='article:modified_time' content='2026-07-23T10:00:00+08:00'><meta name=twitter:title content="NixOS 中统一管理 fish lazygit 以及SKILL的git Commits 前缀定义"><meta name=twitter:description content="Fish 的 gcp 函数和 Lazygit custom command 各自维护一份 Conventional Commits 前缀列表，改一处容易忘另一处。用 Nix 抽成共享数据文件，两处自动同步。 同样的思路还可以扩展到 AI agent skill 的 commit 格式定义。"></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><canvas id=bg-canvas aria-hidden=true></canvas><div id=reading-progress-bar></div><div class=page-wrapper><header class="top-header mobile-only"><button class="hamburger hamburger--spin" type=button id=toggle-drawer aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span>
+</span></button>
+<a href=/ class=header-title>小类随手记</a><div class=header-right><button id=dark-mode-toggle-header class=dark-mode-toggle aria-label=暗色模式>
+<svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg></button></div></header><aside id=menu-drawer class=menu-drawer><div class=drawer-header><figure class=drawer-avatar><img src=/img/avatar_hu_9fe511a6e3e257e4.png width=80 height=80 class=site-logo loading=lazy alt=Avatar>
+<span class=emoji>🐟</span></figure><div class=drawer-meta><div class=site-name><a href=/>小类随手记</a></div><div class=site-description>just so so.</div></div></div><nav class=drawer-nav><ol class=menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>关于本站</span></a></li></ol></nav><div class=drawer-social><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-page target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol></div><div class=drawer-bottom><button id=dark-mode-toggle-drawer class=dark-mode-toggle aria-label=暗色模式>
+<svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg>
+<span>暗色模式</span></button></div></aside><div class=drawer-overlay></div><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-page target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>关于本站</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle class=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/nixos/ style=background-color:#beefcc;color:#0f3d1d>Nixos
+</a><a href=/categories/git/ style=background-color:#bedcef;color:#0f2c3d>Git</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/nixos/fish-lazygit-git-commit-prefix-nixos/>NixOS 中统一管理 fish lazygit 以及SKILL的git Commits 前缀定义</a></h2><h3 class=article-subtitle>Fish 的 gcp 函数和 Lazygit custom command 各自维护一份 Conventional Commits 前缀列表，改一处容易忘另一处。用 Nix 抽成共享数据文件，两处自动同步。 同样的思路还可以扩展到 AI agent skill 的 commit 格式定义。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-07-23T10:00:00+08:00>2026-07-23</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><h2 id=背景>背景</h2><p>之前的文章 <a href=/nixos/gcp-fish-interactive-git-commit/>一个简单使用的git提交工具，基于fish自定义函数</a> 介绍了通过 Fish 函数 <code>gcp</code> 交互式选择 Conventional Commits 前缀并提交推送。</p><p>后来又给 Lazygit 添加了类似功能的 custom command，也在菜单中列出了同样的 11 种提交类型。再后来 AI agent（opencode、Claude Code、Codex 等）的 <code>git-auto-commit</code> skill 也需要同样的 commit 格式约定。</p><p>问题在于：<strong>三个功能的提交类型列表是完全独立的硬编码</strong>。Fish 函数里有一份 <code>switch</code> 分支，Lazygit 配置里又有一份 YAML 列表，skill 里还有第三份 Markdown 列表。新增一个类型要改三处，改描述也要改三处，迟早会不一致。</p><p>所以需要把"提交类型定义"这个数据抽出来，做成<strong>单一数据源</strong>，三个功能都从它生成。</p><h2 id=最终目录结构>最终目录结构</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>modules</span><span class=o>/</span><span class=n>dev</span><span class=o>/</span><span class=n>git</span><span class=o>/</span>
+</span></span><span class=line><span class=cl><span class=err>├──</span> <span class=n>commit_prefix_list</span><span class=o>.</span><span class=n>nix</span>        <span class=c1># 共享数据：11 种提交类型定义</span>
+</span></span><span class=line><span class=cl><span class=err>├──</span> <span class=n>git_fiash_fun</span><span class=o>.</span><span class=n>nix</span>             <span class=c1># → 生成 Fish gcp 函数</span>
+</span></span><span class=line><span class=cl><span class=err>├──</span> <span class=n>tool_lazygit</span><span class=o>.</span><span class=n>nix</span>              <span class=c1># → 生成 Lazygit custom command 选项</span>
+</span></span><span class=line><span class=cl><span class=err>├──</span> <span class=n>git</span><span class=o>-</span><span class=n>auto</span><span class=o>-</span><span class=n>commit</span><span class=o>-</span><span class=n>skill</span><span class=o>.</span><span class=n>nix</span>     <span class=c1># → 生成 AI agent SKILL.md</span>
+</span></span><span class=line><span class=cl><span class=err>└──</span> <span class=n>git_github_gitea</span><span class=o>.</span><span class=n>nix</span>          <span class=c1># 其他 Git 相关配置</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=核心commit_prefix_listnix>核心：commit_prefix_list.nix</h2><p>这是一个纯数据文件，不包含模块逻辑，导出一个列表（list of attrsets）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=c1># modules/dev/git/commit_prefix_list.nix</span>
+</span></span><span class=line><span class=cl><span class=p>[</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;✨&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;feat&#34;</span><span class=p>;</span>     <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;新功能，包含实质性逻辑的新文件&#34;</span><span class=p>;</span>             <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;add support for CSV import&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;🐛&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;fix&#34;</span><span class=p>;</span>      <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;修复 bug&#34;</span><span class=p>;</span>                                 <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;handle token refresh race condition&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;📝&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;docs&#34;</span><span class=p>;</span>     <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;仅文档变更（README、注释、文档字符串）&#34;</span><span class=p>;</span>      <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;update installation instructions&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;💄&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;style&#34;</span><span class=p>;</span>    <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;格式调整、空白、缺少分号&#34;</span><span class=p>;</span>                  <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;format with prettier&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;♻️&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;refactor&#34;</span><span class=p>;</span> <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;代码重构，非新增功能或修复 bug&#34;</span><span class=p>;</span>             <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;extract connection pool into separate module&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;⚡&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;perf&#34;</span><span class=p>;</span>     <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;性能改进&#34;</span><span class=p>;</span>                                 <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;reduce TTL to improve memory usage&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;✅&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;test&#34;</span><span class=p>;</span>     <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;添加或修改测试&#34;</span><span class=p>;</span>                           <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;add integration tests for /users endpoint&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;👷&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;build&#34;</span><span class=p>;</span>    <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;构建系统、依赖、CI 配置&#34;</span><span class=p>;</span>                   <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;pin Node version in GitHub Actions&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;🔧&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;chore&#34;</span><span class=p>;</span>    <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;维护、工具、配置文件、gitignore&#34;</span><span class=p>;</span>           <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;bump lodash to 4.17.21&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;⏪&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;revert&#34;</span><span class=p>;</span>   <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;回退之前的提交&#34;</span><span class=p>;</span>                           <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;✨feat(parser): add support for CSV import&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=n>emoji</span> <span class=o>=</span> <span class=s2>&#34;🔄&#34;</span><span class=p>;</span> <span class=n>prefix</span> <span class=o>=</span> <span class=s2>&#34;update&#34;</span><span class=p>;</span>   <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;依赖更新、工具链版本更新、库更新等&#34;</span><span class=p>;</span>        <span class=n>example</span> <span class=o>=</span> <span class=s2>&#34;upgrade axios to 1.7.0&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>]</span>
+</span></span></code></pre></td></tr></table></div></div><p>因为是一个纯 Nix 表达式而非模块（没有函数参数），其他文件直接 <code>import ./commit_prefix_list.nix</code> 就能拿到这份数据。Nix 会自动缓存 <code>import</code> 结果，多处引用不会重复求值。</p><p>每个条目四个字段：</p><div class=table-wrapper><table><thead><tr><th>字段</th><th>用途</th></tr></thead><tbody><tr><td><code>emoji</code></td><td>视觉标识，在菜单和提交信息中显示</td></tr><tr><td><code>prefix</code></td><td>提交前缀</td></tr><tr><td><code>description</code></td><td>中文说明，帮助用户选择</td></tr><tr><td><code>example</code></td><td>示例提交描述（AI agent skill 的 Message format reference 使用）</td></tr></tbody></table></div><p><code>revert</code> 的 <code>example</code> 比较特殊，它记录的是被回退的那条提交信息（<code>✨feat(parser): add support for CSV import</code>），这样在 skill 的 Message format reference 中呈现为 <code>⏪revert: ✨feat(parser): add support for CSV import</code>。</p><h2 id=消费方一fish-gcp-函数>消费方一：Fish gcp 函数</h2><p>原来的 <code>gcp</code> 函数把类型列表和 switch 分支都硬编码在 Fish 脚本里。现在改为在 Nix 层生成这些代码：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span><span class=lnt>71
+</span><span class=lnt>72
+</span><span class=lnt>73
+</span><span class=lnt>74
+</span><span class=lnt>75
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=n>lib</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span>
+</span></span><span class=line><span class=cl><span class=k>let</span>
+</span></span><span class=line><span class=cl>  <span class=n>commitTypes</span> <span class=o>=</span> <span class=kn>import</span> <span class=sr>./commit_prefix_list.nix</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># 生成 Fish 数组行：&#34;✨feat — 新功能...&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=n>fishTypeLines</span> <span class=o>=</span> <span class=n>lib</span><span class=o>.</span><span class=n>concatStringsSep</span> <span class=s2>&#34; </span><span class=se>\\\n</span><span class=s2>        &#34;</span> <span class=p>(</span><span class=nb>map</span> <span class=p>(</span><span class=n>t</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s1>&#39;&#39;&#34;</span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>emoji</span><span class=si>}${</span><span class=n>t</span><span class=o>.</span><span class=n>prefix</span><span class=si>}</span><span class=s1> — </span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>description</span><span class=si>}</span><span class=s1>&#34;&#39;&#39;</span>
+</span></span><span class=line><span class=cl>  <span class=p>)</span> <span class=n>commitTypes</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># 生成 switch 分支</span>
+</span></span><span class=line><span class=cl>  <span class=n>switchCases</span> <span class=o>=</span> <span class=n>lib</span><span class=o>.</span><span class=n>concatStringsSep</span> <span class=s2>&#34;</span><span class=se>\n</span><span class=s2>&#34;</span> <span class=p>(</span><span class=n>lib</span><span class=o>.</span><span class=n>imap1</span> <span class=p>(</span><span class=n>i</span><span class=p>:</span> <span class=n>t</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;                case </span><span class=si>${</span><span class=nb>toString</span> <span class=n>i</span><span class=si>}</span><span class=s2>;  set prefix </span><span class=se>\&#34;</span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>emoji</span><span class=si>}${</span><span class=n>t</span><span class=o>.</span><span class=n>prefix</span><span class=si>}</span><span class=se>\&#34;</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>)</span> <span class=n>commitTypes</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>typesCount</span> <span class=o>=</span> <span class=nb>builtins</span><span class=o>.</span><span class=nb>toString</span> <span class=p>(</span><span class=nb>builtins</span><span class=o>.</span><span class=n>length</span> <span class=n>commitTypes</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>in</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>programs</span><span class=o>.</span><span class=n>fish</span><span class=o>.</span><span class=n>functions</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>gcp</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=n>description</span> <span class=o>=</span> <span class=s2>&#34;交互式 Git 提交与推送（Conventional Commits）&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>          <span class=n>body</span> <span class=o>=</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>            set -l types \
+</span></span></span><span class=line><span class=cl><span class=s1>                </span><span class=si>${</span><span class=n>fishTypeLines</span><span class=si>}</span><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;========== 变更概览 ==========&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            git status --short
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;==============================&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;请选择提交类型 (Conventional Commits):&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            for i in (seq (count $types))
+</span></span></span><span class=line><span class=cl><span class=s1>                if test $i -lt 10
+</span></span></span><span class=line><span class=cl><span class=s1>                    echo &#34;  $i)  &#34;$types[$i]
+</span></span></span><span class=line><span class=cl><span class=s1>                else
+</span></span></span><span class=line><span class=cl><span class=s1>                    echo &#34;  $i) &#34;$types[$i]
+</span></span></span><span class=line><span class=cl><span class=s1>                end
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            read -l -P &#34;输入序号 (1-</span><span class=si>${</span><span class=n>typesCount</span><span class=si>}</span><span class=s1>) [默认 1]: &#34; type_idx
+</span></span></span><span class=line><span class=cl><span class=s1>            if test -z &#34;$type_idx&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                set type_idx 1
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            set -l prefix
+</span></span></span><span class=line><span class=cl><span class=s1>            switch $type_idx
+</span></span></span><span class=line><span class=cl><span class=s1>                </span><span class=si>${</span><span class=n>switchCases</span><span class=si>}</span><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>                case &#39;*&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>                    echo &#34;无效输入，已取消。&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                    return 1
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            read -l -P &#34;输入提交描述: &#34; commit_msg
+</span></span></span><span class=line><span class=cl><span class=s1>            if test -z &#34;$commit_msg&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                echo &#34;描述不能为空，已取消。&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                return 1
+</span></span></span><span class=line><span class=cl><span class=s1>            end
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;即将执行: git add . &amp;&amp; git commit -m \&#34;$prefix: $commit_msg\&#34; &amp;&amp; git push&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            echo &#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>            git add .
+</span></span></span><span class=line><span class=cl><span class=s1>            git commit -m &#34;$prefix: $commit_msg&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            and git push
+</span></span></span><span class=line><span class=cl><span class=s1>            or echo &#34;提交或推送失败，请检查错误信息。&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>          &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>};</span>
+</span></span><span class=line><span class=cl>      <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>关键点：</p><ul><li><code>lib.imap1</code> 生成带序号（从 1 开始）的 switch case，索引与菜单序号一一对应</li><li><code>builtins.length</code> 确保提示文本中的范围（&ldquo;1-N&rdquo;）始终与列表实际长度一致</li><li>整个 Fish 函数体依然是 Nix <code>''...''</code> 字符串，但内部的类型列表和 switch 分支由 Nix 动态生成</li></ul><h2 id=消费方二lazygit-custom-command>消费方二：Lazygit Custom Command</h2><p>Lazygit 通过 YAML 配置 <code>customCommands</code> 实现交互菜单。同样，从共享列表生成 YAML 选项：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=n>lib</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span>
+</span></span><span class=line><span class=cl><span class=k>let</span>
+</span></span><span class=line><span class=cl>  <span class=n>commitTypes</span> <span class=o>=</span> <span class=kn>import</span> <span class=sr>./commit_prefix_list.nix</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>yamlOptions</span> <span class=o>=</span> <span class=n>lib</span><span class=o>.</span><span class=n>concatStringsSep</span> <span class=s2>&#34;</span><span class=se>\n</span><span class=s2>&#34;</span> <span class=p>(</span><span class=n>lib</span><span class=o>.</span><span class=n>concatMap</span> <span class=p>(</span><span class=n>t</span><span class=p>:</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;                  - name: </span><span class=se>\&#34;</span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>emoji</span><span class=si>}</span><span class=s2> </span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>prefix</span><span class=si>}</span><span class=se>\&#34;</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;                    description: </span><span class=se>\&#34;</span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>description</span><span class=si>}</span><span class=se>\&#34;</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;                    value: </span><span class=se>\&#34;</span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>emoji</span><span class=si>}${</span><span class=n>t</span><span class=o>.</span><span class=n>prefix</span><span class=si>}</span><span class=se>\&#34;</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>])</span> <span class=n>commitTypes</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>in</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>home</span><span class=o>.</span><span class=n>packages</span> <span class=o>=</span> <span class=k>with</span> <span class=n>pkgs</span><span class=p>;</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>        <span class=n>lazygit</span>
+</span></span><span class=line><span class=cl>      <span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=n>xdg</span><span class=o>.</span><span class=n>configFile</span><span class=o>.</span><span class=s2>&#34;lazygit/config.yml&#34;</span><span class=o>.</span><span class=n>text</span> <span class=o>=</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>        gui:
+</span></span></span><span class=line><span class=cl><span class=s1>          editor: nvim
+</span></span></span><span class=line><span class=cl><span class=s1>          nerdFontsVersion: &#34;3&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>          parseEmoji: true
+</span></span></span><span class=line><span class=cl><span class=s1>        os:
+</span></span></span><span class=line><span class=cl><span class=s1>          editCommand: nvim
+</span></span></span><span class=line><span class=cl><span class=s1>          editCommandTemplate: nvim {{filename}}
+</span></span></span><span class=line><span class=cl><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>        customCommands:
+</span></span></span><span class=line><span class=cl><span class=s1>          - key: &#34;C&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            context: &#34;files&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            description: &#34;交互式提交（选择 Conventional Commits 前缀）&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            prompts:
+</span></span></span><span class=line><span class=cl><span class=s1>              - type: &#34;menu&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                title: &#34;选择提交类型 (Conventional Commits)&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                key: &#34;CommitType&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                options:
+</span></span></span><span class=line><span class=cl><span class=si>${</span><span class=n>yamlOptions</span><span class=si>}</span><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>              - type: &#34;input&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                title: &#34;输入提交描述&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>                key: &#34;Message&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            command: &#34;git commit -m \&#34;{{.Form.CommitType}}: {{.Form.Message}}\&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            loadingText: &#34;提交中...&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>            output: terminal
+</span></span></span><span class=line><span class=cl><span class=s1>      &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里有一个容易踩的坑：<strong>YAML 缩进层级</strong>。<code>options:</code> 位于 16 空格深度，其子项必须缩进 18 空格（<code>- name:</code>）和 20 空格（<code>description:</code> / <code>value:</code>）。如果用 Nix <code>''...''</code> 字符串生成这些行，会因为 Nix 自动剥离公共空白前缀而丢失缩进。</p><p>解决方案：用普通 <code>"..."</code> 字符串（不含嵌套缩进剥离）配合 <code>lib.concatMap</code> 逐行构建，缩进完全由开发者显式控制。</p><h2 id=消费方三ai-agent-skill>消费方三：AI Agent Skill</h2><p>第三个消费方是 AI 编码 agent（opencode、Claude Code、Codex、Gemini CLI 等）的 <code>git-auto-commit</code> skill。这个 skill 以 Markdown 文件（<code>SKILL.md</code>）定义 AI agent 的自动化提交流程，其中包含：</p><ul><li>步骤 3 中的提交类型列表（与 gcp / lazygit 一致）</li><li>底部的 Message format reference 示例</li></ul><p>这两个部分原来也是硬编码的。现在改为从 <code>commit_prefix_list.nix</code> 生成，并且新增了一个 <code>example</code> 字段来提供示例描述。</p><p>生成方式稍有不同：Fish gcp 和 Lazygit 使用 <code>home-manager</code> 的声明式 <code>programs.fish.functions</code> 和 <code>xdg.configFile</code> 来放置配置，而 skill 文件使用 <strong><code>home.activation</code> 脚本</strong>在 rebuild 时写入到仓库目录：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=p>{</span> <span class=n>pkgs</span><span class=o>,</span> <span class=n>username</span><span class=o>,</span> <span class=n>global_settings</span><span class=o>,</span> <span class=n>lib</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span>
+</span></span><span class=line><span class=cl><span class=k>let</span>
+</span></span><span class=line><span class=cl>  <span class=n>commitTypes</span> <span class=o>=</span> <span class=kn>import</span> <span class=sr>./commit_prefix_list.nix</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># 生成 Message format reference</span>
+</span></span><span class=line><span class=cl>  <span class=n>refLines</span> <span class=o>=</span> <span class=n>lib</span><span class=o>.</span><span class=n>concatStringsSep</span> <span class=s2>&#34;</span><span class=se>\n</span><span class=s2>&#34;</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=n>lib</span><span class=o>.</span><span class=n>concatMap</span> <span class=p>(</span><span class=n>t</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=n>t</span><span class=o>.</span><span class=n>prefix</span> <span class=o>==</span> <span class=s2>&#34;revert&#34;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>        <span class=p>[</span> <span class=s2>&#34;  </span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>emoji</span><span class=si>}${</span><span class=n>t</span><span class=o>.</span><span class=n>prefix</span><span class=si>}</span><span class=s2>: </span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>example</span><span class=si>}</span><span class=s2>&#34;</span> <span class=p>]</span>
+</span></span><span class=line><span class=cl>      <span class=k>else</span>
+</span></span><span class=line><span class=cl>        <span class=p>[</span> <span class=s2>&#34;  </span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>emoji</span><span class=si>}${</span><span class=n>t</span><span class=o>.</span><span class=n>prefix</span><span class=si>}</span><span class=s2>(</span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>prefix</span><span class=si>}</span><span class=s2>): </span><span class=si>${</span><span class=n>t</span><span class=o>.</span><span class=n>example</span><span class=si>}</span><span class=s2>&#34;</span> <span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span> <span class=n>commitTypes</span>
+</span></span><span class=line><span class=cl>  <span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=c1># ... skillContent = &#39;&#39;...&#39;&#39;</span>
+</span></span><span class=line><span class=cl>  <span class=c1>#     包含由 refLines 插值的完整 SKILL.md</span>
+</span></span><span class=line><span class=cl><span class=k>in</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>home-manager</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>users</span><span class=o>.</span><span class=si>${</span><span class=n>username</span><span class=si>}</span> <span class=o>=</span> <span class=p>{</span> <span class=n>config</span><span class=o>,</span> <span class=n>lib</span><span class=o>,</span> <span class=o>...</span> <span class=p>}:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>home</span><span class=o>.</span><span class=n>activation</span><span class=o>.</span><span class=n>generateGitAutoCommitSkill</span> <span class=o>=</span> <span class=n>lib</span><span class=o>.</span><span class=n>hm</span><span class=o>.</span><span class=n>dag</span><span class=o>.</span><span class=n>entryAfter</span> <span class=p>[</span> <span class=s2>&#34;writeBoundary&#34;</span> <span class=p>]</span> <span class=s1>&#39;&#39;
+</span></span></span><span class=line><span class=cl><span class=s1>        mkdir -p &#34;</span><span class=si>${</span><span class=n>global_settings</span><span class=o>.</span><span class=n>repoDir</span><span class=si>}</span><span class=s1>/modules/ai/skill/git-auto-commit&#34;
+</span></span></span><span class=line><span class=cl><span class=s1>        cat &gt; &#34;</span><span class=si>${</span><span class=n>global_settings</span><span class=o>.</span><span class=n>repoDir</span><span class=si>}</span><span class=s1>/modules/ai/skill/git-auto-commit/SKILL.md&#34; &lt;&lt; &#39;SKILL_EOF&#39;
+</span></span></span><span class=line><span class=cl><span class=si>${</span><span class=n>skillContent</span><span class=si>}</span><span class=s1>
+</span></span></span><span class=line><span class=cl><span class=s1>SKILL_EOF
+</span></span></span><span class=line><span class=cl><span class=s1>      &#39;&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里为什么用 activation 而非 <code>home.file</code>？因为项目中有一个统一的 <code>ai_common.nix</code> 模块，它通过 <code>home.activation</code> 将 <code>modules/ai/skill/</code> 目录<strong>作为整体</strong>符号链接到各 AI 工具的 skills 路径下（opencode、Claude Code、Codex、Gemini CLI 等）。把生成的 <code>SKILL.md</code> 放回 <code>modules/ai/skill/git-auto-commit/</code> 目录，就能通过这个现成的目录级 symlink 自动暴露给所有 AI agent，无需为每个工具单独配置。</p><p>生成后的解析链：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>AI agent 读取 SKILL.md
+</span></span><span class=line><span class=cl>  → ~/.config/opencode/skills/git-auto-commit/SKILL.md
+</span></span><span class=line><span class=cl>    → $repo/modules/ai/skill/git-auto-commit/SKILL.md  (ai_common.nix 的目录 symlink)
+</span></span><span class=line><span class=cl>      → 由 home.activation 写入的实际文件内容
+</span></span></code></pre></td></tr></table></div></div><p>这样 <code>commit_prefix_list.nix</code> 中新增的 <code>example</code> 字段就会自动呈现在 AI agent 看到的提交类型参考中。</p><h2 id=数据流>数据流</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl>  <span class=n>commit_prefix_list</span><span class=o>.</span><span class=n>nix</span><span class=err>（单一数据源）</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>
+</span></span><span class=line><span class=cl>         <span class=err>├──</span> <span class=n>git_fiash_fun</span><span class=o>.</span><span class=n>nix</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>     <span class=err>└──</span> <span class=n>lib</span><span class=o>.</span><span class=n>imap1</span> <span class=o>+</span> <span class=n>lib</span><span class=o>.</span><span class=n>concatStringsSep</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>           <span class=err>└──</span> <span class=n>Fish</span> <span class=n>types</span><span class=p>[]</span> <span class=o>+</span> <span class=k>switch</span> <span class=n>cases</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>                 <span class=err>└──</span> <span class=o>~/.</span><span class=n>config</span><span class=o>/</span><span class=n>fish</span><span class=o>/</span><span class=n>functions</span><span class=o>/</span><span class=n>gcp</span><span class=o>.</span><span class=n>fish</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>
+</span></span><span class=line><span class=cl>         <span class=err>├──</span> <span class=n>tool_lazygit</span><span class=o>.</span><span class=n>nix</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>     <span class=err>└──</span> <span class=n>lib</span><span class=o>.</span><span class=n>concatMap</span> <span class=o>+</span> <span class=err>显式缩进字符串</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>           <span class=err>└──</span> <span class=n>YAML</span> <span class=n>options</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>                 <span class=err>└──</span> <span class=o>~/.</span><span class=n>config</span><span class=o>/</span><span class=n>lazygit</span><span class=o>/</span><span class=n>config</span><span class=o>.</span><span class=n>yml</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>
+</span></span><span class=line><span class=cl>         <span class=err>└──</span> <span class=n>git</span><span class=o>-</span><span class=n>auto</span><span class=o>-</span><span class=n>commit</span><span class=o>-</span><span class=n>skill</span><span class=o>.</span><span class=n>nix</span>
+</span></span><span class=line><span class=cl>               <span class=err>└──</span> <span class=n>lib</span><span class=o>.</span><span class=n>concatMap</span>
+</span></span><span class=line><span class=cl>                     <span class=err>└──</span> <span class=n>Markdown</span> <span class=n>type</span> <span class=n>list</span> <span class=o>+</span> <span class=n>examples</span>
+</span></span><span class=line><span class=cl>                           <span class=err>└──</span> <span class=o>$</span><span class=n>repo</span><span class=o>/</span><span class=n>modules</span><span class=o>/</span><span class=n>ai</span><span class=o>/</span><span class=n>skill</span><span class=o>/</span><span class=n>git</span><span class=o>-</span><span class=n>auto</span><span class=o>-</span><span class=n>commit</span><span class=o>/</span><span class=n>SKILL</span><span class=o>.</span><span class=n>md</span>
+</span></span><span class=line><span class=cl>                                 <span class=err>└──</span> <span class=p>(</span><span class=err>通过</span> <span class=n>ai_common</span><span class=o>.</span><span class=n>nix</span> <span class=err>的目录</span> <span class=n>symlink</span> <span class=err>暴露给各</span> <span class=n>AI</span> <span class=n>agent</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=与-nixos-模块系统契合>与 NixOS 模块系统契合</h3><p>这些 Git 相关的 <code>.nix</code> 文件统一放在 <code>modules/dev/git/</code> 下，在 <code>app_and_modules_list.nix</code> 中按条件加载：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nix data-lang=nix><span class=line><span class=cl><span class=o>++</span> <span class=n>importIf</span> <span class=n>IsAll</span> <span class=sr>./modules/dev/git/git_fiash_fun.nix</span>
+</span></span><span class=line><span class=cl><span class=o>++</span> <span class=n>importIf</span> <span class=n>IsAll</span> <span class=sr>./modules/dev/git/git_github_gitea.nix</span>
+</span></span><span class=line><span class=cl><span class=o>++</span> <span class=n>importIf</span> <span class=n>IsAll</span> <span class=sr>./modules/dev/git/git-auto-commit-skill.nix</span>
+</span></span><span class=line><span class=cl><span class=o>++</span> <span class=n>importIf</span> <span class=n>isWorkMachine</span> <span class=sr>./modules/dev/git/tool_lazygit.nix</span>
+</span></span></code></pre></td></tr></table></div></div><p>三个消费方共用同一个 <code>import ./commit_prefix_list.nix</code>，提高一致性和可维护性</p><h2 id=总结>总结</h2><blockquote><p><strong>相关阅读</strong>：<a href=/nixos/entrynixos/>NixOS 入门指南</a> | <a href=/nixos/gcp-fish-interactive-git-commit/>gcp Fish 函数详解</a> | <a href=/nixos/start/>NixOS 模块管理机制</a> | <a href=/nixos/mkoutofstoresymlink/>mkOutOfStoreSymlink 的一个坑</a></p></blockquote><p>这个案例展示了 Nix 作为<strong>配置语言</strong>的一个独特优势：Nix 不仅仅是包管理和系统声明，它还是一个图灵完备的纯函数式语言。你可以用它定义数据（<code>commit_prefix_list.nix</code>），然后基于这些数据生成不同格式的输出（Fish 脚本、YAML 配置、Markdown skill），整个过程在 build 时完成，零运行时开销。</p><p>这种"定义一次数据，生成多处消费"的模式，在其他配置管理工具（Ansible、Puppet 等）中通常需要外部模板引擎和额外的编排。而 Nix 内置的 <code>import</code>、<code>map</code>、<code>concatStringsSep</code> 等函数直接支持这种模式，不需要引入任何额外工具。</p><p>如果你也在 NixOS 中管理多份有重叠数据的配置，不妨考虑抽取出共享数据文件，让 Nix 来替你解决同步问题。</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><ul class=related-content-list><li><a href=/web/auto-updatessl-form-github/>从自己的github上自动获取证书并部署到本地</a></li><li><a href=/nixos/dms-wayfire-workspace-plugin/>为 DMS + Wayfire 打造工作区插件</a></li><li><a href=/nixos/niri-column-width-fix/>修复 Niri 窗口管理器鼠标拖拽导致的列宽溢出和间隙</a></li><li><a href=/nixos/wayland-wm-selection/>Wayland 窗口管理器选型：从 Sway hyprland Niri</a></li><li><a href=/nixos/niri-master-layout/>在 Niri 中实现 Hyprland 风格的 Master 自动布局</a></li></ul></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><div class=footer-stats><span class=stat-item><span class=stat-number>517</span>
+<span class=stat-label>文章</span>
+</span><span class=stat-sep>·</span>
+<span class=stat-item><span class=stat-number>255</span>
+<span class=stat-label>分类</span>
+</span><span class=stat-sep>·</span>
+<span class=stat-item><span class=stat-number>106</span>
+<span class=stat-label>标签</span></span></div><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=theme-info>Theme <a href=https://stack.jimmycai.com target=_blank rel=noopener>Stack</a></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#背景>背景</a></li><li><a href=#最终目录结构>最终目录结构</a></li><li><a href=#核心commit_prefix_listnix>核心：commit_prefix_list.nix</a></li><li><a href=#消费方一fish-gcp-函数>消费方一：Fish gcp 函数</a></li><li><a href=#消费方二lazygit-custom-command>消费方二：Lazygit Custom Command</a></li><li><a href=#消费方三ai-agent-skill>消费方三：AI Agent Skill</a></li><li><a href=#数据流>数据流</a><ol><li><a href=#与-nixos-模块系统契合>与 NixOS 模块系统契合</a></li></ol></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script type=text/javascript src=/ts/custom.e8e057ab93e6bc63b8b01817cae56d9f064dc47e4b5e62f7c997a2c1ef41b0cd.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></div></body></html>

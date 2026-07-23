@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cursor on 小类随手记</title><link>https://dev.leiyanhui.com/tags/cursor/</link><description>Recent content in Cursor on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 17 Jul 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/cursor/index.xml" rel="self" type="application/rss+xml"/><item><title>pi agent美化插件：输入框光标改为常见的竖线</title><link>https://dev.leiyanhui.com/ai/pi-bar-cursor/</link><pubDate>Fri, 17 Jul 2026 00:00:00 +0800</pubDate><guid>https://dev.leiyanhui.com/ai/pi-bar-cursor/</guid><description>&lt;h2 id="背景"&gt;背景
+&lt;/h2&gt;&lt;p&gt;&lt;a href="https://pi.dev"&gt;pi&lt;/a&gt; 是一个终端 AI 编码助手（coding agent）。它的 TUI 输入框默认使用&lt;strong&gt;反视频方块&lt;/strong&gt;作为光标：把光标所在字符用 &lt;code&gt;\x1b[7m...\x1b[0m&lt;/code&gt;（reverse video）高亮显示，即黑底白字变成白底黑字，形如一个方块。&lt;/p&gt;
+&lt;p&gt;但是我不一直喜欢，我甚至为此去使用 oh my pi 而不是原版pi。然后我发现pi的插件系统 想改这个很简单。&lt;/p&gt;
+&lt;p&gt;本文记录如何利用 pi 的 &lt;code&gt;CustomEditor&lt;/code&gt; 扩展机制，把方块光标改成&lt;strong&gt;终端原生竖线光标&lt;/strong&gt;。&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;项目&lt;/th&gt;
+&lt;th&gt;版本/配置&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;pi&lt;/td&gt;
+&lt;td&gt;0.80.10&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;操作系统&lt;/td&gt;
+&lt;td&gt;NixOS 26.05 (Yarara) x86_64&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;终端&lt;/td&gt;
+&lt;td&gt;ghostty 1.3.1 另：kitty wezterm下也测试通过&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Shell&lt;/td&gt;
+&lt;td&gt;Fish 4.7.1&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;终端光标形状支持&lt;/td&gt;
+&lt;td&gt;DECSCUSR (&lt;code&gt;\x1b[6 q&lt;/code&gt;)&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;bun&lt;/td&gt;
+&lt;td&gt;1.3.13&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Terminal Font&lt;/td&gt;
+&lt;td&gt;SF Mono&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id="直接体验"&gt;直接体验
+&lt;/h2&gt;&lt;p&gt;你可以直接运行下面的命令安装本文的插件的最新版本，下文的描述可能会有过期&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pi install npm:@joyanhui/pi-ext-bar-cursor
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="思路探索"&gt;思路探索
+&lt;/h2&gt;&lt;h3 id="方案一插入-unicode-竖线字符-失败"&gt;方案一：插入 Unicode 竖线字符 ▏（失败）
+&lt;/h3&gt;&lt;p&gt;最初的思路：在 &lt;code&gt;render()&lt;/code&gt; 中后处理编辑器输出的每一行，找到 &lt;code&gt;CURSOR_MARKER + \x1b[7m{char}\x1b[0m&lt;/code&gt;，替换成 &lt;code&gt;▏&lt;/code&gt;（U+258F，LEFT ONE EIGHTH BLOCK）。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-typescript" data-lang="typescript"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nx"&gt;before&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="nx"&gt;CURSOR_MARKER&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="nx"&gt;bar&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="nx"&gt;cursorChar&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="nx"&gt;after&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;问题&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;▏&lt;/code&gt; 是一个真实字符，占 1 格宽度 → 行宽 +1 → padding 不足时越界崩溃&lt;/li&gt;
+&lt;li&gt;文本会发生位移——竖线占了一个格子，后面的文字整体右移，和真实编辑器的光标行为完全不同&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;即使加了 &lt;code&gt;truncateToWidth&lt;/code&gt; 兜底截断，文字位移问题也无法解决——终端里做不到&amp;quot;叠加渲染&amp;quot;，一个 cell 只能放一个字符。&lt;/p&gt;
+&lt;h3 id="方案二利用终端硬件光标形状decscusr"&gt;方案二：利用终端硬件光标形状（DECSCUSR）
+&lt;/h3&gt;&lt;p&gt;现代终端（WezTerm、Kitty、Ghostty、Alacritty、Foot、iTerm2、Windows Terminal）都支持 &lt;strong&gt;DECSCUSR&lt;/strong&gt;（DEC Soft Cursor Shape）转义序列：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;序列&lt;/th&gt;
+&lt;th&gt;光标形状&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;\x1b[0 q&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;闪烁方块（默认）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;\x1b[2 q&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;静态方块&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;\x1b[4 q&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;静态下划线&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;\x1b[5 q&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;闪烁竖线&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;\x1b[6 q&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;静态竖线&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;pi 本身就支持 &lt;code&gt;showHardwareCursor&lt;/code&gt;（在 &lt;code&gt;settings.json&lt;/code&gt; 中用 &lt;code&gt;\x1b[?25h&lt;/code&gt; 显示终端硬件光标），只是形状默认为终端预设（通常是方块）。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;核心洞察&lt;/strong&gt;：硬件光标是终端 GPU 层面渲染的，叠加在字符上方，&lt;strong&gt;不占用字符 cell&lt;/strong&gt;。如果我们：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;发送 &lt;code&gt;\x1b[6 q&lt;/code&gt; 把硬件光标形状设成竖线&lt;/li&gt;
+&lt;li&gt;剥掉 pi 编辑器软件渲染的假方块光标（&lt;code&gt;\x1b[7m...\x1b[0m&lt;/code&gt;）&lt;/li&gt;
+&lt;li&gt;保留 &lt;code&gt;CURSOR_MARKER&lt;/code&gt; 让 pi 能正确定位硬件光标（IME 候选窗需要）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;就能得到一个&lt;strong&gt;原生竖线光标，不挤文字，不崩行宽&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id="补充pi自带配置项-editorpaddingx"&gt;补充：pi自带配置项 &lt;code&gt;editorPaddingX&lt;/code&gt;
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;showHardwareCursor&lt;/code&gt; + DECSCUSR 工作后，竖线光标在内容贴终端边缘时可能因 margin 裁剪而不可见。pi 原生提供 &lt;code&gt;editorPaddingX&lt;/code&gt;（0~3），给输入框左右各留几格空白，问题解决。&lt;/p&gt;
+&lt;h2 id="完整配置"&gt;完整配置
+&lt;/h2&gt;&lt;h3 id="1-settingsjson"&gt;1. settings.json
+&lt;/h3&gt;&lt;p&gt;在 &lt;code&gt;~/.pi/agent/settings.json&lt;/code&gt;（全局）或 &lt;code&gt;.pi/settings.json&lt;/code&gt;（项目级）中添加：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-json" data-lang="json"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;showHardwareCursor&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="kc"&gt;true&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;editorPaddingX&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;showHardwareCursor&lt;/code&gt;：让终端硬件光标可见（用于竖线渲染 + IME 候选窗定位）&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;editorPaddingX&lt;/code&gt;：输入框左右各留 1 格空白，防止竖线贴边被裁&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="2-扩展文件"&gt;2. 扩展文件
+&lt;/h3&gt;&lt;p&gt;&lt;a href="https://github.com/joyanhui/pi-extension/tree/main/pi-ext-bar-cursor"&gt;https://github.com/joyanhui/pi-extension/tree/main/pi-ext-bar-cursor&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="效果对比"&gt;效果对比
+&lt;/h2&gt;&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;&lt;/th&gt;
+&lt;th&gt;改前&lt;/th&gt;
+&lt;th&gt;改后&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;光标形状&lt;/td&gt;
+&lt;td&gt;反视频方块&lt;/td&gt;
+&lt;td&gt;终端原生竖线&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;字符可见性&lt;/td&gt;
+&lt;td&gt;反白（形状模糊）&lt;/td&gt;
+&lt;td&gt;正常渲染&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;文本位移&lt;/td&gt;
+&lt;td&gt;无&lt;/td&gt;
+&lt;td&gt;无&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;行宽变化&lt;/td&gt;
+&lt;td&gt;N/A&lt;/td&gt;
+&lt;td&gt;不变（不崩溃）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;IME 候选窗&lt;/td&gt;
+&lt;td&gt;正常&lt;/td&gt;
+&lt;td&gt;正常（CURSOR_MARKER 保留）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;行首可见性&lt;/td&gt;
+&lt;td&gt;正常&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;editorPaddingX: 1&lt;/code&gt; 保证不贴边&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id="总结"&gt;总结
+&lt;/h2&gt;&lt;p&gt;整个过程的核心教训：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;终端里做不了叠加&lt;/strong&gt;——不要试图用字符模拟光标，会破坏布局。交给终端硬件光标。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;pi 扩展很强大&lt;/strong&gt;——&lt;code&gt;CustomEditor&lt;/code&gt; + &lt;code&gt;setEditorComponent&lt;/code&gt; 能完全接管输入框渲染，而且 TypeScript 扩展会被自动发现（放到 &lt;code&gt;~/.pi/agent/extensions/&lt;/code&gt; 即可）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;先理解底层再动手&lt;/strong&gt;——翻了 pi-tui 源码（&lt;code&gt;editor.js&lt;/code&gt;、&lt;code&gt;tui.js&lt;/code&gt;、&lt;code&gt;terminal.js&lt;/code&gt;）才搞清楚 &lt;code&gt;CURSOR_MARKER&lt;/code&gt; 的定位机制和 DECSCUSR 的协作方式。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;扩展部署后，每次启动 pi 自动加载，无需额外配置。配合 NixOS + home-manager 管理 &lt;code&gt;~/.pi/agent&lt;/code&gt; 目录的软链接，整个配置也是声明式、可追溯、可复现的。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;另见：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/ai/pi-git-changes/"&gt;pi 插件：随时查看工作区文件变更（git-changes）&lt;/a&gt; — 基于 overlay + shortcut + 状态栏，一键浮动查看 git 变更文件列表&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/ai/pi-float-term/"&gt;pi 插件：浮动终端（float-term）&lt;/a&gt; — 基于 node-pty + overlay，在 pi 内随时唤起 fish / lazygit / yazi 浮动终端&lt;/li&gt;
+&lt;/ul&gt;</description></item></channel></rss>

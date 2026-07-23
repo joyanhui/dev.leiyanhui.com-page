@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Dart on 小类随手记</title><link>https://dev.leiyanhui.com/categories/dart/</link><description>Recent content in Dart on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 26 Dec 2023 00:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/dart/index.xml" rel="self" type="application/rss+xml"/><item><title>私有协议分隔符，即url参数可用的分隔符</title><link>https://dev.leiyanhui.com/lot/privateprotocoldelimiter/</link><pubDate>Tue, 26 Dec 2023 00:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/lot/privateprotocoldelimiter/</guid><description>&lt;p&gt;业务发展到一定规模后，mqtt/coap协议无法满足需求，所有私有协议势在必行。&lt;/p&gt;
+&lt;p&gt;现有私有协议 兼通 udp tcp 以及 http websocker&lt;/p&gt;
+&lt;p&gt;协议中有一部分，需要兼顾可读性和降低带宽占用。所以简单使用特殊字符串分割的方式来表达。
+例如： usename|password&lt;/p&gt;
+&lt;p&gt;但是在url传输中分割符号需要考虑一下应该如何选择。&lt;/p&gt;
+&lt;p&gt;url参数中可字符串有&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 特殊含义的字符 这些不能放到参数值内&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;; / ? &lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;@&lt;span class="w"&gt; &lt;/span&gt;&amp;amp;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;= + $ , 「10个」&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 非保留字符集 部分位置不允许出现，但是参数内部可用&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;- &lt;span class="l"&gt;_ . ! ~ * &amp;#39; ( ) 「9个」&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 避免使用的 因为网路中部分网关会使用所以需要转义&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;{&lt;span class="w"&gt; &lt;/span&gt;}&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;| \ ^ [ ] 「8个」&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 其他由ASCII控制字符&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="l"&gt;&amp;lt; &amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# % &amp;#34; 空格&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;encodeURI 方法不会对ASCII字母、数字、&lt;del&gt;!@#$&amp;amp;*()=:/,;?+&amp;rsquo; 编码。
+encodeURIComponent 方法不会对ASCII字母、数字、&lt;/del&gt;!*()&amp;rsquo; 编码。&lt;/p&gt;
+&lt;p&gt;另外需要考虑的因素&lt;br&gt;
+1、redis中keyname的分隔符我们常用「:」冒号来处理 &lt;br&gt;
+2、base64url中 会使用 &lt;code&gt;_ - &lt;/code&gt; 所以分隔符的选择就只剩下 &lt;code&gt;. ! ~ * ' ( ) &lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;按照兼容性考虑可选字符顺序：&lt;br&gt;
+为了能在协议中传输带小数的数据，所以 「.」 也不能用 又剩下 &lt;code&gt;! ~ * ' ( ) &lt;/code&gt;
+而 「&amp;rsquo;」在部分安全防护产品中会认为sql注入符，所以最好也不用 又剩下 &lt;code&gt;! ~ * ( ) &lt;/code&gt;
+「~」在部分编程语言中会被编码成 %7e 又剩下 &lt;code&gt;! * ( ) &lt;/code&gt;
+「*」在部分系统里面会被认作保留字符 又剩下 &lt;code&gt;! ( ) &lt;/code&gt;
+「()」本身可以做为包裹数据使用 所以只剩下 &lt;code&gt;!&lt;/code&gt;
+所以通常来说 ，所以选择用&lt;code&gt;!&lt;/code&gt;来做非协议字段分隔符 &lt;code&gt;*&lt;/code&gt;做为:的替代符(实践中选择key不会存在的字符串替代，例如：AA / O0O)&lt;/p&gt;</description></item></channel></rss>

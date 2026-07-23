@@ -1,0 +1,620 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content=' nixos 从0实现全集 - 目录\n现象 使用 Niri 窗口管理器一段时间后，偶尔会出现两种异常布局：\n左侧间隙：最左侧的窗口距离屏幕左边有一个明显的大间隙，比配置的 gaps 大得多 列宽溢出：两个窗口并排时，总宽度略大于屏幕宽度，导致两列都显示不全，左右各被裁掉一部分 这两种情况都是偶发的，不是每次开机都会出现。而且一旦出现，用鼠标重新拖拽也无法彻底恢复，过一会儿又会复发。\n快速修复 如果你不想看原理分析，直接加这个快捷键：\n1 2 // 在你的 niri config.kdl 的 binds {} 里加入 Mod+Shift+R { spawn-sh "$REPO_DIR/script/niri_fix_columns.py 2/3_1/3"; } 或者需要所有列平分：\n1 Mod+Shift+E { spawn-sh "$REPO_DIR/script/niri_fix_columns.py"; } 然后执行 niri msg action load-config-file 重载配置。以后出现溢出或间隙时，按下快捷键，所有列立即恢复为等比宽度，完美填满屏幕。\n根因分析 抓包 Niri IPC 通过 socat 抓取 Niri IPC 通信，确认了每种调整列宽的操作底层发送的消息：\n1 2 3 4 5 # 启动一个本地 socat 作为 IPC 代理 socat -t 1 UNIX-LISTEN:/tmp/niri-test-sock,fork STDIO & # 另一个终端设置 NIRI_SOCKET 指向代理，执行操作 NIRI_SOCKET=/tmp/niri-test-sock niri msg action set-column-width &#39;50%&#39; 抓包结果：\n'><title>修复 Niri 窗口管理器鼠标拖拽导致的列宽溢出和间隙</title><link rel=canonical href=https://dev.leiyanhui.com/nixos/niri-column-width-fix/><link rel=stylesheet href=/scss/style.min.6cabb79c8be9daa6d6f70473c955ed2e3ff799787e95f86427bf518fd03cd069.css><link rel=stylesheet href=/scss/custom.min.aa6e52681d683200bdf34d2e36d1f3f0d5f04719dad911e16f4b47da0190a423.css><meta property='og:title' content="修复 Niri 窗口管理器鼠标拖拽导致的列宽溢出和间隙"><meta property='og:description' content=' nixos 从0实现全集 - 目录\n现象 使用 Niri 窗口管理器一段时间后，偶尔会出现两种异常布局：\n左侧间隙：最左侧的窗口距离屏幕左边有一个明显的大间隙，比配置的 gaps 大得多 列宽溢出：两个窗口并排时，总宽度略大于屏幕宽度，导致两列都显示不全，左右各被裁掉一部分 这两种情况都是偶发的，不是每次开机都会出现。而且一旦出现，用鼠标重新拖拽也无法彻底恢复，过一会儿又会复发。\n快速修复 如果你不想看原理分析，直接加这个快捷键：\n1 2 // 在你的 niri config.kdl 的 binds {} 里加入 Mod+Shift+R { spawn-sh "$REPO_DIR/script/niri_fix_columns.py 2/3_1/3"; } 或者需要所有列平分：\n1 Mod+Shift+E { spawn-sh "$REPO_DIR/script/niri_fix_columns.py"; } 然后执行 niri msg action load-config-file 重载配置。以后出现溢出或间隙时，按下快捷键，所有列立即恢复为等比宽度，完美填满屏幕。\n根因分析 抓包 Niri IPC 通过 socat 抓取 Niri IPC 通信，确认了每种调整列宽的操作底层发送的消息：\n1 2 3 4 5 # 启动一个本地 socat 作为 IPC 代理 socat -t 1 UNIX-LISTEN:/tmp/niri-test-sock,fork STDIO & # 另一个终端设置 NIRI_SOCKET 指向代理，执行操作 NIRI_SOCKET=/tmp/niri-test-sock niri msg action set-column-width &#39;50%&#39; 抓包结果：\n'><meta property='og:url' content='https://dev.leiyanhui.com/nixos/niri-column-width-fix/'><meta property='og:site_name' content='小类随手记'><meta property='og:type' content='article'><meta property='article:section' content='Nixos'><meta property='article:published_time' content='2026-07-16T20:30:00+08:00'><meta property='article:modified_time' content='2026-07-16T20:30:00+08:00'><meta name=twitter:title content="修复 Niri 窗口管理器鼠标拖拽导致的列宽溢出和间隙"><meta name=twitter:description content=' nixos 从0实现全集 - 目录\n现象 使用 Niri 窗口管理器一段时间后，偶尔会出现两种异常布局：\n左侧间隙：最左侧的窗口距离屏幕左边有一个明显的大间隙，比配置的 gaps 大得多 列宽溢出：两个窗口并排时，总宽度略大于屏幕宽度，导致两列都显示不全，左右各被裁掉一部分 这两种情况都是偶发的，不是每次开机都会出现。而且一旦出现，用鼠标重新拖拽也无法彻底恢复，过一会儿又会复发。\n快速修复 如果你不想看原理分析，直接加这个快捷键：\n1 2 // 在你的 niri config.kdl 的 binds {} 里加入 Mod+Shift+R { spawn-sh "$REPO_DIR/script/niri_fix_columns.py 2/3_1/3"; } 或者需要所有列平分：\n1 Mod+Shift+E { spawn-sh "$REPO_DIR/script/niri_fix_columns.py"; } 然后执行 niri msg action load-config-file 重载配置。以后出现溢出或间隙时，按下快捷键，所有列立即恢复为等比宽度，完美填满屏幕。\n根因分析 抓包 Niri IPC 通过 socat 抓取 Niri IPC 通信，确认了每种调整列宽的操作底层发送的消息：\n1 2 3 4 5 # 启动一个本地 socat 作为 IPC 代理 socat -t 1 UNIX-LISTEN:/tmp/niri-test-sock,fork STDIO & # 另一个终端设置 NIRI_SOCKET 指向代理，执行操作 NIRI_SOCKET=/tmp/niri-test-sock niri msg action set-column-width &#39;50%&#39; 抓包结果：\n'></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><canvas id=bg-canvas aria-hidden=true></canvas><div id=reading-progress-bar></div><div class=page-wrapper><header class="top-header mobile-only"><button class="hamburger hamburger--spin" type=button id=toggle-drawer aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span>
+</span></button>
+<a href=/ class=header-title>小类随手记</a><div class=header-right><button id=dark-mode-toggle-header class=dark-mode-toggle aria-label=暗色模式>
+<svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg></button></div></header><aside id=menu-drawer class=menu-drawer><div class=drawer-header><figure class=drawer-avatar><img src=/img/avatar_hu_9fe511a6e3e257e4.png width=80 height=80 class=site-logo loading=lazy alt=Avatar>
+<span class=emoji>🐟</span></figure><div class=drawer-meta><div class=site-name><a href=/>小类随手记</a></div><div class=site-description>just so so.</div></div></div><nav class=drawer-nav><ol class=menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>关于本站</span></a></li></ol></nav><div class=drawer-social><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-page target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol></div><div class=drawer-bottom><button id=dark-mode-toggle-drawer class=dark-mode-toggle aria-label=暗色模式>
+<svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg>
+<span>暗色模式</span></button></div></aside><div class=drawer-overlay></div><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_131d47a3a5694d37.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🐟</span></figure><div class=site-meta><h1 class=site-name><a href=/>小类随手记</a></h1><h2 class=site-description>just so so.</h2></div></header><ol class=menu-social><li><a href=https://github.com/joyanhui/dev.leiyanhui.com-page target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>列表</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>站内搜索</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>关于本站</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle class=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-sun" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8-9v1m8 8h1m-9 8v1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7M6.3 17.7l-.7.7"/></svg>
+<svg class="icon icon-tabler icon-tabler-moon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.446A9 9 0 1112 2.992z"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/nixos/ style=background-color:#beefcc;color:#0f3d1d>Nixos
+</a><a href=/categories/linux/ style=background-color:#bec0ef;color:#0f123d>Linux
+</a><a href=/categories/niri/ style=background-color:#beefc2;color:#0f3d13>Niri</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/nixos/niri-column-width-fix/>修复 Niri 窗口管理器鼠标拖拽导致的列宽溢出和间隙</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-07-16T20:30:00+08:00>2026-07-16</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><blockquote><p><a href=/nixos/start/>nixos 从0实现全集 - 目录</a></p></blockquote><h2 id=现象>现象</h2><p>使用 Niri 窗口管理器一段时间后，偶尔会出现两种异常布局：</p><ol><li><strong>左侧间隙</strong>：最左侧的窗口距离屏幕左边有一个明显的大间隙，比配置的 <code>gaps</code> 大得多</li><li><strong>列宽溢出</strong>：两个窗口并排时，总宽度略大于屏幕宽度，导致两列都显示不全，左右各被裁掉一部分</li></ol><p>这两种情况都是<strong>偶发</strong>的，不是每次开机都会出现。而且一旦出现，用鼠标重新拖拽也无法彻底恢复，过一会儿又会复发。</p><h2 id=快速修复>快速修复</h2><p>如果你不想看原理分析，直接加这个快捷键：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-kdl data-lang=kdl><span class=line><span class=cl><span class=c1>// 在你的 niri config.kdl 的 binds {} 里加入
+</span></span></span><span class=line><span class=cl><span class=nl>Mod+Shift+R</span><span class=w> </span><span class=o>{</span><span class=nl> spawn-sh</span><span class=w> </span><span class=s>&#34;$REPO_DIR/script/niri_fix_columns.py 2/3_1/3&#34;</span><span class=o>;</span><span class=w> </span><span class=o>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>或者需要所有列平分：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-kdl data-lang=kdl><span class=line><span class=cl><span class=nl>Mod+Shift+E</span><span class=w> </span><span class=o>{</span><span class=nl> spawn-sh</span><span class=w> </span><span class=s>&#34;$REPO_DIR/script/niri_fix_columns.py&#34;</span><span class=o>;</span><span class=w> </span><span class=o>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>然后执行 <code>niri msg action load-config-file</code> 重载配置。以后出现溢出或间隙时，按下快捷键，所有列立即恢复为等比宽度，完美填满屏幕。</p><h2 id=根因分析>根因分析</h2><h3 id=抓包-niri-ipc>抓包 Niri IPC</h3><p>通过 <code>socat</code> 抓取 Niri IPC 通信，确认了每种调整列宽的操作底层发送的消息：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启动一个本地 socat 作为 IPC 代理</span>
+</span></span><span class=line><span class=cl>socat -t <span class=m>1</span> UNIX-LISTEN:/tmp/niri-test-sock,fork STDIO <span class=p>&amp;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 另一个终端设置 NIRI_SOCKET 指向代理，执行操作</span>
+</span></span><span class=line><span class=cl><span class=nv>NIRI_SOCKET</span><span class=o>=</span>/tmp/niri-test-sock niri msg action set-column-width <span class=s1>&#39;50%&#39;</span>
+</span></span></code></pre></td></tr></table></div></div><p>抓包结果：</p><div class=table-wrapper><table><thead><tr><th>操作</th><th>Niri 收到的 IPC 消息</th><th>含义</th></tr></thead><tbody><tr><td>鼠标右键拖拽窗口边缘</td><td><code>{"SetFixed": 960}</code></td><td><strong>设为固定像素值</strong></td></tr><tr><td>键盘 <code>+10%</code></td><td><code>{"AdjustProportion": 10.0}</code></td><td>调整比例（安全）</td></tr><tr><td>键盘 <code>-10%</code></td><td><code>{"AdjustProportion": -10.0}</code></td><td>调整比例（安全）</td></tr><tr><td><code>niri msg action set-column-width '50%'</code></td><td><code>{"SetProportion": 50.0}</code></td><td>设回等比（修复用）</td></tr><tr><td><code>niri msg action set-column-width '900'</code></td><td><code>{"SetFixed": 900}</code></td><td>设为固定像素值</td></tr></tbody></table></div><h3 id=结论鼠标拖拽是祸根>结论：鼠标拖拽是祸根</h3><p><code>+10%</code> 和 <code>-10%</code> 这两个快捷键操作的是<strong>比例</strong>（<code>AdjustProportion</code>），窗口会保持等比分配，不会出问题。</p><p>但<strong>鼠标右键拖拽窗口边缘</strong>会把列宽设成<strong>固定像素值</strong>（<code>SetFixed</code>）。一旦变成固定像素值：</p><ul><li>Niri 认为"这是用户明确想要的大小"，不会自动缩放</li><li>两列各拖到 55% 屏幕宽 → 加起来 110% → 溢出屏幕</li><li>或者两列加起来不到 100% → 右侧留空</li></ul><h3 id=为什么会有左侧间隙>为什么会有"左侧间隙"？</h3><p>按理说列宽总和小于屏幕宽度时，多余的空白应该在右侧（因为 <code>center-focused-column "never"</code> 是左对齐）。<strong>左侧出现间隙</strong>通常是因为：</p><ol><li><strong>空列残留</strong>：<a href=/nixos/niri-master-layout/>自动贴砖脚本</a>（如 <code>niri_tile_to_n.py</code>）在执行 <code>ConsumeOrExpelWindowLeft/Right</code> 时，可能在左侧创建了一个零宽度的空列，看不见但把其他列挤到了右边</li><li><strong>自动贴砖+拖拽混合使用</strong>：自动贴砖管理窗口排列，但鼠标拖拽管理列宽——两者互不知情，状态容易乱</li></ol><h2 id=一键修复脚本>一键修复脚本</h2><h3 id=原理>原理</h3><p>通过 Niri IPC 逐列聚焦，用 <code>SetProportion</code> 把宽度恢复成等比模式：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 1. 获取当前工作区所有窗口，按列分组</span>
+</span></span><span class=line><span class=cl><span class=n>all_windows</span> <span class=o>=</span> <span class=n>request</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;Windows&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=n>columns</span> <span class=o>=</span> <span class=n>defaultdict</span><span class=p>(</span><span class=nb>list</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=n>win</span> <span class=ow>in</span> <span class=n>all_windows</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>col_idx</span> <span class=o>=</span> <span class=n>win</span><span class=p>[</span><span class=s2>&#34;layout&#34;</span><span class=p>][</span><span class=s2>&#34;pos_in_scrolling_layout&#34;</span><span class=p>][</span><span class=mi>0</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=n>columns</span><span class=p>[</span><span class=n>col_idx</span><span class=p>]</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>win</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 2. 逐列聚焦，用 SetProportion 设为等比宽度</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>col_idx</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=nb>sorted</span><span class=p>(</span><span class=n>columns</span><span class=p>)):</span>
+</span></span><span class=line><span class=cl>    <span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;FocusWindow&#34;</span><span class=p>,</span> <span class=nb>id</span><span class=o>=</span><span class=n>first_win</span><span class=p>[</span><span class=s2>&#34;id&#34;</span><span class=p>])</span>
+</span></span><span class=line><span class=cl>    <span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;SetColumnWidth&#34;</span><span class=p>,</span> <span class=n>change</span><span class=o>=</span><span class=p>{</span><span class=s2>&#34;SetProportion&#34;</span><span class=p>:</span> <span class=mf>50.0</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 3. 恢复原来的焦点窗口</span>
+</span></span><span class=line><span class=cl><span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;FocusWindow&#34;</span><span class=p>,</span> <span class=nb>id</span><span class=o>=</span><span class=n>original_focus</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>关键点在于 <code>SetProportion</code> 这个 IPC 动作——它告诉 Niri &ldquo;这一列按照比例分配宽度&rdquo;，而不是设一个具体的像素值。之后不管新增窗口、切换显示器，Niri 都会自动重新计算。</p><h3 id=支持的模式>支持的模式</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 所有列平分（两列各 50%）</span>
+</span></span><span class=line><span class=cl>niri_fix_columns.py
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 奇数列 2/3，偶数列 1/3（循环）</span>
+</span></span><span class=line><span class=cl>niri_fix_columns.py 2/3_1/3
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 三列各 1/3</span>
+</span></span><span class=line><span class=cl>niri_fix_columns.py 1/3_1/3_1/3
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 自定义：第一列 60%，第二列 40%</span>
+</span></span><span class=line><span class=cl>niri_fix_columns.py 60_40
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 或者用 --pattern 参数</span>
+</span></span><span class=line><span class=cl>niri_fix_columns.py --pattern 2/3_1/3
+</span></span></code></pre></td></tr></table></div></div><p>使用 <code>2/3_1/3</code> 模式时，比例会循环分配：</p><div class=table-wrapper><table><thead><tr><th>列数</th><th>列1</th><th>列2</th><th>列3</th><th>列4</th></tr></thead><tbody><tr><td>2列</td><td>66.7%</td><td>33.3%</td><td>—</td><td>—</td></tr><tr><td>3列</td><td>40%</td><td>20%</td><td>40%</td><td>—</td></tr><tr><td>4列</td><td>33.3%</td><td>16.7%</td><td>33.3%</td><td>16.7%</td></tr></tbody></table></div><h3 id=与其他方案的对比>与其他方案的对比</h3><div class=table-wrapper><table><thead><tr><th>方案</th><th>优点</th><th>缺点</th></tr></thead><tbody><tr><td>只用预设快捷键 <code>Mod+Ctrl+1/2/3</code></td><td>不依赖外部脚本</td><td>要记多组快捷键，只改当前列</td></tr><tr><td>只用鼠标拖拽</td><td>直观</td><td>产生固定像素值，积累后溢出</td></tr><tr><td><strong>一键修复脚本</strong>（本文方案）</td><td><strong>鼠标随意拖，出问题了一键恢复</strong></td><td>需要安装 Python</td></tr></tbody></table></div><h2 id=总结>总结</h2><ul><li><strong>这是 Niri 的设计特性，不是 bug</strong>。Niri 刻意保留用户通过鼠标拖拽设定的列宽，不会自动重新分配</li><li><code>+10%</code> 和 <code>-10%</code> 快捷键是安全的（操作的是比例，不是像素值）</li><li>鼠标拖拽是产生固定像素宽度的根源</li><li>出现溢出或间隙时，用 <code>niri_fix_columns.py</code> 一键重置所有列为等比模式即可</li></ul><p>这个方法的好处是<strong>兼容鼠标拖拽的习惯</strong>——你尽管拖，出问题了按一下修复键就行，不用改变操作习惯。</p><h2 id=附录完整源码>附录：完整源码</h2><details><summary>niri_fix_columns.py（215 行）</summary><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span><span class=lnt>174
+</span><span class=lnt>175
+</span><span class=lnt>176
+</span><span class=lnt>177
+</span><span class=lnt>178
+</span><span class=lnt>179
+</span><span class=lnt>180
+</span><span class=lnt>181
+</span><span class=lnt>182
+</span><span class=lnt>183
+</span><span class=lnt>184
+</span><span class=lnt>185
+</span><span class=lnt>186
+</span><span class=lnt>187
+</span><span class=lnt>188
+</span><span class=lnt>189
+</span><span class=lnt>190
+</span><span class=lnt>191
+</span><span class=lnt>192
+</span><span class=lnt>193
+</span><span class=lnt>194
+</span><span class=lnt>195
+</span><span class=lnt>196
+</span><span class=lnt>197
+</span><span class=lnt>198
+</span><span class=lnt>199
+</span><span class=lnt>200
+</span><span class=lnt>201
+</span><span class=lnt>202
+</span><span class=lnt>203
+</span><span class=lnt>204
+</span><span class=lnt>205
+</span><span class=lnt>206
+</span><span class=lnt>207
+</span><span class=lnt>208
+</span><span class=lnt>209
+</span><span class=lnt>210
+</span><span class=lnt>211
+</span><span class=lnt>212
+</span><span class=lnt>213
+</span><span class=lnt>214
+</span><span class=lnt>215
+</span><span class=lnt>216
+</span><span class=lnt>217
+</span><span class=lnt>218
+</span><span class=lnt>219
+</span><span class=lnt>220
+</span><span class=lnt>221
+</span><span class=lnt>222
+</span><span class=lnt>223
+</span><span class=lnt>224
+</span><span class=lnt>225
+</span><span class=lnt>226
+</span><span class=lnt>227
+</span><span class=lnt>228
+</span><span class=lnt>229
+</span><span class=lnt>230
+</span><span class=lnt>231
+</span><span class=lnt>232
+</span><span class=lnt>233
+</span><span class=lnt>234
+</span><span class=lnt>235
+</span><span class=lnt>236
+</span><span class=lnt>237
+</span><span class=lnt>238
+</span><span class=lnt>239
+</span><span class=lnt>240
+</span><span class=lnt>241
+</span><span class=lnt>242
+</span><span class=lnt>243
+</span><span class=lnt>244
+</span><span class=lnt>245
+</span><span class=lnt>246
+</span><span class=lnt>247
+</span><span class=lnt>248
+</span><span class=lnt>249
+</span><span class=lnt>250
+</span><span class=lnt>251
+</span><span class=lnt>252
+</span><span class=lnt>253
+</span><span class=lnt>254
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=ch>#!/usr/bin/env python3</span>
+</span></span><span class=line><span class=cl><span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>重置当前工作区所有列的宽度为等比模式，修复鼠标拖拽导致的列宽溢出和左侧间隙。
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>=== 问题背景 ===
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>Niri 中鼠标右键拖拽窗口边缘调整列宽时，会把列宽设为固定像素值（SetFixed）。
+</span></span></span><span class=line><span class=cl><span class=s2>之后无论新增窗口、切换显示器，该列都死守这个像素值不变。
+</span></span></span><span class=line><span class=cl><span class=s2>当两列固定宽度之和超出屏幕 → 溢出，小于屏幕 → 留空。
+</span></span></span><span class=line><span class=cl><span class=s2>自动贴砖脚本（niri_tile_to_n.py）的 consume/expel 操作也可能在左侧产生空列。
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>=== 解决原理 ===
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>通过 niri IPC 逐列聚焦，用 SetProportion 把固定像素宽度恢复成等比分配。
+</span></span></span><span class=line><span class=cl><span class=s2>之后 Niri 会动态分配空间，不再溢出或留空。
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>=== 关于视口滚动的处理 ===
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>因脚本需要逐列 FocusWindow 来 SetColumnWidth，会导致 Niri 的滚动视口
+</span></span></span><span class=line><span class=cl><span class=s2>跟随焦点偏移，最后停留在最后一列上。脚本末尾分三步修复：
+</span></span></span><span class=line><span class=cl><span class=s2>  1. FocusColumn(0)    → 把视口拉到第一列（焦点暂移）
+</span></span></span><span class=line><span class=cl><span class=s2>  2. CenterVisibleColumns → 居中所有可见列（不改变焦点）
+</span></span></span><span class=line><span class=cl><span class=s2>  3. FocusWindow(orig)  → 恢复原始焦点（窗口已在视口内，不触发额外滚动）
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>=== 用法 ===
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>  niri_fix_columns.py                      # 所有列平分宽度
+</span></span></span><span class=line><span class=cl><span class=s2>  niri_fix_columns.py 2/3_1/3              # 奇数列 2/3，偶数列 1/3
+</span></span></span><span class=line><span class=cl><span class=s2>  niri_fix_columns.py --pattern 1/2        # 所有列设成 50%
+</span></span></span><span class=line><span class=cl><span class=s2>  niri_fix_columns.py 1/3_1/3_1/3          # 三列各 1/3
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>快捷键绑定（加到 niri config.kdl 的 binds </span><span class=si>{}</span><span class=s2> 里）：
+</span></span></span><span class=line><span class=cl><span class=s2>  Mod+Shift+R { spawn-sh </span><span class=se>\&#34;</span><span class=s2>$REPO_DIR/script/niri_fix_columns.py 2/3_1/3</span><span class=se>\&#34;</span><span class=s2>; }
+</span></span></span><span class=line><span class=cl><span class=s2>&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>json</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>os</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>socket</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>sys</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>subprocess</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>collections</span> <span class=kn>import</span> <span class=n>defaultdict</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>notify</span><span class=p>(</span><span class=n>msg</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;通过桌面通知向用户反馈结果，桌面环境不可用时 fallback 到 stderr&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>subprocess</span><span class=o>.</span><span class=n>run</span><span class=p>([</span><span class=s2>&#34;notify-send&#34;</span><span class=p>,</span> <span class=s2>&#34;-a&#34;</span><span class=p>,</span> <span class=s2>&#34;niri-fix-columns&#34;</span><span class=p>,</span> <span class=n>msg</span><span class=p>],</span> <span class=n>timeout</span><span class=o>=</span><span class=mi>3</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=nb>print</span><span class=p>(</span><span class=n>msg</span><span class=p>,</span> <span class=n>file</span><span class=o>=</span><span class=n>sys</span><span class=o>.</span><span class=n>stderr</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>get_socket_path</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;获取 niri IPC socket 路径，从环境变量 NIRI_SOCKET 读取&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>path</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>environ</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;NIRI_SOCKET&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=ow>not</span> <span class=n>path</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>notify</span><span class=p>(</span><span class=s2>&#34;❌ 找不到 NIRI_SOCKET，确定在 niri 里面运行的？&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>sys</span><span class=o>.</span><span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>path</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>send_and_recv</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=n>msg</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>    发送一条 JSON 消息到 niri IPC，读取一行 JSON 响应。
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>    niri IPC 是 Unix Socket 上的换行分隔 JSON 协议（NDJSON），
+</span></span></span><span class=line><span class=cl><span class=s2>    每条消息以换行符结尾，响应也是单行 JSON。
+</span></span></span><span class=line><span class=cl><span class=s2>    &#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>sock</span><span class=o>.</span><span class=n>sendall</span><span class=p>((</span><span class=n>json</span><span class=o>.</span><span class=n>dumps</span><span class=p>(</span><span class=n>msg</span><span class=p>)</span> <span class=o>+</span> <span class=s2>&#34;</span><span class=se>\n</span><span class=s2>&#34;</span><span class=p>)</span><span class=o>.</span><span class=n>encode</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>    <span class=n>buf</span> <span class=o>=</span> <span class=sa>b</span><span class=s2>&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>chunk</span> <span class=o>=</span> <span class=n>sock</span><span class=o>.</span><span class=n>recv</span><span class=p>(</span><span class=mi>4096</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=ow>not</span> <span class=n>chunk</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span>
+</span></span><span class=line><span class=cl>        <span class=n>buf</span> <span class=o>+=</span> <span class=n>chunk</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=sa>b</span><span class=s2>&#34;</span><span class=se>\n</span><span class=s2>&#34;</span> <span class=ow>in</span> <span class=n>buf</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span>
+</span></span><span class=line><span class=cl>    <span class=n>line</span> <span class=o>=</span> <span class=n>buf</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=sa>b</span><span class=s2>&#34;</span><span class=se>\n</span><span class=s2>&#34;</span><span class=p>,</span> <span class=mi>1</span><span class=p>)[</span><span class=mi>0</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>json</span><span class=o>.</span><span class=n>loads</span><span class=p>(</span><span class=n>line</span><span class=o>.</span><span class=n>decode</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>request</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=n>req_name</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>    发送简单请求（如 &#34;Windows&#34; / &#34;Workspaces&#34;），返回 Ok 包裹的数据内容。
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>    niri 请求的响应格式为 {&#34;Ok&#34;: {&#34;&lt;请求名&gt;&#34;: &lt;数据&gt;}} 或 {&#34;Err&#34;: &#34;...&#34;}。
+</span></span></span><span class=line><span class=cl><span class=s2>    例如：
+</span></span></span><span class=line><span class=cl><span class=s2>      请求 &#34;Windows&#34;     → {&#34;Ok&#34;: {&#34;Windows&#34;: [...]}}
+</span></span></span><span class=line><span class=cl><span class=s2>      请求 &#34;Workspaces&#34;  → {&#34;Ok&#34;: {&#34;Workspaces&#34;: [...]}}
+</span></span></span><span class=line><span class=cl><span class=s2>      请求 &#34;FocusedWindow&#34; → {&#34;Ok&#34;: {&#34;FocusedWindow&#34;: {...}}}
+</span></span></span><span class=line><span class=cl><span class=s2>    &#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>resp</span> <span class=o>=</span> <span class=n>send_and_recv</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=n>req_name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=s2>&#34;Err&#34;</span> <span class=ow>in</span> <span class=n>resp</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>notify</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;❌ niri 返回错误：</span><span class=si>{</span><span class=n>resp</span><span class=p>[</span><span class=s1>&#39;Err&#39;</span><span class=p>]</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>sys</span><span class=o>.</span><span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>resp</span><span class=p>[</span><span class=s2>&#34;Ok&#34;</span><span class=p>][</span><span class=n>req_name</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=n>action_name</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>    执行一个 niri action。
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>    构建的 IPC 消息格式：
+</span></span></span><span class=line><span class=cl><span class=s2>      {&#34;Action&#34;: {&#34;&lt;动作名&gt;&#34;: {&lt;参数&gt;}}}
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>    例如 FocusWindow(id=123) 发送：
+</span></span></span><span class=line><span class=cl><span class=s2>      {&#34;Action&#34;: {&#34;FocusWindow&#34;: {&#34;id&#34;: 123}}}
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>    例如 SetColumnWidth(change={&#34;SetProportion&#34;: 50.0}) 发送：
+</span></span></span><span class=line><span class=cl><span class=s2>      {&#34;Action&#34;: {&#34;SetColumnWidth&#34;: {&#34;change&#34;: {&#34;SetProportion&#34;: 50.0}}}}
+</span></span></span><span class=line><span class=cl><span class=s2>    &#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>msg</span> <span class=o>=</span> <span class=p>{</span><span class=s2>&#34;Action&#34;</span><span class=p>:</span> <span class=p>{</span><span class=n>action_name</span><span class=p>:</span> <span class=n>kwargs</span><span class=p>}}</span>
+</span></span><span class=line><span class=cl>    <span class=n>send_and_recv</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=n>msg</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>parse_proportion_pattern</span><span class=p>(</span><span class=n>pattern</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>    解析比例模式字符串，返回每列比例值列表（值域 0~1）。
+</span></span></span><span class=line><span class=cl><span class=s2>
+</span></span></span><span class=line><span class=cl><span class=s2>    支持的模式：
+</span></span></span><span class=line><span class=cl><span class=s2>      &#34;even&#34; / &#34;1/2&#34;          → [50%, 50%]
+</span></span></span><span class=line><span class=cl><span class=s2>      &#34;2/3_1/3&#34;              → [66.7%, 33.3%]
+</span></span></span><span class=line><span class=cl><span class=s2>      &#34;1/3_2/3&#34;              → [33.3%, 66.7%]
+</span></span></span><span class=line><span class=cl><span class=s2>      &#34;1/3_1/3_1/3&#34;          → [33.3%, 33.3%, 33.3%]
+</span></span></span><span class=line><span class=cl><span class=s2>      &#34;60_40&#34;                → [60%, 40%]（自定义百分比）
+</span></span></span><span class=line><span class=cl><span class=s2>    多于预设列数时，比例循环使用（奇偶列模式会自动延续）。
+</span></span></span><span class=line><span class=cl><span class=s2>    &#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>known</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;even&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>0.5</span><span class=p>,</span> <span class=mf>0.5</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;1/2&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>0.5</span><span class=p>,</span> <span class=mf>0.5</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;2/3_1/3&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>2.0</span> <span class=o>/</span> <span class=mi>3</span><span class=p>,</span> <span class=mf>1.0</span> <span class=o>/</span> <span class=mi>3</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;1/3_2/3&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>1.0</span> <span class=o>/</span> <span class=mi>3</span><span class=p>,</span> <span class=mf>2.0</span> <span class=o>/</span> <span class=mi>3</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;1/3_1/3_1/3&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>1.0</span> <span class=o>/</span> <span class=mi>3</span><span class=p>,</span> <span class=mf>1.0</span> <span class=o>/</span> <span class=mi>3</span><span class=p>,</span> <span class=mf>1.0</span> <span class=o>/</span> <span class=mi>3</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;1/4_3/4&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>0.25</span><span class=p>,</span> <span class=mf>0.75</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;3/4_1/4&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>0.75</span><span class=p>,</span> <span class=mf>0.25</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>pattern</span> <span class=ow>in</span> <span class=n>known</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>known</span><span class=p>[</span><span class=n>pattern</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># 尝试解析自定义格式</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>parts</span> <span class=o>=</span> <span class=n>pattern</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s2>&#34;_&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>values</span> <span class=o>=</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=n>p</span> <span class=ow>in</span> <span class=n>parts</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=s2>&#34;/&#34;</span> <span class=ow>in</span> <span class=n>p</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>a</span><span class=p>,</span> <span class=n>b</span> <span class=o>=</span> <span class=n>p</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s2>&#34;/&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=n>values</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=nb>float</span><span class=p>(</span><span class=n>a</span><span class=p>)</span> <span class=o>/</span> <span class=nb>float</span><span class=p>(</span><span class=n>b</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>            <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>values</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=nb>float</span><span class=p>(</span><span class=n>p</span><span class=p>)</span> <span class=o>/</span> <span class=mf>100.0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>values</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>values</span>
+</span></span><span class=line><span class=cl>    <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>pass</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>notify</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;❌ 无法解析模式 &#39;</span><span class=si>{</span><span class=n>pattern</span><span class=si>}</span><span class=s2>&#39;&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>sys</span><span class=o>.</span><span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>main</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 参数解析 ========================</span>
+</span></span><span class=line><span class=cl>    <span class=n>pattern</span> <span class=o>=</span> <span class=s2>&#34;even&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>)</span> <span class=o>&gt;</span> <span class=mi>1</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span> <span class=o>==</span> <span class=s2>&#34;--pattern&#34;</span> <span class=ow>and</span> <span class=nb>len</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>)</span> <span class=o>&gt;</span> <span class=mi>2</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>pattern</span> <span class=o>=</span> <span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>[</span><span class=mi>2</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>pattern</span> <span class=o>=</span> <span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>proportions</span> <span class=o>=</span> <span class=n>parse_proportion_pattern</span><span class=p>(</span><span class=n>pattern</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 连接 niri IPC ========================</span>
+</span></span><span class=line><span class=cl>    <span class=n>skt_path</span> <span class=o>=</span> <span class=n>get_socket_path</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=n>sock</span> <span class=o>=</span> <span class=n>socket</span><span class=o>.</span><span class=n>socket</span><span class=p>(</span><span class=n>socket</span><span class=o>.</span><span class=n>AF_UNIX</span><span class=p>,</span> <span class=n>socket</span><span class=o>.</span><span class=n>SOCK_STREAM</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>sock</span><span class=o>.</span><span class=n>connect</span><span class=p>(</span><span class=n>skt_path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 找出当前工作区 ========================</span>
+</span></span><span class=line><span class=cl>    <span class=n>workspaces</span> <span class=o>=</span> <span class=n>request</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;Workspaces&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>focused_wspace_id</span> <span class=o>=</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>ws</span> <span class=ow>in</span> <span class=n>workspaces</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>ws</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;is_focused&#34;</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>            <span class=n>focused_wspace_id</span> <span class=o>=</span> <span class=n>ws</span><span class=p>[</span><span class=s2>&#34;id&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>focused_wspace_id</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>notify</span><span class=p>(</span><span class=s2>&#34;❌ 找不到当前聚焦的工作区&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>sys</span><span class=o>.</span><span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 按列分组当前工作区的窗口 ========================</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 每个窗口的 layout.pos_in_scrolling_layout = [列索引, 行索引]</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 例如 [0, 0] = 第一列第一行, [1, 0] = 第二列第一行</span>
+</span></span><span class=line><span class=cl>    <span class=n>all_windows</span> <span class=o>=</span> <span class=n>request</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;Windows&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>columns</span> <span class=o>=</span> <span class=n>defaultdict</span><span class=p>(</span><span class=nb>list</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>win</span> <span class=ow>in</span> <span class=n>all_windows</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>win</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;workspace_id&#34;</span><span class=p>)</span> <span class=o>!=</span> <span class=n>focused_wspace_id</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>win</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;is_floating&#34;</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=n>layout</span> <span class=o>=</span> <span class=n>win</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;layout&#34;</span><span class=p>,</span> <span class=p>{})</span>
+</span></span><span class=line><span class=cl>        <span class=n>pos</span> <span class=o>=</span> <span class=n>layout</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;pos_in_scrolling_layout&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>pos</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=n>col_idx</span> <span class=o>=</span> <span class=n>pos</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=n>columns</span><span class=p>[</span><span class=n>col_idx</span><span class=p>]</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>win</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=ow>not</span> <span class=n>columns</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>notify</span><span class=p>(</span><span class=s2>&#34;ℹ️ 当前工作区没有平铺窗口&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>sys</span><span class=o>.</span><span class=n>exit</span><span class=p>(</span><span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>sorted_cols</span> <span class=o>=</span> <span class=nb>sorted</span><span class=p>(</span><span class=n>columns</span><span class=o>.</span><span class=n>keys</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 记住原始焦点 ========================</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 脚本最后会恢复焦点，不改变用户的操作位置</span>
+</span></span><span class=line><span class=cl>    <span class=n>focused</span> <span class=o>=</span> <span class=n>request</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;FocusedWindow&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>orig_focus_id</span> <span class=o>=</span> <span class=n>focused</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;id&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 逐列设置等比宽度 ========================</span>
+</span></span><span class=line><span class=cl>    <span class=c1># SetColumnWidth 只对当前聚焦的列生效，所以需要逐列 FocusWindow</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>col_idx</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>sorted_cols</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=n>first_win</span> <span class=o>=</span> <span class=n>columns</span><span class=p>[</span><span class=n>col_idx</span><span class=p>][</span><span class=mi>0</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=n>target_id</span> <span class=o>=</span> <span class=n>first_win</span><span class=p>[</span><span class=s2>&#34;id&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1># 聚焦该列的第一个窗口</span>
+</span></span><span class=line><span class=cl>        <span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;FocusWindow&#34;</span><span class=p>,</span> <span class=nb>id</span><span class=o>=</span><span class=n>target_id</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1># 取该列的目标比例，循环使用</span>
+</span></span><span class=line><span class=cl>        <span class=c1># （例如 pattern=2/3_1/3 时：列0=66.7%, 列1=33.3%, 列2=66.7%, ...）</span>
+</span></span><span class=line><span class=cl>        <span class=n>pct</span> <span class=o>=</span> <span class=n>proportions</span><span class=p>[</span><span class=n>i</span> <span class=o>%</span> <span class=nb>len</span><span class=p>(</span><span class=n>proportions</span><span class=p>)]</span> <span class=o>*</span> <span class=mi>100</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1># 设回等比宽度（关键！把固定像素值恢复成动态比例）</span>
+</span></span><span class=line><span class=cl>        <span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;SetColumnWidth&#34;</span><span class=p>,</span> <span class=n>change</span><span class=o>=</span><span class=p>{</span><span class=s2>&#34;SetProportion&#34;</span><span class=p>:</span> <span class=n>pct</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 恢复焦点，同时保持视口正确 ========================</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 逐列 FocusWindow 会导致 niri 的滚动视口跟随焦点偏移。</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 如果最后聚焦的是第二列，视口就卡在第二列，第一列滚到屏幕左边外面去了。</span>
+</span></span><span class=line><span class=cl>    <span class=c1>#</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 修复策略（三步，无视觉闪烁）：</span>
+</span></span><span class=line><span class=cl>    <span class=c1>#   1. FocusColumn(0)     → 把视口拉到第一列，确保所有列在屏幕内</span>
+</span></span><span class=line><span class=cl>    <span class=c1>#   2. CenterVisibleColumns → 居中可见列（不改变焦点），消除偏移</span>
+</span></span><span class=line><span class=cl>    <span class=c1>#   3. FocusWindow(orig)  → 恢复原始焦点，此时窗口已在可见区域，不触发滚动</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;FocusColumn&#34;</span><span class=p>,</span> <span class=n>index</span><span class=o>=</span><span class=mi>0</span><span class=p>)</span>           <span class=c1># 1. 视口拉到列0（焦点暂移）</span>
+</span></span><span class=line><span class=cl>    <span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;CenterVisibleColumns&#34;</span><span class=p>)</span>            <span class=c1># 2. 居中，列填满屏幕</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>orig_focus_id</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>do_action</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=s2>&#34;FocusWindow&#34;</span><span class=p>,</span> <span class=nb>id</span><span class=o>=</span><span class=n>orig_focus_id</span><span class=p>)</span>   <span class=c1># 3. 恢复焦点（不滚动）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>sock</span><span class=o>.</span><span class=n>close</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ======================== 桌面通知反馈 ========================</span>
+</span></span><span class=line><span class=cl>    <span class=n>parts</span> <span class=o>=</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=nb>len</span><span class=p>(</span><span class=n>sorted_cols</span><span class=p>)):</span>
+</span></span><span class=line><span class=cl>        <span class=n>p</span> <span class=o>=</span> <span class=n>proportions</span><span class=p>[</span><span class=n>i</span> <span class=o>%</span> <span class=nb>len</span><span class=p>(</span><span class=n>proportions</span><span class=p>)]</span>
+</span></span><span class=line><span class=cl>        <span class=n>parts</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;列</span><span class=si>{</span><span class=n>i</span><span class=o>+</span><span class=mi>1</span><span class=si>}</span><span class=s2> </span><span class=si>{</span><span class=n>p</span><span class=o>*</span><span class=mi>100</span><span class=si>:</span><span class=s2>.0f</span><span class=si>}</span><span class=s2>%&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>notify</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;✓ 已重置 </span><span class=si>{</span><span class=nb>len</span><span class=p>(</span><span class=n>sorted_cols</span><span class=p>)</span><span class=si>}</span><span class=s2> 列&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s2>&#34;__main__&#34;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>main</span><span class=p>()</span>
+</span></span></code></pre></td></tr></table></div></div></details></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><ul class=related-content-list><li><a href=/nixos/niri-master-layout/>在 Niri 中实现 Hyprland 风格的 Master 自动布局</a></li><li><a href=/nixos/dms-wayfire-workspace-plugin/>为 DMS + Wayfire 打造工作区插件</a></li><li><a href=/nixos/wayland-wm-selection/>Wayland 窗口管理器选型：从 Sway hyprland Niri</a></li><li><a href=/nixos/fish-lazygit-git-commit-prefix-nixos/>NixOS 中统一管理 fish lazygit 以及SKILL的git Commits 前缀定义</a></li><li><a href=/ai/pi-bar-cursor/>pi agent美化插件：输入框光标改为常见的竖线</a></li></ul></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//xiao-lei-sui-shou-ji.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><footer class=site-footer><div class=footer-stats><span class=stat-item><span class=stat-number>517</span>
+<span class=stat-label>文章</span>
+</span><span class=stat-sep>·</span>
+<span class=stat-item><span class=stat-number>255</span>
+<span class=stat-label>分类</span>
+</span><span class=stat-sep>·</span>
+<span class=stat-item><span class=stat-number>106</span>
+<span class=stat-label>标签</span></span></div><section class=copyright>&copy;
+2022 -
+2026 小类随手记</section><section class=theme-info>Theme <a href=https://stack.jimmycai.com target=_blank rel=noopener>Stack</a></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#现象>现象</a></li><li><a href=#快速修复>快速修复</a></li><li><a href=#根因分析>根因分析</a><ol><li><a href=#抓包-niri-ipc>抓包 Niri IPC</a></li><li><a href=#结论鼠标拖拽是祸根>结论：鼠标拖拽是祸根</a></li><li><a href=#为什么会有左侧间隙>为什么会有"左侧间隙"？</a></li></ol></li><li><a href=#一键修复脚本>一键修复脚本</a><ol><li><a href=#原理>原理</a></li><li><a href=#支持的模式>支持的模式</a></li><li><a href=#与其他方案的对比>与其他方案的对比</a></li></ol></li><li><a href=#总结>总结</a></li><li><a href=#附录完整源码>附录：完整源码</a></li></ol></nav></div></section></aside></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script type=text/javascript src=/ts/custom.e8e057ab93e6bc63b8b01817cae56d9f064dc47e4b5e62f7c997a2c1ef41b0cd.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></div></body></html>
