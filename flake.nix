@@ -15,13 +15,15 @@
           allowUnfree = true;
         };
       };
+
+      hugoPackages = with pkgs; [
+        hugo
+        go
+      ];
     in
     {
       devShells.${system}.default = pkgs.mkShell {
-        packages = with pkgs; [
-          hugo
-          go
-        ];
+        packages = hugoPackages;
 
         shellHook = ''
           echo "== dev.leiyanhui.com-page devShell =="
