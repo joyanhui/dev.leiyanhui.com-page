@@ -1,5 +1,5 @@
 {
-  description = "dev.leiyanhui.com-page —— Hugo 博客构建环境";
+  description = "Hugo 博客构建环境";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
