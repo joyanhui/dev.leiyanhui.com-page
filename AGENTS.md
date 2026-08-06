@@ -1,5 +1,7 @@
 # dev.leiyanhui.com-page 构建与主题仓库
 
+- flake 用法：进入 `dev.leiyanhui.com-page/` 后执行 `nix develop`（或 direnv），获得 hugo/go 构建环境。
+
 本仓库管理 dev.leiyanhui.com 的 Hugo 构建和部署。
 
 ## 职责边界
