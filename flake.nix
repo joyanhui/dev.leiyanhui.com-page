@@ -8,24 +8,17 @@
   outputs =
     { nixpkgs, ... }:
     let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs {
-        inherit system;
-        config = {
-          allowUnfree = true;
-        };
-      };
-
-      pick =
-        set: names:
-        map (n: pkgs.lib.getAttrFromPath (pkgs.lib.splitString "." n) set) (pkgs.lib.splitString "|" names);
-      pkgList = pick pkgs;
-
-      basePackages = pkgList "hugo|go|fish";
+      env = import ./flake_pkgs_let.nix { inherit nixpkgs; };
+      inherit (env)
+        system
+        pkgs
+        basePackages
+        docsPackages
+        ;
     in
     {
       devShells.${system}.default = pkgs.mkShell {
-        packages = basePackages;
+        packages = basePackages.utils ++ docsPackages.hugo;
 
         shellHook = ''
           echo "== dev.leiyanhui.com-page devShell =="
