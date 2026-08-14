@@ -21,14 +21,13 @@
         packages = basePackages.utils ++ docsPackages.hugo;
 
         shellHook = ''
+          export PATH="/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:$PATH"
           echo "== dev.leiyanhui.com-page devShell =="
           echo "  hugo = $(hugo version 2>/dev/null | sed 's/Hugo Static Site Generator //') go = $(go version 2>/dev/null)"
           echo "  注：本仓库禁止本地构建/预览（CI 负责）；详见 AGENTS.md"
-          if command -v fish >/dev/null 2>&1; then
+          if [ -t 0 ] && command -v fish >/dev/null 2>&1; then
             export __FISH_DEVSHELL=1
-            if [ -t 0 ]; then
-              exec fish
-            fi
+            exec fish
           fi
         '';
       };
