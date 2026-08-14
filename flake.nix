@@ -24,9 +24,11 @@
           echo "== dev.leiyanhui.com-page devShell =="
           echo "  hugo = $(hugo version 2>/dev/null | sed 's/Hugo Static Site Generator //') go = $(go version 2>/dev/null)"
           echo "  注：本仓库禁止本地构建/预览（CI 负责）；详见 AGENTS.md"
-          if [ -t 0 ] && command -v fish >/dev/null 2>&1; then
+          if command -v fish >/dev/null 2>&1; then
             export __FISH_DEVSHELL=1
-            exec fish
+            if [ -t 0 ]; then
+              exec fish
+            fi
           fi
         '';
       };
