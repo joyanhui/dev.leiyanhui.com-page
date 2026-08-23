@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nodejs on 小类随手记</title><link>https://dev.leiyanhui.com/categories/nodejs/</link><description>Recent content in Nodejs on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 07 Aug 2026 21:00:00 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/nodejs/index.xml" rel="self" type="application/rss+xml"/><item><title>NixOS 彻底清理 nodejs/pnpm 全面转向 bun</title><link>https://dev.leiyanhui.com/nixos/bun-migrate-from-nodejs-pnpm/</link><pubDate>Fri, 07 Aug 2026 21:00:00 +0800</pubDate><guid>https://dev.leiyanhui.com/nixos/bun-migrate-from-nodejs-pnpm/</guid><description>&lt;p&gt;本文记录一次在 NixOS（Flakes + home-manager）上从 nodejs/npm/pnpm 全面迁移到 bun 的过程，包括审计、配置修改、踩坑修复和缓存清理，供同样想统一 JS/TS 工具链的读者参考。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;有部分软件不支持bun甚至不支持pnpm（比如目前的DeepSeek Harness），在日用机器上建议保留nodejs。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="背景与目标"&gt;背景与目标
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本机原先并存两套环境：nodejs_26 + pnpm（nix 安装）与 bun（一体化运行时 + 包管理器）&lt;/li&gt;
+&lt;li&gt;目标：彻底移除 node/npm/pnpm 命令，所有 JS/TS 运行、包管理、临时执行统一走 bun&lt;/li&gt;
+&lt;li&gt;迁移前先审计，确认没有不可迁移的软件&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="一审计npmpnpm-安装的软件能否迁移"&gt;一、审计：npm/pnpm 安装的软件能否迁移
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;npm 全局包：空（npm ls -g 无输出，历史已清空）&lt;/li&gt;
+&lt;li&gt;pnpm 全局包：空（pnpm ls -g 无输出）&lt;/li&gt;
+&lt;li&gt;npx 历史缓存（~/.npm/_npx/）：playwright、wrangler、eslint、prettier、tsx、shadcn、chrome-devtools-mcp 等，全部可用 bunx 替代&lt;/li&gt;
+&lt;li&gt;项目内 npm 安装点：modules/ai/cfg_opencode/ 插件目录（npm install @opencode-ai/plugin），纯 JS 包，bun install 完全兼容&lt;/li&gt;
+&lt;li&gt;结论：无阻塞项，可以彻底迁移&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="二修改-nixos-配置"&gt;二、修改 NixOS 配置
+&lt;/h2&gt;&lt;h3 id="1-移除运行时与包管理器"&gt;1. 移除运行时与包管理器
+&lt;/h3&gt;&lt;p&gt;modules/dev/lang_runtime_and_tools.nix 中注释并最终删除 nodejs_26、pnpm，只保留 bun：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# ===== Node / Bun（JS/TS 运行时 + 包管理）=====&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;bun&lt;/span&gt; &lt;span class="c1"&gt;# 一体化 JS/TS 运行时 + 包管理器&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="2-移除环境变量与-path"&gt;2. 移除环境变量与 PATH
+&lt;/h3&gt;&lt;p&gt;modules/system/env_manager.nix 中删除：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;PNPM_HOME（pnpm 全局目录）&lt;/li&gt;
+&lt;li&gt;NODE_OPTIONS（node 专属的代理参数，bun 不读取；bun 原生支持环境代理）&lt;/li&gt;
+&lt;li&gt;PATH 中的 ~/.local/share/pnpm/bin&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="3-移除-permittedinsecurepackages-遗留"&gt;3. 移除 permittedInsecurePackages 遗留
+&lt;/h3&gt;&lt;p&gt;modules/system/nixpkgs_system.nix 中删除 nodejs-20.20.2、nodejs-slim-20.20.2。删除前用 nix-store 验证：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nix-store -q --referrers /nix/store/*nodejs-20.20.2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;无任何包依赖，纯历史遗留，可安全移除。&lt;/p&gt;
+&lt;h3 id="4-迁移项目插件目录"&gt;4. 迁移项目插件目录
+&lt;/h3&gt;&lt;p&gt;cfg_opencode 由 npm 迁移到 bun：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; modules/ai/cfg_opencode
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;bun install
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;生成 bun.lock，package-lock.json 归档到 archive.7z 以便回退。&lt;/p&gt;
+&lt;h3 id="5-保留项"&gt;5. 保留项
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;~/.npmrc 符号链接保留：bun 完全兼容 //registry.npmjs.org/:_authToken，供 bun install/bunx 认证&lt;/li&gt;
+&lt;li&gt;nix 打包的 LSP 工具（typescript-language-server、vscode-langservers-extracted、prettierd）保留：它们内部自带 nodejs，不依赖系统 node&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="三关键坑bun-全局包的-node-shebang"&gt;三、关键坑：bun 全局包的 node shebang
+&lt;/h2&gt;&lt;p&gt;rebuild 后立即踩坑：pi-coding-agent（bun 全局包）运行报错：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;env: &lt;span class="s1"&gt;&amp;#39;node&amp;#39;&lt;/span&gt;: No such file or directory
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;原因：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;bun install -g 安装的包，bin 入口是直接 symlink 到源文件，且不重写 shebang&lt;/li&gt;
+&lt;li&gt;源文件 shebang 多为 #!/usr/bin/env node，移除系统 node 后自然找不到&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;修复方案（~/.local/bin/node 符号链接指向 bun）：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s2"&gt;&amp;#34;.local/bin/node&amp;#34;&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;config&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;file&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;mkOutOfStoreSymlink&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;/etc/profiles/per-user/&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="n"&gt;username&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;/bin/bun&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;要点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;必须用 symlink 而非 shell 包装脚本：symlink 时 argv[0]=node，bun 自动进入 node 兼容模式；shell 脚本 exec bun 会把 argv[0] 变为 bun（exec -a 仅 bash 支持，/bin/sh 为 dash），失去兼容模式&lt;/li&gt;
+&lt;li&gt;已知限制：bun 的 node 兼容模式不支持 node &amp;ndash;version / node -v 等版本查询参数，node -e 与脚本执行正常&lt;/li&gt;
+&lt;li&gt;部分工具自带 bun 原生入口可优先使用：pi-coding-agent 有 dist/bun/cli.js（含 bun-oauth 适配），把 ~/.bun/bin/pi 指过去并以 chmod +x 即可完全走 bun&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="npx-兼容层为硬编码调用兜底"&gt;npx 兼容层：为硬编码调用兜底
+&lt;/h3&gt;&lt;p&gt;除 node shebang 外，生态里还有大量工具硬编码调用 &lt;code&gt;npx&lt;/code&gt;（VSCode 的 Prettier/ESLint 扩展、&lt;code&gt;#!/usr/bin/env npx&lt;/code&gt; 脚本、&lt;code&gt;spawn('npx', ...)&lt;/code&gt; 等）。给 &lt;code&gt;~/.local/bin/npx&lt;/code&gt; 加一个 shell 包装脚本，指向 bunx：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s2"&gt;&amp;#34;.local/bin/npx&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;text&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; #!/bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; exec /etc/profiles/per-user/&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="n"&gt;username&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s1"&gt;/bin/bunx &amp;#34;$@&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#39;&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;executable&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="no"&gt;true&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;};&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;要点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不能 symlink 到 bunx：bun 靠 argv[0] 判断是否进入 x 模式，symlink 名为 npx 时 argv[0]=npx 不触发，报 &lt;code&gt;error: Script not found&lt;/code&gt;；shim 里 exec bunx 后 argv[0]=bunx，正确触发&lt;/li&gt;
+&lt;li&gt;与 node 恰好相反：node 需要 argv[0]=node（所以用 symlink），npx 需要 argv[0]=bunx（所以用 shell 包装）&lt;/li&gt;
+&lt;li&gt;为什么不用 alias：alias 只对交互式 shell 生效，VSCode 插件/脚本 spawn npx 是直接按 PATH 找可执行文件，完全绕过 shell&lt;/li&gt;
+&lt;li&gt;踩坑：新版 home-manager（2026-04-24 起）的 home.file 已移除 mode 选项，text 文件设执行位用 &lt;code&gt;executable = true&lt;/code&gt;，写 &lt;code&gt;mode = &amp;quot;755&amp;quot;&lt;/code&gt; 会报 option does not exist&lt;/li&gt;
+&lt;li&gt;验证：&lt;code&gt;npx --yes prettier --version&lt;/code&gt; → 3.8.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="四清理历史缓存"&gt;四、清理历史缓存
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf ~/.npm &lt;span class="c1"&gt;# _cacache 3.4G + _npx 缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf ~/.local/share/pnpm &lt;span class="c1"&gt;# pnpm store 373M&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf ~/.pnpm-store
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="五验证结果"&gt;五、验证结果
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;command&lt;/span&gt; -v node npm pnpm npx bun
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 输出：/home/y/.local/bin/node（shim）、/home/y/.local/bin/npx（shim）与 /etc/profiles/per-user/y/bin/bun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;bun -v &lt;span class="c1"&gt;# 1.3.13&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;npx --yes prettier --version &lt;span class="c1"&gt;# 3.8.3（bunx 执行）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pi --version &lt;span class="c1"&gt;# 0.84.1（bun 原生入口）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;opencode --version &lt;span class="c1"&gt;# 1.18.15（ELF 原生二进制，无需 node）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;ul&gt;
+&lt;li&gt;npm/pnpm 命令完全消失&lt;/li&gt;
+&lt;li&gt;bun 全局包 pi-coding-agent、opencode-ai 全部可用&lt;/li&gt;
+&lt;li&gt;LSP 工具正常&lt;/li&gt;
+&lt;li&gt;迁移记录归档在 os-config 仓库 static_file/archive.7z 内的 nodejs_pnpm.md&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="相关文章"&gt;相关文章
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/entrynixos/"&gt;NixOS 入门指南（第二版）&lt;/a&gt;：其中 5.4 节的 node.nix 示例（nodejs_22 + pnpm + bun 并存）已过时，可按本文方案统一为 bun&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/7nix-clean-disk/"&gt;使用 nix 清理磁盘&lt;/a&gt;：nix 磁盘清理思路，本文第四节的缓存清理是其中的一种场景&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/mkoutofstoresymlink/"&gt;mkOutOfStoreSymlink 的一个神坑&lt;/a&gt;：本文的 ~/.npmrc 与 node 兼容层 symlink 均使用了该机制&lt;/li&gt;
+&lt;/ul&gt;</description></item></channel></rss>
