@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>TSDB on 小类随手记</title><link>https://dev.leiyanhui.com/categories/tsdb/</link><description>Recent content in TSDB on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 02 Sep 2023 12:14:20 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/categories/tsdb/index.xml" rel="self" type="application/rss+xml"/><item><title>物联网设备上报数据储存方案 时序数据库的替代方案的折腾过程</title><link>https://dev.leiyanhui.com/lot/tsdb-select/</link><pubDate>Sat, 02 Sep 2023 12:14:20 +0800</pubDate><guid>https://dev.leiyanhui.com/lot/tsdb-select/</guid><description>&lt;p&gt;大量物联网设备数据上报，可以选择 常用的 mqtt coAP等方法。
+我这里采用自定义协议，设备在线状态检测用的tcp长连接，数据上报用用tcp短连接和长连接智能匹配的方案。&lt;br&gt;
+至于为什么没用mqtt,还是从服务器带宽和运维成本考虑的。&lt;/p&gt;
+&lt;p&gt;本文主要说数据储存的方案。&lt;/p&gt;
+&lt;p&gt;传统的数据库 肯定无法满足如此庞大并发的写入量，所以目光先放到了时序数据库上。&lt;/p&gt;
+&lt;p&gt;因为对golang更为喜欢，所以首先想到用InlfuxDB。 但是新版集群功能不开源且收费。
+然后看到国产的lotDB 已经进入Apache 孵化项目，但是在测试的时候发现 lotDB 的原生接口，golang 和C++ 的均有问题。虽然lotDB在简中上口碑不错，并且到处都是和inlfuxDB做对比的文章。但是这个问题让我感觉到一丝的担忧。而没有找到那些吹lotDB的文章对mqtt和REST接口的性能测试。于是不再打算考虑lotDB。&lt;br&gt;
+其实开发语言不是重点，因为我们几乎不太可能会对源码进行太多修改，主要还是性能和高可用性。&lt;br&gt;
+在看了部分源码后，突然想到，是否应该自己做一个具有简单网络功能的支持集群的简单伪时序数据库.&lt;/p&gt;
+&lt;p&gt;在考虑到多数c/s数据库均无法应对如此大量数据写入，目光放到sqlite。经过测试，在老项目上进行一些简单优化后单库的sqlite 可以轻松实现每秒200+万条的写入速度。这个速度感觉有搞头。&lt;/p&gt;
+&lt;p&gt;那么剩下的问题，就是 集群部署的情况下 数据的同步 备份 等问题，以及网络写入和查询实现。&lt;/p&gt;
+&lt;p&gt;最后测试 sqlite实现结果 因为每次上报的数据 只有1-几十条，无法有效的利用事务来插入数据。 导致实际使用体验非常糟糕。&lt;/p&gt;
+&lt;p&gt;然后尝试了 几个 lsm-tree kv 的本地嵌入式数据库。在多键值的情况下 会导致文件数量非常恐怖。给异地部署的集群带来很多大的维护压力。&lt;/p&gt;
+&lt;p&gt;中间过程不表，为了追求好的性能最低的成本，反复折腾很久。&lt;/p&gt;
+&lt;h2 id="最后的简单方案"&gt;最后的简单方案
+&lt;/h2&gt;&lt;p&gt;最后，选择了一种最为简单方便的方案。&lt;/p&gt;
+&lt;p&gt;设备上报的日志，在经过简单的验证去重后，追加写入到本地文本文件。并在文件超过一定大小后自动按照时间戳切割文件。并将文件压缩同步到云储存。&lt;/p&gt;
+&lt;p&gt;为了避免上云容易下云难这个蛋疼的情况，云储存采用rclone（支持s3和hdfs） 用压缩方式挂载到本地进程同步。&lt;/p&gt;
+&lt;p&gt;这样20几行代码就搞定了这个功能需求。&lt;/p&gt;
+&lt;p&gt;查询的时候，根据时间范围选择 云注册内不同时间戳的文件即可。&lt;/p&gt;
+&lt;p&gt;因rclone负责后端云储存通讯和压缩。所以在我们的程序上，只需要实作本地已经解压的文件即可。由于文件采用的简单的追加方式，所以单个设备的多个时间范围的日志也可以进行简单的合并。&lt;/p&gt;
+&lt;p&gt;为什么没用csv是因为感觉没啥必要了，直接用文本储存原始数据更简单一些。&lt;/p&gt;
+&lt;h2 id="优点"&gt;优点
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;天然支持高可用性伪集群（集群之间不需要通讯）&lt;/li&gt;
+&lt;li&gt;代码逻辑简单 性能可靠&lt;/li&gt;
+&lt;li&gt;临时文件可以放到ramfs ，可以精确控制内存大小&lt;/li&gt;
+&lt;li&gt;可以简单的合并文件&lt;/li&gt;
+&lt;li&gt;可以简单的粗略删除旧数据&lt;/li&gt;
+&lt;li&gt;不用去维护时序数据库&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="方案的缺点"&gt;方案的缺点
+&lt;/h2&gt;&lt;h3 id="压缩算法"&gt;压缩算法
+&lt;/h3&gt;&lt;p&gt;因为压缩功能交给了rclone,那么就受到rclone的限制只能用gzip格式。但是好在 one设备one文件，单个文件体积不大，大并发情况多个利用率高，所以也解决gzip单线程压缩性能的问题。 压缩率 没有办法和 zstd比这个。&lt;/p&gt;
+&lt;h3 id="集群部署单设备数据离散问题"&gt;集群部署单设备数据离散问题
+&lt;/h3&gt;&lt;p&gt;需要锁定设备的对应的节点，比如在设备上报数据的节点，不能让他任意选择，否则在多个节点轮流上报数据。而节点上是通过文件大小来转储存数据的，这就导致有可能会有时序混乱。&lt;/p&gt;
+&lt;h3 id="需要另外实现实时数据查询"&gt;需要另外实现实时数据查询
+&lt;/h3&gt;&lt;p&gt;因为这个方案只有数据超过一定量的后的储存功能，如果要查询实时数据需要另外的方案来来实现。&lt;/p&gt;</description></item></channel></rss>

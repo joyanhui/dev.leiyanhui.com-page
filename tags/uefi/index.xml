@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Uefi on 小类随手记</title><link>https://dev.leiyanhui.com/tags/uefi/</link><description>Recent content in Uefi on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 15 Nov 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/uefi/index.xml" rel="self" type="application/rss+xml"/><item><title>用 NixOS 构建可直接启动的 raw 磁盘镜像</title><link>https://dev.leiyanhui.com/nixos/raw-os/</link><pubDate>Sun, 15 Nov 2026 00:00:00 +0800</pubDate><guid>https://dev.leiyanhui.com/nixos/raw-os/</guid><description>&lt;h2 id="起因"&gt;起因
+&lt;/h2&gt;&lt;p&gt;之前一直在物理机使用nixos 用kvm运行win（固定尺寸的vhd文件），偶尔需要win物理机的时候，改物理机器启动win11.vhd，然后在win内使用wsl方案运行nixos。
+实际主要工作是在nixos内部完成，导致实际是存在两个日用工作环境。非常割裂而且浪费磁盘空间。
+一直忍受这个事情，直到2026年10月底微软一次自动更新把wsl内的/dev/kvm给更新没了导致无法在wsl内使用kvm调试一些特殊os的项目。随后开始放弃wsl和hyperV，也开始放弃在win+wsl做工作环境的想法。
+最早考虑的方案是把独立分区的nixos的挂到VMware然后启动，但是随后因为linux7.x内核的发布（继承了ntfs驱动），开始尝试在ntfs分区上放一个 nixos的系统虚拟磁盘来实现类似Windows vhd启动的方案，经过几次折腾终于成功。&lt;/p&gt;
+&lt;h2 id="目的"&gt;目的
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;可以物理机和虚拟机启动同一个系统：在win/macos下可以用虚拟机启动nixos，也可以物理机直接启动。&lt;/li&gt;
+&lt;li&gt;比ventoy更可靠，完全使用nix和grub的机制&lt;/li&gt;
+&lt;li&gt;避免新安装的麻烦：在新机器上只要有efi/esp分区和一个大分区，只需要复制一个efi文件和一个虚拟磁盘文件即可完成安装。甚至在&lt;a href="https://github.com/joyanhui/myos/releases"&gt;github&lt;/a&gt;上可以直接下载本文的构建结果。&lt;/li&gt;
+&lt;li&gt;不独占分区，对硬盘紧张的环境友好。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;同一个 &lt;code&gt;nixos.raw&lt;/code&gt; 有三种用法：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用 &lt;code&gt;dd&lt;/code&gt; 写到 U 盘或硬盘，开机从它启动；&lt;/li&gt;
+&lt;li&gt;放在任意 NTFS 分区的 &lt;code&gt;OS-img/nixos.raw&lt;/code&gt;，由另外一个定制的 EFI 文件找到并完成后续启动国产；&lt;/li&gt;
+&lt;li&gt;直接作为虚拟磁盘，交给 VMware、VirtualBox、Hyper-V 或 QEMU。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;三种方式启动后是同一个系统，没有任何区别。&lt;/p&gt;
+&lt;h2 id="两个配置的分工"&gt;两个配置的分工
+&lt;/h2&gt;&lt;p&gt;仓库里和 Raw OS 相关的配置有两类，职责不同。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw_os_core_img_creat&lt;/code&gt;（&lt;code&gt;machine/raw_os/raw-os-core-img-creat.nix&lt;/code&gt;）只负责生成基础镜像（体积为10G 压缩后后1.6G左右）。系统里只有常用的命令行工具、NetworkManager、fish 和 nixos 用户（用户名密码都是 &lt;code&gt;nixos&lt;/code&gt;，root用户的密码也是&lt;code&gt;nixos&lt;/code&gt;，），足够第一次启动后做后续配置。为了首次使用方便，基础镜像默认自动登录。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw_os_work_amd&lt;/code&gt; 和 &lt;code&gt;raw_os_work_intel&lt;/code&gt;是运行在镜像里的日常环境。区别是 &lt;code&gt;amd&lt;/code&gt; 或 &lt;code&gt;intel&lt;/code&gt; tag 决定 IOMMU、KVM、VFIO 的配置以及部分驱动等，同时加载桌面、开发、输入法等模块。&lt;/p&gt;
+&lt;p&gt;也就是 raw_os_core_img_creat 用来创建 nixos.raw这个文件，方便部署。然后启动系统在这个基础系统内 运行&lt;code&gt;sudo nixos-rebulid switch --flake .#&lt;/code&gt;raw_os_work_amd/intel 来完成日用环境&lt;/p&gt;
+&lt;h2 id="镜像的结构"&gt;镜像的结构
+&lt;/h2&gt;&lt;p&gt;镜像内部分区&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;分区 1 &lt;code&gt;esp&lt;/code&gt;：vfat，固定 1 GiB，分区标签 &lt;code&gt;nixos-esp&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;分区 2 &lt;code&gt;root&lt;/code&gt;：btrfs，固定 10 GiB，分区标签 &lt;code&gt;nixos-root&lt;/code&gt;，挂载参数带 &lt;code&gt;compress=zstd&lt;/code&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;ESP 里放四个文件：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/BOOT/BOOTX64.EFI # 主引导
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/NixOS/raw-os/grub.cfg
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/NixOS/raw-os/nixos-current.efi # nixos generation 当前
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/NixOS/raw-os/nixos-generation-1.efi # nixos generation 其他历史（限于容量 最多储存8个，在初始的nxios.raw中只有一个）
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="构建镜像"&gt;构建镜像
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nix build --no-link --print-out-paths .#nixosConfigurations.raw_os_core_img_creat.config.system.build.image
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;命令输出一个 &lt;code&gt;/nix/store/...-nixos-disk-image&lt;/code&gt; 目录，里面的 &lt;code&gt;nixos.raw&lt;/code&gt; 就是最终镜像。把它复制到目标位置，例如 NTFS 分区：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp --reflink&lt;span class="o"&gt;=&lt;/span&gt;auto /nix/store/...-nixos-disk-image/nixos.raw /mnt/d/OS-img/nixos.raw
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;写盘启动也是同一个文件：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo dd &lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;./nixos.raw &lt;span class="nv"&gt;of&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;/dev/sdX &lt;span class="nv"&gt;bs&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;16M &lt;span class="nv"&gt;status&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;progress &lt;span class="nv"&gt;conv&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;fsync
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="外部-efi"&gt;外部 EFI
+&lt;/h2&gt;&lt;p&gt;想在不改分区表的前提下启动这个镜像，需要第二个 EFI 文件 &lt;code&gt;rawOsExternalBootEfi&lt;/code&gt;。它同样是 standalone GRUB，但内嵌的配置不一样：它会在 NTFS 分区上搜索 &lt;code&gt;/OS-img/nixos.raw&lt;/code&gt;，用 &lt;code&gt;loopback&lt;/code&gt; 把镜像映射成一块磁盘，然后加载 &lt;code&gt;(raw,gpt1)/EFI/NixOS/raw-os/grub.cfg&lt;/code&gt;。同时会搜索是否有Windows的引导，然后构建一个启动菜单里面包括：nixos.raw内的多个generation 以及自动搜索启动Windows&lt;/p&gt;
+&lt;p&gt;构建在各个efi的 方法是执行脚本：（具体参考仓库：&lt;a href="https://github.com/joyanhui/myos"&gt;https://github.com/joyanhui/myos&lt;/a&gt;）&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;machine/raw_os/docs_script/creat-rawOsExternalBootEfi.sh -o ./nixos-img.efi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;外部 EFI 只需要部署一次，它不保存 &lt;code&gt;nixos-current.efi&lt;/code&gt;、&lt;code&gt;grub.cfg&lt;/code&gt; 和 &lt;code&gt;nixos-generation-*.efi&lt;/code&gt;，这些文件都在镜像内部。只有改了外部 EFI 的搜索路径、启动逻辑、内嵌模块，或者更新 nixpkgs 后需要重新验证、文件损坏时，才需要重新构建并手动替换。&lt;/p&gt;
+&lt;h2 id="从-ntfs-启动时根分区从哪里来"&gt;从 NTFS 启动时根分区从哪里来
+&lt;/h2&gt;&lt;p&gt;外部 EFI 把镜像当作一块磁盘来读，此时 NixOS 内核已经启动，但镜像里的分区还没有出现在 &lt;code&gt;/dev&lt;/code&gt; 下，因为镜像内的 GPT 分区要先由 loop 设备导出。这部分由 initrd 完成。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw-os-runtime.nix&lt;/code&gt; 在 initrd 里注册了 &lt;code&gt;nixos-img-loop-for-root.service&lt;/code&gt;，&lt;code&gt;Type=oneshot&lt;/code&gt;，&lt;code&gt;wantedBy = [ &amp;quot;initrd.target&amp;quot; ]&lt;/code&gt;，并且排在 &lt;code&gt;initrd-root-device.target&lt;/code&gt; 和 &lt;code&gt;sysroot.mount&lt;/code&gt; 之前。脚本的逻辑是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;等 10 秒，直到出现 &lt;code&gt;/dev/vd*&lt;/code&gt;、&lt;code&gt;/dev/sd*&lt;/code&gt;、&lt;code&gt;/dev/nvme*n*p*&lt;/code&gt; 这类块设备；&lt;/li&gt;
+&lt;li&gt;检查是否有分区的标签已经是 &lt;code&gt;nixos-root&lt;/code&gt;，有就直接退出——这是写盘启动和虚拟机启动的情况；&lt;/li&gt;
+&lt;li&gt;否则逐个尝试用 ntfs3 挂载宿主的分区，找到 &lt;code&gt;OS-img/nixos.raw&lt;/code&gt; 的所在的分区；&lt;/li&gt;
+&lt;li&gt;对镜像执行 &lt;code&gt;losetup -fP&lt;/code&gt;，再 &lt;code&gt;udevadm trigger&lt;/code&gt; 和 &lt;code&gt;udevadm settle&lt;/code&gt;，等 loop 分区出现；&lt;/li&gt;
+&lt;li&gt;按标签给每个 loop 分区建立 &lt;code&gt;/dev/disk/by-partlabel/&amp;lt;label&amp;gt;&lt;/code&gt; 链接。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id="在运行中的系统里更新"&gt;在运行中的系统里更新
+&lt;/h2&gt;&lt;p&gt;在已经启动的 Raw OS 内，进入仓库目录执行：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nixos-rebuild switch --flake .#raw_os_work_amd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Intel 机器把目标换成 &lt;code&gt;raw_os_work_intel&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw-os-runtime.nix&lt;/code&gt; 通过 &lt;code&gt;boot.loader.external.installHook&lt;/code&gt; 挂上了 &lt;code&gt;installRawBoot&lt;/code&gt; 脚本，&lt;code&gt;nixos-rebuild switch&lt;/code&gt; 在最后阶段执行它。它做的事情是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;读取 &lt;code&gt;$toplevel/boot.json&lt;/code&gt;，取出 kernel、initrd、init、initrdSecrets 和 kernelParams；&lt;/li&gt;
+&lt;li&gt;把 initrd 复制到临时目录，如果配置了 initrd secrets 就追加进去，避免直接修改 store 里的文件；&lt;/li&gt;
+&lt;li&gt;调用 &lt;code&gt;ukify build&lt;/code&gt;，用 &lt;code&gt;linux&amp;lt;arch&amp;gt;.efi.stub&lt;/code&gt; 作 stub，cmdline 拼成 &lt;code&gt;init=&amp;lt;init&amp;gt; &amp;lt;kernelParams&amp;gt;&lt;/code&gt;，生成 UKI；&lt;/li&gt;
+&lt;li&gt;扫描 &lt;code&gt;/nix/var/nix/profiles/system-*-link&lt;/code&gt;，按 generation 编号倒序排列，并用 &lt;code&gt;readlink -f&lt;/code&gt; 的结果匹配当前 toplevel，得到当前 generation 的编号；&lt;/li&gt;
+&lt;li&gt;选出当前 generation 加上至多 8 个 generation，为每个生成 &lt;code&gt;nixos-generation-&amp;lt;n&amp;gt;.efi&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;生成新的 &lt;code&gt;grub.cfg&lt;/code&gt;：第一项是 &lt;code&gt;nixos-current.efi&lt;/code&gt;，之后是各 generation 的倒序菜单，最后是 Windows Boot Manager；&lt;/li&gt;
+&lt;li&gt;先删除不在列表里的旧 generation 文件，然后依次安装 current、各 generation、&lt;code&gt;grub.cfg&lt;/code&gt;，再清理一次，最后安装 &lt;code&gt;EFI/BOOT/BOOTX64.EFI&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;所有文件都是先写临时文件再 &lt;code&gt;mv -f&lt;/code&gt; 替换，中途出错不会留下半个 UKI。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;code&gt;nixos-current.efi&lt;/code&gt; 单独保留，不占 generation 的数量限制。&lt;code&gt;boot.loader.efi.canTouchEfiVariables = false&lt;/code&gt;，整个过程不会修改 UEFI 的启动变量。&lt;/p&gt;
+&lt;p&gt;ESP 只有 1 GiB，所以脚本选择先清理旧 generation 再安装新文件，这样不需要额外空间来暂存新的 UKI。代价是如果安装过程失败，被删掉的旧 generation 已经找不回来，重启后菜单里能回滚的项会变少。&lt;/p&gt;
+&lt;h2 id="在虚拟机里启动"&gt;在虚拟机里启动
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;nixos.raw&lt;/code&gt; 是标准格式的虚拟磁盘，虚拟机软件基本都能直接用。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;VMware Workstation 和 ESXi 不能可以直接把 raw 文件当作虚拟磁盘，但是可以创建一个 VMDK 映射它，客户机固件设置为 UEFI。&lt;/li&gt;
+&lt;li&gt;VirtualBox 原生支持 raw 磁盘，只需要把系统设置成 UEFI 启动。&lt;/li&gt;
+&lt;li&gt;Hyper-V 要先用 Arsenal-Image-Mounter 之类的工具把镜像挂载成物理磁盘，在磁盘管理里把它设为脱机，然后在第二代虚拟机的磁盘设置里选择这块物理硬盘。仓库里还有一个 &lt;code&gt;additional-foot-to-raw-and-renameVHD.sh&lt;/code&gt;，会给 raw 文件加上 VHD 尾部并改名为 &lt;code&gt;.vhd&lt;/code&gt;，第一代虚拟机可以直接使用。&lt;/li&gt;
+&lt;li&gt;QEMU 直接用 &lt;code&gt;-drive format=raw&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;实际测试：在 未启动hyper-v/wsl的机器上使用VMware启动的nixos，在关闭一些没必要的特效（毛玻璃 复杂动画 动态壁纸等）niri桌面使用体验接近物理机体验。hypr-v/wsl方案因win11的各种不靠谱稳定性不佳。qemu + whpx方案&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="扩容"&gt;扩容
+&lt;/h2&gt;&lt;p&gt;根分区固定 10 GiB，装上日常环境后空间会比较紧张。仓库里有两个等价的实现：镜像自带的 &lt;code&gt;resize-raw-image&lt;/code&gt;（和本仓库的 &lt;code&gt;docs_script/resize-raw-image.sh&lt;/code&gt;，已经加入系统包），以及 Windows 下的 &lt;code&gt;resize-raw-image.ps1&lt;/code&gt;。 可以直接执行扩容通过&lt;/p&gt;
+&lt;h2 id="相关文章"&gt;相关文章
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/os-by-flake-install/"&gt;NixOS 复现安装（flake 模式）&lt;/a&gt; — 传统安装流程，理解 &lt;code&gt;nixos-install&lt;/code&gt; 之后再来看构建镜像会更清楚&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/2base-install-flakes/"&gt;启用 flakes&lt;/a&gt; — Raw OS 的所有构建命令都依赖 flake&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/kvm-qemu/"&gt;NixOS 下使用 KVM 和显卡直通&lt;/a&gt; — 运行在 Raw OS 里的工作环境会用到这些配置&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/arch/boot-vhd-ventoy/"&gt;把 Arch Linux 安装到 vhd/raw 文件并从物理机启动&lt;/a&gt; — 同一类做法，用 Ventoy 和 vtoyboot 引导磁盘文件&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/"&gt;基于 Ventoy 启动的 Linux 虚拟磁盘扩容&lt;/a&gt; — 磁盘文件扩容的另一种实现，可以对照本文的扩容脚本&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/kvm/ovmf/"&gt;KVM 虚拟机使用 OVMF 模式 UEFI 启动&lt;/a&gt; — 测试 Raw OS 时使用的固件和相关参数&lt;/li&gt;
+&lt;/ul&gt;</description></item></channel></rss>

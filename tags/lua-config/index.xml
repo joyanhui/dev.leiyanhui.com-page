@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Lua-Config on 小类随手记</title><link>https://dev.leiyanhui.com/tags/lua-config/</link><description>Recent content in Lua-Config on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 07 Aug 2026 20:59:00 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/lua-config/index.xml" rel="self" type="application/rss+xml"/><item><title>在 Hyprland scrolling 布局下实现在当前窗口下方打开新终端</title><link>https://dev.leiyanhui.com/nixos/hyprland-scrolling-open-below/</link><pubDate>Fri, 07 Aug 2026 20:59:00 +0800</pubDate><guid>https://dev.leiyanhui.com/nixos/hyprland-scrolling-open-below/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;a href="https://dev.leiyanhui.com/nixos/start/"&gt;nixos 从0实现全集 - 目录&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;本文记录在 Hyprland 的 scrolling 布局下，为当前窗口的下方开启一个新终端（ghostty）的方案。核心难点在于 scrolling 布局与 dwindle 布局对&amp;quot;分割方向&amp;quot;的处理完全不同。&lt;/p&gt;
+&lt;h2 id="背景"&gt;背景
+&lt;/h2&gt;&lt;p&gt;Hyprland 支持几种平铺布局（dwindle / master / scrolling）。我日常使用 &lt;strong&gt;scrolling 布局&lt;/strong&gt;，窗口按&amp;quot;列&amp;quot;排列在一条无限延伸的纸带上，每个新窗口默认在最右侧新建一列。想要一个&amp;quot;在当前窗口正下方打开终端&amp;quot;的快捷键，实现时却踩了坑。&lt;/p&gt;
+&lt;h2 id="055-lua-配置模式踩坑关键"&gt;0.55 Lua 配置模式踩坑（关键）
+&lt;/h2&gt;&lt;p&gt;从 Hyprland 0.55 起配置全面转向 Lua（DVC 模式），&lt;code&gt;hyprctl dispatch&lt;/code&gt; 的参数会被包装成 &lt;code&gt;hl.dispatch(...)&lt;/code&gt; 求值。这导致旧的 &lt;code&gt;hyprctl dispatch layoutmsg consume_or_expel prev&lt;/code&gt; 写法报 Lua 语法错误而失效（实测返回类似 &lt;code&gt;error: hl.dispatch(layoutmsg consume_or_expel...)&lt;/code&gt; 的 Lua 语法错误），表现为终端直接开成新列，看起来像&amp;quot;直接打开 ghostty&amp;quot;而没有出现在窗口下方。&lt;/p&gt;
+&lt;p&gt;0.55/DVC 模式需直接传 Lua 形式：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch &lt;span class="s1"&gt;&amp;#39;hl.dsp.layout(&amp;#34;consume_or_expel prev&amp;#34;)&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;实测通过：新终端正常合并回前一列出现在下方；无相邻列时仅产生 warning（无副作用）。脚本中已采用此写法。&lt;/p&gt;
+&lt;h2 id="踩坑splitbottom-不生效"&gt;踩坑：split:bottom 不生效
+&lt;/h2&gt;&lt;p&gt;dwindle 布局可以用 &lt;code&gt;hyprctl dispatch split:bottom&lt;/code&gt; 预设下一个新窗口的分割方向，让它开在当前窗口下方：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;bind = $mainMod SHIFT, E, exec, hyprctl dispatch split:bottom; ghostty
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;但实测在 scrolling 布局下完全无效——新开的终端仍然出现在右侧新列。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;原因&lt;/strong&gt;：&lt;code&gt;split:&lt;/code&gt; 派发器是 &lt;strong&gt;dwindle 布局专用&lt;/strong&gt;的，它把&amp;quot;当前焦点节点&amp;quot;沿指定方向一分为二。而 scrolling 布局是纯列式模型，没有&amp;quot;节点分割&amp;quot;的概念，新窗口永远作为一个新列添加，不存在往下塞进当前窗口下面的原生操作。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# scrolling 布局下所有这些都会报 &amp;#34;Invalid dispatcher&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch split:left
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch split:right
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch split:top
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch split:bottom
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch split:toggle
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="思路用-layoutmsg-的-consume-把新列合并回当前列"&gt;思路：用 layoutmsg 的 consume 把新列合并回当前列
+&lt;/h2&gt;&lt;p&gt;scrolling 布局虽然不支持原生&amp;quot;按方向分割&amp;quot;，但它提供了 &lt;code&gt;layoutmsg&lt;/code&gt; 系列命令。关键思路是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;先创建一个新窗口（默认会在右侧新开一列）&lt;/li&gt;
+&lt;li&gt;用 &lt;code&gt;layoutmsg consume_or_expel prev&lt;/code&gt; 把当前焦点窗口（即刚开的那个）合并进相邻的前一列&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;合并后，新窗口会出现在前一列的下方（因为列内支持垂直堆叠多个窗口），于是视觉上就是&amp;quot;当前窗口下方&amp;quot;。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch layoutmsg consume_or_expel prev
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;注意（0.55 Lua 配置模式）&lt;/strong&gt;：从 Hyprland 0.55 开始配置全面转向 Lua，&lt;code&gt;hyprctl dispatch layoutmsg consume_or_expel prev&lt;/code&gt; 的参数会被包装成 &lt;code&gt;hl.dispatch(...)&lt;/code&gt; 求值，导致报 Lua 语法错误而失效（表现为终端开成新列，看起来像&amp;quot;直接打开 ghostty&amp;quot;）。0.55/DVC 模式需直接传 Lua 形式：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch &lt;span class="s1"&gt;&amp;#39;hl.dsp.layout(&amp;#34;consume_or_expel prev&amp;#34;)&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;该写法实测通过，无相邻列时仅产生 warning 无副作用。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="完整脚本"&gt;完整脚本
+&lt;/h2&gt;&lt;p&gt;由于终端需要等待新窗口成为焦点后，再由滚动布局合并，写成一个脚本更稳妥：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;span class="lnt"&gt;26
+&lt;/span&gt;&lt;span class="lnt"&gt;27
+&lt;/span&gt;&lt;span class="lnt"&gt;28
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;#!/usr/bin/env bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 在当前窗口下方打开一个新 ghostty 终端&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# scrolling 布局专用：新窗口默认开在右侧新列，这里等窗口出现后&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 用 layoutmsg consume_or_expel prev 把它合并回当前列（出现在下方）。&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;set&lt;/span&gt; -euo pipefail
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 记录按下快捷键时的焦点窗口地址（用于识别&amp;#34;新开&amp;#34;的窗口）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;FOCUSED_BEFORE&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="k"&gt;$(&lt;/span&gt;hyprctl -j activewindow &lt;span class="p"&gt;|&lt;/span&gt; jq -r &lt;span class="s1"&gt;&amp;#39;.address // empty&amp;#39;&lt;/span&gt;&lt;span class="k"&gt;)&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 随机取一个配色配置变体&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;CONFIGS&lt;/span&gt;&lt;span class="o"&gt;=(&lt;/span&gt;brown graphite green magenta navy teal&lt;span class="o"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;RAND_CONFIG&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;CONFIGS&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="k"&gt;$((&lt;/span&gt;RANDOM &lt;span class="o"&gt;%&lt;/span&gt; &lt;span class="si"&gt;${#&lt;/span&gt;&lt;span class="nv"&gt;CONFIGS&lt;/span&gt;&lt;span class="p"&gt;[@]&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="k"&gt;))&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;ghostty --config-file&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$HOME&lt;/span&gt;&lt;span class="s2"&gt;/.config/ghostty/config-&lt;/span&gt;&lt;span class="nv"&gt;$RAND_CONFIG&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="p"&gt;&amp;amp;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 等待新窗口成为焦点（最多 3 秒）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;for&lt;/span&gt; _ in &lt;span class="k"&gt;$(&lt;/span&gt;seq &lt;span class="m"&gt;1&lt;/span&gt; 30&lt;span class="k"&gt;)&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;do&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nv"&gt;CUR&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="k"&gt;$(&lt;/span&gt;hyprctl -j activewindow &lt;span class="p"&gt;|&lt;/span&gt; jq -r &lt;span class="s1"&gt;&amp;#39;.address // empty&amp;#39;&lt;/span&gt;&lt;span class="k"&gt;)&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[[&lt;/span&gt; -n &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$CUR&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$CUR&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; !&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$FOCUSED_BEFORE&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;]]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="k"&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;break&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; sleep 0.1
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;done&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 把焦点窗口（新 ghostty）合并进前一列，出现在原窗口下方&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 0.55 Lua 配置模式下 hyprctl dispatch 参数会被包成 hl.dispatch(...) 求值，&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 旧写法 `hyprctl dispatch layoutmsg consume_or_expel prev` 会报 Lua 语法错误，&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 因此直接传 hl.dsp.layout(...) 的 Lua 形式（实测有效，无相邻列时仅 warning 无副作用）。&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;hyprctl dispatch &lt;span class="s1"&gt;&amp;#39;hl.dsp.layout(&amp;#34;consume_or_expel prev&amp;#34;)&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;几个要点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;记录 &lt;code&gt;FOCUSED_BEFORE&lt;/code&gt; 是为了准确识别&amp;quot;新开的窗口&amp;quot;，避免被其它弹窗干扰&lt;/li&gt;
+&lt;li&gt;用循环轮询 &lt;code&gt;hyprctl -j activewindow&lt;/code&gt; 等待焦点切到新窗口，比固定 &lt;code&gt;sleep&lt;/code&gt; 更可靠&lt;/li&gt;
+&lt;li&gt;脚本本身放在 nix 配置仓库，通过 mkOutOfStoreSymlink 引用，修改即生效，无需 rebuild（见 &lt;a href="https://dev.leiyanhui.com/nixos/mkoutofstoresymlink/"&gt;mkOutOfStoreSymlink 说明&lt;/a&gt;）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="绑定快捷键"&gt;绑定快捷键
+&lt;/h2&gt;&lt;p&gt;在 &lt;code&gt;hyprland.conf&lt;/code&gt; 中加入：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;# 在当前窗口下方新开 ghostty (Win Shift E)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;bind = $mainMod SHIFT, E, exec, sh $REPO_DIR/script/hypr_open_term_below.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="为什么能下方堆叠"&gt;为什么能&amp;quot;下方&amp;quot;堆叠
+&lt;/h2&gt;&lt;p&gt;scrolling 布局中，同一个列可以垂直堆叠多个窗口（列内也可以有多行）。&lt;code&gt;consume_or_expel prev&lt;/code&gt; 会把窗口并入当前列的下方槽位，从而实现视觉上的&amp;quot;下方打开&amp;quot;。&lt;/p&gt;
+&lt;h2 id="相关文章"&gt;相关文章
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/wayland-wm-selection/"&gt;Wayland 窗口管理器选型&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/niri-master-layout/"&gt;在 Niri 中实现 Hyprland 风格的 Master 自动布局&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/niri-column-width-fix/"&gt;修复 Niri 列宽溢出和间隙&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/mkoutofstoresymlink/"&gt;mkOutOfStoreSymlink 说明&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</description></item></channel></rss>

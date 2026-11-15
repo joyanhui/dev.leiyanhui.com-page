@@ -1,0 +1,576 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nixos on 小类随手记</title><link>https://dev.leiyanhui.com/tags/nixos/</link><description>Recent content in Nixos on 小类随手记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 15 Nov 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://dev.leiyanhui.com/tags/nixos/index.xml" rel="self" type="application/rss+xml"/><item><title>用 NixOS 构建可直接启动的 raw 磁盘镜像</title><link>https://dev.leiyanhui.com/nixos/raw-os/</link><pubDate>Sun, 15 Nov 2026 00:00:00 +0800</pubDate><guid>https://dev.leiyanhui.com/nixos/raw-os/</guid><description>&lt;h2 id="起因"&gt;起因
+&lt;/h2&gt;&lt;p&gt;之前一直在物理机使用nixos 用kvm运行win（固定尺寸的vhd文件），偶尔需要win物理机的时候，改物理机器启动win11.vhd，然后在win内使用wsl方案运行nixos。
+实际主要工作是在nixos内部完成，导致实际是存在两个日用工作环境。非常割裂而且浪费磁盘空间。
+一直忍受这个事情，直到2026年10月底微软一次自动更新把wsl内的/dev/kvm给更新没了导致无法在wsl内使用kvm调试一些特殊os的项目。随后开始放弃wsl和hyperV，也开始放弃在win+wsl做工作环境的想法。
+最早考虑的方案是把独立分区的nixos的挂到VMware然后启动，但是随后因为linux7.x内核的发布（继承了ntfs驱动），开始尝试在ntfs分区上放一个 nixos的系统虚拟磁盘来实现类似Windows vhd启动的方案，经过几次折腾终于成功。&lt;/p&gt;
+&lt;h2 id="目的"&gt;目的
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;可以物理机和虚拟机启动同一个系统：在win/macos下可以用虚拟机启动nixos，也可以物理机直接启动。&lt;/li&gt;
+&lt;li&gt;比ventoy更可靠，完全使用nix和grub的机制&lt;/li&gt;
+&lt;li&gt;避免新安装的麻烦：在新机器上只要有efi/esp分区和一个大分区，只需要复制一个efi文件和一个虚拟磁盘文件即可完成安装。甚至在&lt;a href="https://github.com/joyanhui/myos/releases"&gt;github&lt;/a&gt;上可以直接下载本文的构建结果。&lt;/li&gt;
+&lt;li&gt;不独占分区，对硬盘紧张的环境友好。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;同一个 &lt;code&gt;nixos.raw&lt;/code&gt; 有三种用法：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用 &lt;code&gt;dd&lt;/code&gt; 写到 U 盘或硬盘，开机从它启动；&lt;/li&gt;
+&lt;li&gt;放在任意 NTFS 分区的 &lt;code&gt;OS-img/nixos.raw&lt;/code&gt;，由另外一个定制的 EFI 文件找到并完成后续启动国产；&lt;/li&gt;
+&lt;li&gt;直接作为虚拟磁盘，交给 VMware、VirtualBox、Hyper-V 或 QEMU。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;三种方式启动后是同一个系统，没有任何区别。&lt;/p&gt;
+&lt;h2 id="两个配置的分工"&gt;两个配置的分工
+&lt;/h2&gt;&lt;p&gt;仓库里和 Raw OS 相关的配置有两类，职责不同。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw_os_core_img_creat&lt;/code&gt;（&lt;code&gt;machine/raw_os/raw-os-core-img-creat.nix&lt;/code&gt;）只负责生成基础镜像（体积为10G 压缩后后1.6G左右）。系统里只有常用的命令行工具、NetworkManager、fish 和 nixos 用户（用户名密码都是 &lt;code&gt;nixos&lt;/code&gt;，root用户的密码也是&lt;code&gt;nixos&lt;/code&gt;，），足够第一次启动后做后续配置。为了首次使用方便，基础镜像默认自动登录。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw_os_work_amd&lt;/code&gt; 和 &lt;code&gt;raw_os_work_intel&lt;/code&gt;是运行在镜像里的日常环境。区别是 &lt;code&gt;amd&lt;/code&gt; 或 &lt;code&gt;intel&lt;/code&gt; tag 决定 IOMMU、KVM、VFIO 的配置以及部分驱动等，同时加载桌面、开发、输入法等模块。&lt;/p&gt;
+&lt;p&gt;也就是 raw_os_core_img_creat 用来创建 nixos.raw这个文件，方便部署。然后启动系统在这个基础系统内 运行&lt;code&gt;sudo nixos-rebulid switch --flake .#&lt;/code&gt;raw_os_work_amd/intel 来完成日用环境&lt;/p&gt;
+&lt;h2 id="镜像的结构"&gt;镜像的结构
+&lt;/h2&gt;&lt;p&gt;镜像内部分区&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;分区 1 &lt;code&gt;esp&lt;/code&gt;：vfat，固定 1 GiB，分区标签 &lt;code&gt;nixos-esp&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;分区 2 &lt;code&gt;root&lt;/code&gt;：btrfs，固定 10 GiB，分区标签 &lt;code&gt;nixos-root&lt;/code&gt;，挂载参数带 &lt;code&gt;compress=zstd&lt;/code&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;ESP 里放四个文件：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/BOOT/BOOTX64.EFI # 主引导
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/NixOS/raw-os/grub.cfg
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/NixOS/raw-os/nixos-current.efi # nixos generation 当前
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;EFI/NixOS/raw-os/nixos-generation-1.efi # nixos generation 其他历史（限于容量 最多储存8个，在初始的nxios.raw中只有一个）
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="构建镜像"&gt;构建镜像
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nix build --no-link --print-out-paths .#nixosConfigurations.raw_os_core_img_creat.config.system.build.image
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;命令输出一个 &lt;code&gt;/nix/store/...-nixos-disk-image&lt;/code&gt; 目录，里面的 &lt;code&gt;nixos.raw&lt;/code&gt; 就是最终镜像。把它复制到目标位置，例如 NTFS 分区：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;cp --reflink&lt;span class="o"&gt;=&lt;/span&gt;auto /nix/store/...-nixos-disk-image/nixos.raw /mnt/d/OS-img/nixos.raw
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;写盘启动也是同一个文件：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo dd &lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;./nixos.raw &lt;span class="nv"&gt;of&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;/dev/sdX &lt;span class="nv"&gt;bs&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;16M &lt;span class="nv"&gt;status&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;progress &lt;span class="nv"&gt;conv&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;fsync
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="外部-efi"&gt;外部 EFI
+&lt;/h2&gt;&lt;p&gt;想在不改分区表的前提下启动这个镜像，需要第二个 EFI 文件 &lt;code&gt;rawOsExternalBootEfi&lt;/code&gt;。它同样是 standalone GRUB，但内嵌的配置不一样：它会在 NTFS 分区上搜索 &lt;code&gt;/OS-img/nixos.raw&lt;/code&gt;，用 &lt;code&gt;loopback&lt;/code&gt; 把镜像映射成一块磁盘，然后加载 &lt;code&gt;(raw,gpt1)/EFI/NixOS/raw-os/grub.cfg&lt;/code&gt;。同时会搜索是否有Windows的引导，然后构建一个启动菜单里面包括：nixos.raw内的多个generation 以及自动搜索启动Windows&lt;/p&gt;
+&lt;p&gt;构建在各个efi的 方法是执行脚本：（具体参考仓库：&lt;a href="https://github.com/joyanhui/myos"&gt;https://github.com/joyanhui/myos&lt;/a&gt;）&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;machine/raw_os/docs_script/creat-rawOsExternalBootEfi.sh -o ./nixos-img.efi
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;外部 EFI 只需要部署一次，它不保存 &lt;code&gt;nixos-current.efi&lt;/code&gt;、&lt;code&gt;grub.cfg&lt;/code&gt; 和 &lt;code&gt;nixos-generation-*.efi&lt;/code&gt;，这些文件都在镜像内部。只有改了外部 EFI 的搜索路径、启动逻辑、内嵌模块，或者更新 nixpkgs 后需要重新验证、文件损坏时，才需要重新构建并手动替换。&lt;/p&gt;
+&lt;h2 id="从-ntfs-启动时根分区从哪里来"&gt;从 NTFS 启动时根分区从哪里来
+&lt;/h2&gt;&lt;p&gt;外部 EFI 把镜像当作一块磁盘来读，此时 NixOS 内核已经启动，但镜像里的分区还没有出现在 &lt;code&gt;/dev&lt;/code&gt; 下，因为镜像内的 GPT 分区要先由 loop 设备导出。这部分由 initrd 完成。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw-os-runtime.nix&lt;/code&gt; 在 initrd 里注册了 &lt;code&gt;nixos-img-loop-for-root.service&lt;/code&gt;，&lt;code&gt;Type=oneshot&lt;/code&gt;，&lt;code&gt;wantedBy = [ &amp;quot;initrd.target&amp;quot; ]&lt;/code&gt;，并且排在 &lt;code&gt;initrd-root-device.target&lt;/code&gt; 和 &lt;code&gt;sysroot.mount&lt;/code&gt; 之前。脚本的逻辑是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;等 10 秒，直到出现 &lt;code&gt;/dev/vd*&lt;/code&gt;、&lt;code&gt;/dev/sd*&lt;/code&gt;、&lt;code&gt;/dev/nvme*n*p*&lt;/code&gt; 这类块设备；&lt;/li&gt;
+&lt;li&gt;检查是否有分区的标签已经是 &lt;code&gt;nixos-root&lt;/code&gt;，有就直接退出——这是写盘启动和虚拟机启动的情况；&lt;/li&gt;
+&lt;li&gt;否则逐个尝试用 ntfs3 挂载宿主的分区，找到 &lt;code&gt;OS-img/nixos.raw&lt;/code&gt; 的所在的分区；&lt;/li&gt;
+&lt;li&gt;对镜像执行 &lt;code&gt;losetup -fP&lt;/code&gt;，再 &lt;code&gt;udevadm trigger&lt;/code&gt; 和 &lt;code&gt;udevadm settle&lt;/code&gt;，等 loop 分区出现；&lt;/li&gt;
+&lt;li&gt;按标签给每个 loop 分区建立 &lt;code&gt;/dev/disk/by-partlabel/&amp;lt;label&amp;gt;&lt;/code&gt; 链接。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id="在运行中的系统里更新"&gt;在运行中的系统里更新
+&lt;/h2&gt;&lt;p&gt;在已经启动的 Raw OS 内，进入仓库目录执行：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo nixos-rebuild switch --flake .#raw_os_work_amd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Intel 机器把目标换成 &lt;code&gt;raw_os_work_intel&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw-os-runtime.nix&lt;/code&gt; 通过 &lt;code&gt;boot.loader.external.installHook&lt;/code&gt; 挂上了 &lt;code&gt;installRawBoot&lt;/code&gt; 脚本，&lt;code&gt;nixos-rebuild switch&lt;/code&gt; 在最后阶段执行它。它做的事情是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;读取 &lt;code&gt;$toplevel/boot.json&lt;/code&gt;，取出 kernel、initrd、init、initrdSecrets 和 kernelParams；&lt;/li&gt;
+&lt;li&gt;把 initrd 复制到临时目录，如果配置了 initrd secrets 就追加进去，避免直接修改 store 里的文件；&lt;/li&gt;
+&lt;li&gt;调用 &lt;code&gt;ukify build&lt;/code&gt;，用 &lt;code&gt;linux&amp;lt;arch&amp;gt;.efi.stub&lt;/code&gt; 作 stub，cmdline 拼成 &lt;code&gt;init=&amp;lt;init&amp;gt; &amp;lt;kernelParams&amp;gt;&lt;/code&gt;，生成 UKI；&lt;/li&gt;
+&lt;li&gt;扫描 &lt;code&gt;/nix/var/nix/profiles/system-*-link&lt;/code&gt;，按 generation 编号倒序排列，并用 &lt;code&gt;readlink -f&lt;/code&gt; 的结果匹配当前 toplevel，得到当前 generation 的编号；&lt;/li&gt;
+&lt;li&gt;选出当前 generation 加上至多 8 个 generation，为每个生成 &lt;code&gt;nixos-generation-&amp;lt;n&amp;gt;.efi&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;生成新的 &lt;code&gt;grub.cfg&lt;/code&gt;：第一项是 &lt;code&gt;nixos-current.efi&lt;/code&gt;，之后是各 generation 的倒序菜单，最后是 Windows Boot Manager；&lt;/li&gt;
+&lt;li&gt;先删除不在列表里的旧 generation 文件，然后依次安装 current、各 generation、&lt;code&gt;grub.cfg&lt;/code&gt;，再清理一次，最后安装 &lt;code&gt;EFI/BOOT/BOOTX64.EFI&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;所有文件都是先写临时文件再 &lt;code&gt;mv -f&lt;/code&gt; 替换，中途出错不会留下半个 UKI。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;code&gt;nixos-current.efi&lt;/code&gt; 单独保留，不占 generation 的数量限制。&lt;code&gt;boot.loader.efi.canTouchEfiVariables = false&lt;/code&gt;，整个过程不会修改 UEFI 的启动变量。&lt;/p&gt;
+&lt;p&gt;ESP 只有 1 GiB，所以脚本选择先清理旧 generation 再安装新文件，这样不需要额外空间来暂存新的 UKI。代价是如果安装过程失败，被删掉的旧 generation 已经找不回来，重启后菜单里能回滚的项会变少。&lt;/p&gt;
+&lt;h2 id="在虚拟机里启动"&gt;在虚拟机里启动
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;nixos.raw&lt;/code&gt; 是标准格式的虚拟磁盘，虚拟机软件基本都能直接用。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;VMware Workstation 和 ESXi 不能可以直接把 raw 文件当作虚拟磁盘，但是可以创建一个 VMDK 映射它，客户机固件设置为 UEFI。&lt;/li&gt;
+&lt;li&gt;VirtualBox 原生支持 raw 磁盘，只需要把系统设置成 UEFI 启动。&lt;/li&gt;
+&lt;li&gt;Hyper-V 要先用 Arsenal-Image-Mounter 之类的工具把镜像挂载成物理磁盘，在磁盘管理里把它设为脱机，然后在第二代虚拟机的磁盘设置里选择这块物理硬盘。仓库里还有一个 &lt;code&gt;additional-foot-to-raw-and-renameVHD.sh&lt;/code&gt;，会给 raw 文件加上 VHD 尾部并改名为 &lt;code&gt;.vhd&lt;/code&gt;，第一代虚拟机可以直接使用。&lt;/li&gt;
+&lt;li&gt;QEMU 直接用 &lt;code&gt;-drive format=raw&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;实际测试：在 未启动hyper-v/wsl的机器上使用VMware启动的nixos，在关闭一些没必要的特效（毛玻璃 复杂动画 动态壁纸等）niri桌面使用体验接近物理机体验。hypr-v/wsl方案因win11的各种不靠谱稳定性不佳。qemu + whpx方案&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="扩容"&gt;扩容
+&lt;/h2&gt;&lt;p&gt;根分区固定 10 GiB，装上日常环境后空间会比较紧张。仓库里有两个等价的实现：镜像自带的 &lt;code&gt;resize-raw-image&lt;/code&gt;（和本仓库的 &lt;code&gt;docs_script/resize-raw-image.sh&lt;/code&gt;，已经加入系统包），以及 Windows 下的 &lt;code&gt;resize-raw-image.ps1&lt;/code&gt;。 可以直接执行扩容通过&lt;/p&gt;
+&lt;h2 id="相关文章"&gt;相关文章
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/os-by-flake-install/"&gt;NixOS 复现安装（flake 模式）&lt;/a&gt; — 传统安装流程，理解 &lt;code&gt;nixos-install&lt;/code&gt; 之后再来看构建镜像会更清楚&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/2base-install-flakes/"&gt;启用 flakes&lt;/a&gt; — Raw OS 的所有构建命令都依赖 flake&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/kvm-qemu/"&gt;NixOS 下使用 KVM 和显卡直通&lt;/a&gt; — 运行在 Raw OS 里的工作环境会用到这些配置&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/arch/boot-vhd-ventoy/"&gt;把 Arch Linux 安装到 vhd/raw 文件并从物理机启动&lt;/a&gt; — 同一类做法，用 Ventoy 和 vtoyboot 引导磁盘文件&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/arch/ventoy-vdisk-resize/"&gt;基于 Ventoy 启动的 Linux 虚拟磁盘扩容&lt;/a&gt; — 磁盘文件扩容的另一种实现，可以对照本文的扩容脚本&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/kvm/ovmf/"&gt;KVM 虚拟机使用 OVMF 模式 UEFI 启动&lt;/a&gt; — 测试 Raw OS 时使用的固件和相关参数&lt;/li&gt;
+&lt;/ul&gt;</description></item><item><title>NixOS 彻底清理 nodejs/pnpm 全面转向 bun</title><link>https://dev.leiyanhui.com/nixos/bun-migrate-from-nodejs-pnpm/</link><pubDate>Fri, 07 Aug 2026 21:00:00 +0800</pubDate><guid>https://dev.leiyanhui.com/nixos/bun-migrate-from-nodejs-pnpm/</guid><description>&lt;p&gt;本文记录一次在 NixOS（Flakes + home-manager）上从 nodejs/npm/pnpm 全面迁移到 bun 的过程，包括审计、配置修改、踩坑修复和缓存清理，供同样想统一 JS/TS 工具链的读者参考。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;有部分软件不支持bun甚至不支持pnpm（比如目前的DeepSeek Harness），在日用机器上建议保留nodejs。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="背景与目标"&gt;背景与目标
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本机原先并存两套环境：nodejs_26 + pnpm（nix 安装）与 bun（一体化运行时 + 包管理器）&lt;/li&gt;
+&lt;li&gt;目标：彻底移除 node/npm/pnpm 命令，所有 JS/TS 运行、包管理、临时执行统一走 bun&lt;/li&gt;
+&lt;li&gt;迁移前先审计，确认没有不可迁移的软件&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="一审计npmpnpm-安装的软件能否迁移"&gt;一、审计：npm/pnpm 安装的软件能否迁移
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;npm 全局包：空（npm ls -g 无输出，历史已清空）&lt;/li&gt;
+&lt;li&gt;pnpm 全局包：空（pnpm ls -g 无输出）&lt;/li&gt;
+&lt;li&gt;npx 历史缓存（~/.npm/_npx/）：playwright、wrangler、eslint、prettier、tsx、shadcn、chrome-devtools-mcp 等，全部可用 bunx 替代&lt;/li&gt;
+&lt;li&gt;项目内 npm 安装点：modules/ai/cfg_opencode/ 插件目录（npm install @opencode-ai/plugin），纯 JS 包，bun install 完全兼容&lt;/li&gt;
+&lt;li&gt;结论：无阻塞项，可以彻底迁移&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="二修改-nixos-配置"&gt;二、修改 NixOS 配置
+&lt;/h2&gt;&lt;h3 id="1-移除运行时与包管理器"&gt;1. 移除运行时与包管理器
+&lt;/h3&gt;&lt;p&gt;modules/dev/lang_runtime_and_tools.nix 中注释并最终删除 nodejs_26、pnpm，只保留 bun：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# ===== Node / Bun（JS/TS 运行时 + 包管理）=====&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;bun&lt;/span&gt; &lt;span class="c1"&gt;# 一体化 JS/TS 运行时 + 包管理器&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="2-移除环境变量与-path"&gt;2. 移除环境变量与 PATH
+&lt;/h3&gt;&lt;p&gt;modules/system/env_manager.nix 中删除：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;PNPM_HOME（pnpm 全局目录）&lt;/li&gt;
+&lt;li&gt;NODE_OPTIONS（node 专属的代理参数，bun 不读取；bun 原生支持环境代理）&lt;/li&gt;
+&lt;li&gt;PATH 中的 ~/.local/share/pnpm/bin&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="3-移除-permittedinsecurepackages-遗留"&gt;3. 移除 permittedInsecurePackages 遗留
+&lt;/h3&gt;&lt;p&gt;modules/system/nixpkgs_system.nix 中删除 nodejs-20.20.2、nodejs-slim-20.20.2。删除前用 nix-store 验证：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;nix-store -q --referrers /nix/store/*nodejs-20.20.2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;无任何包依赖，纯历史遗留，可安全移除。&lt;/p&gt;
+&lt;h3 id="4-迁移项目插件目录"&gt;4. 迁移项目插件目录
+&lt;/h3&gt;&lt;p&gt;cfg_opencode 由 npm 迁移到 bun：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;cd&lt;/span&gt; modules/ai/cfg_opencode
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;bun install
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;生成 bun.lock，package-lock.json 归档到 archive.7z 以便回退。&lt;/p&gt;
+&lt;h3 id="5-保留项"&gt;5. 保留项
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;~/.npmrc 符号链接保留：bun 完全兼容 //registry.npmjs.org/:_authToken，供 bun install/bunx 认证&lt;/li&gt;
+&lt;li&gt;nix 打包的 LSP 工具（typescript-language-server、vscode-langservers-extracted、prettierd）保留：它们内部自带 nodejs，不依赖系统 node&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="三关键坑bun-全局包的-node-shebang"&gt;三、关键坑：bun 全局包的 node shebang
+&lt;/h2&gt;&lt;p&gt;rebuild 后立即踩坑：pi-coding-agent（bun 全局包）运行报错：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;env: &lt;span class="s1"&gt;&amp;#39;node&amp;#39;&lt;/span&gt;: No such file or directory
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;原因：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;bun install -g 安装的包，bin 入口是直接 symlink 到源文件，且不重写 shebang&lt;/li&gt;
+&lt;li&gt;源文件 shebang 多为 #!/usr/bin/env node，移除系统 node 后自然找不到&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;修复方案（~/.local/bin/node 符号链接指向 bun）：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s2"&gt;&amp;#34;.local/bin/node&amp;#34;&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;config&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;file&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;mkOutOfStoreSymlink&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;/etc/profiles/per-user/&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="n"&gt;username&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;/bin/bun&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;要点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;必须用 symlink 而非 shell 包装脚本：symlink 时 argv[0]=node，bun 自动进入 node 兼容模式；shell 脚本 exec bun 会把 argv[0] 变为 bun（exec -a 仅 bash 支持，/bin/sh 为 dash），失去兼容模式&lt;/li&gt;
+&lt;li&gt;已知限制：bun 的 node 兼容模式不支持 node &amp;ndash;version / node -v 等版本查询参数，node -e 与脚本执行正常&lt;/li&gt;
+&lt;li&gt;部分工具自带 bun 原生入口可优先使用：pi-coding-agent 有 dist/bun/cli.js（含 bun-oauth 适配），把 ~/.bun/bin/pi 指过去并以 chmod +x 即可完全走 bun&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="npx-兼容层为硬编码调用兜底"&gt;npx 兼容层：为硬编码调用兜底
+&lt;/h3&gt;&lt;p&gt;除 node shebang 外，生态里还有大量工具硬编码调用 &lt;code&gt;npx&lt;/code&gt;（VSCode 的 Prettier/ESLint 扩展、&lt;code&gt;#!/usr/bin/env npx&lt;/code&gt; 脚本、&lt;code&gt;spawn('npx', ...)&lt;/code&gt; 等）。给 &lt;code&gt;~/.local/bin/npx&lt;/code&gt; 加一个 shell 包装脚本，指向 bunx：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s2"&gt;&amp;#34;.local/bin/npx&amp;#34;&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;text&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; #!/bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; exec /etc/profiles/per-user/&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="n"&gt;username&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s1"&gt;/bin/bunx &amp;#34;$@&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#39;&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;executable&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="no"&gt;true&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;};&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;要点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不能 symlink 到 bunx：bun 靠 argv[0] 判断是否进入 x 模式，symlink 名为 npx 时 argv[0]=npx 不触发，报 &lt;code&gt;error: Script not found&lt;/code&gt;；shim 里 exec bunx 后 argv[0]=bunx，正确触发&lt;/li&gt;
+&lt;li&gt;与 node 恰好相反：node 需要 argv[0]=node（所以用 symlink），npx 需要 argv[0]=bunx（所以用 shell 包装）&lt;/li&gt;
+&lt;li&gt;为什么不用 alias：alias 只对交互式 shell 生效，VSCode 插件/脚本 spawn npx 是直接按 PATH 找可执行文件，完全绕过 shell&lt;/li&gt;
+&lt;li&gt;踩坑：新版 home-manager（2026-04-24 起）的 home.file 已移除 mode 选项，text 文件设执行位用 &lt;code&gt;executable = true&lt;/code&gt;，写 &lt;code&gt;mode = &amp;quot;755&amp;quot;&lt;/code&gt; 会报 option does not exist&lt;/li&gt;
+&lt;li&gt;验证：&lt;code&gt;npx --yes prettier --version&lt;/code&gt; → 3.8.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="四清理历史缓存"&gt;四、清理历史缓存
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf ~/.npm &lt;span class="c1"&gt;# _cacache 3.4G + _npx 缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf ~/.local/share/pnpm &lt;span class="c1"&gt;# pnpm store 373M&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;rm -rf ~/.pnpm-store
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="五验证结果"&gt;五、验证结果
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;command&lt;/span&gt; -v node npm pnpm npx bun
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 输出：/home/y/.local/bin/node（shim）、/home/y/.local/bin/npx（shim）与 /etc/profiles/per-user/y/bin/bun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;bun -v &lt;span class="c1"&gt;# 1.3.13&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;npx --yes prettier --version &lt;span class="c1"&gt;# 3.8.3（bunx 执行）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;pi --version &lt;span class="c1"&gt;# 0.84.1（bun 原生入口）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;opencode --version &lt;span class="c1"&gt;# 1.18.15（ELF 原生二进制，无需 node）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;ul&gt;
+&lt;li&gt;npm/pnpm 命令完全消失&lt;/li&gt;
+&lt;li&gt;bun 全局包 pi-coding-agent、opencode-ai 全部可用&lt;/li&gt;
+&lt;li&gt;LSP 工具正常&lt;/li&gt;
+&lt;li&gt;迁移记录归档在 os-config 仓库 static_file/archive.7z 内的 nodejs_pnpm.md&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="相关文章"&gt;相关文章
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/entrynixos/"&gt;NixOS 入门指南（第二版）&lt;/a&gt;：其中 5.4 节的 node.nix 示例（nodejs_22 + pnpm + bun 并存）已过时，可按本文方案统一为 bun&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/7nix-clean-disk/"&gt;使用 nix 清理磁盘&lt;/a&gt;：nix 磁盘清理思路，本文第四节的缓存清理是其中的一种场景&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://dev.leiyanhui.com/nixos/mkoutofstoresymlink/"&gt;mkOutOfStoreSymlink 的一个神坑&lt;/a&gt;：本文的 ~/.npmrc 与 node 兼容层 symlink 均使用了该机制&lt;/li&gt;
+&lt;/ul&gt;</description></item><item><title>一个简单使用的git提交工具，基于fish自定义函数</title><link>https://dev.leiyanhui.com/nixos/gcp-fish-interactive-git-commit/</link><pubDate>Sun, 12 Jul 2026 00:00:00 +0800</pubDate><guid>https://dev.leiyanhui.com/nixos/gcp-fish-interactive-git-commit/</guid><description>&lt;h2 id="背景"&gt;背景
+&lt;/h2&gt;&lt;p&gt;日常开发中，Git 提交是高频操作。虽然 &lt;code&gt;git commit -m &amp;quot;xxx&amp;quot;&lt;/code&gt; 足够简单，但团队协作中遵循 &lt;strong&gt;Conventional Commits&lt;/strong&gt; 规范能显著提升提交信息的可读性和自动化能力（自动生成 CHANGELOG、语义化版本 bump 等）。&lt;/p&gt;
+&lt;p&gt;然而每次提交都要手动输入 &lt;code&gt;feat:&lt;/code&gt;、&lt;code&gt;fix:&lt;/code&gt; 等前缀，偶尔还会拼错。如果能有一个交互式工具，先显示当前变更概览，再通过菜单选择提交类型，最后自动拼装并推送，显然会更高效。&lt;/p&gt;
+&lt;p&gt;本项目基于 &lt;strong&gt;NixOS + home-manager&lt;/strong&gt; 管理整个系统配置，Fish Shell 作为默认交互式 Shell，自然希望将这样的工具函数纳入 Nix 声明式管理，一次部署、全局生效。&lt;/p&gt;
+&lt;h2 id="设计思路"&gt;设计思路
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;用 Fish Shell 函数实现&lt;/strong&gt;：不引入外部依赖，利用 Fish 内置的 &lt;code&gt;read&lt;/code&gt;、&lt;code&gt;switch&lt;/code&gt;、&lt;code&gt;git status --short&lt;/code&gt; 等能力&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Nix 化&lt;/strong&gt;：通过 home-manager 的 &lt;code&gt;programs.fish.functions&lt;/code&gt; 以声明式方式定义函数，随系统 rebuild 自动部署&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;交互流程&lt;/strong&gt;：
+&lt;ol&gt;
+&lt;li&gt;先调用 &lt;code&gt;git status --short&lt;/code&gt; 显示变更概览（新增/修改/删除的文件）&lt;/li&gt;
+&lt;li&gt;列出 Conventional Commits 10 种类型及中文说明&lt;/li&gt;
+&lt;li&gt;用户选择序号，输入提交描述&lt;/li&gt;
+&lt;li&gt;自动执行 &lt;code&gt;git add . &amp;amp;&amp;amp; git commit -m &amp;quot;type: desc&amp;quot; &amp;amp;&amp;amp; git push&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="完整代码"&gt;完整代码
+&lt;/h2&gt;&lt;p&gt;文件路径：&lt;code&gt;modules/apps/git_fiash_fun.nix&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;span class="lnt"&gt;26
+&lt;/span&gt;&lt;span class="lnt"&gt;27
+&lt;/span&gt;&lt;span class="lnt"&gt;28
+&lt;/span&gt;&lt;span class="lnt"&gt;29
+&lt;/span&gt;&lt;span class="lnt"&gt;30
+&lt;/span&gt;&lt;span class="lnt"&gt;31
+&lt;/span&gt;&lt;span class="lnt"&gt;32
+&lt;/span&gt;&lt;span class="lnt"&gt;33
+&lt;/span&gt;&lt;span class="lnt"&gt;34
+&lt;/span&gt;&lt;span class="lnt"&gt;35
+&lt;/span&gt;&lt;span class="lnt"&gt;36
+&lt;/span&gt;&lt;span class="lnt"&gt;37
+&lt;/span&gt;&lt;span class="lnt"&gt;38
+&lt;/span&gt;&lt;span class="lnt"&gt;39
+&lt;/span&gt;&lt;span class="lnt"&gt;40
+&lt;/span&gt;&lt;span class="lnt"&gt;41
+&lt;/span&gt;&lt;span class="lnt"&gt;42
+&lt;/span&gt;&lt;span class="lnt"&gt;43
+&lt;/span&gt;&lt;span class="lnt"&gt;44
+&lt;/span&gt;&lt;span class="lnt"&gt;45
+&lt;/span&gt;&lt;span class="lnt"&gt;46
+&lt;/span&gt;&lt;span class="lnt"&gt;47
+&lt;/span&gt;&lt;span class="lnt"&gt;48
+&lt;/span&gt;&lt;span class="lnt"&gt;49
+&lt;/span&gt;&lt;span class="lnt"&gt;50
+&lt;/span&gt;&lt;span class="lnt"&gt;51
+&lt;/span&gt;&lt;span class="lnt"&gt;52
+&lt;/span&gt;&lt;span class="lnt"&gt;53
+&lt;/span&gt;&lt;span class="lnt"&gt;54
+&lt;/span&gt;&lt;span class="lnt"&gt;55
+&lt;/span&gt;&lt;span class="lnt"&gt;56
+&lt;/span&gt;&lt;span class="lnt"&gt;57
+&lt;/span&gt;&lt;span class="lnt"&gt;58
+&lt;/span&gt;&lt;span class="lnt"&gt;59
+&lt;/span&gt;&lt;span class="lnt"&gt;60
+&lt;/span&gt;&lt;span class="lnt"&gt;61
+&lt;/span&gt;&lt;span class="lnt"&gt;62
+&lt;/span&gt;&lt;span class="lnt"&gt;63
+&lt;/span&gt;&lt;span class="lnt"&gt;64
+&lt;/span&gt;&lt;span class="lnt"&gt;65
+&lt;/span&gt;&lt;span class="lnt"&gt;66
+&lt;/span&gt;&lt;span class="lnt"&gt;67
+&lt;/span&gt;&lt;span class="lnt"&gt;68
+&lt;/span&gt;&lt;span class="lnt"&gt;69
+&lt;/span&gt;&lt;span class="lnt"&gt;70
+&lt;/span&gt;&lt;span class="lnt"&gt;71
+&lt;/span&gt;&lt;span class="lnt"&gt;72
+&lt;/span&gt;&lt;span class="lnt"&gt;73
+&lt;/span&gt;&lt;span class="lnt"&gt;74
+&lt;/span&gt;&lt;span class="lnt"&gt;75
+&lt;/span&gt;&lt;span class="lnt"&gt;76
+&lt;/span&gt;&lt;span class="lnt"&gt;77
+&lt;/span&gt;&lt;span class="lnt"&gt;78
+&lt;/span&gt;&lt;span class="lnt"&gt;79
+&lt;/span&gt;&lt;span class="lnt"&gt;80
+&lt;/span&gt;&lt;span class="lnt"&gt;81
+&lt;/span&gt;&lt;span class="lnt"&gt;82
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;pkgs&lt;/span&gt;&lt;span class="o"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;username&lt;/span&gt;&lt;span class="o"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;...&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;home-manager&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;users&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="n"&gt;username&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; &lt;span class="o"&gt;...&lt;/span&gt; &lt;span class="p"&gt;}:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;programs&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;fish&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;functions&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;gcp&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;description&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;交互式 Git 提交与推送（Conventional Commits）&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;body&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; set -l types \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;feat — 新功能，包含实质性逻辑的新文件&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;fix — 修复 bug&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;docs — 仅文档变更（README、注释、文档字符串）&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;style — 格式调整、空白、缺少分号（无代码逻辑变化）&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;refactor — 代码重构，非新增功能或修复 bug&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;perf — 性能改进&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;test — 添加或修改测试&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;build — 构建系统、依赖、CI 配置&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;chore — 维护、工具、配置文件、gitignore&amp;#34; \
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#34;revert — 回退之前的提交&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;========== 变更概览 ==========&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; git status --short
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;==============================&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;请选择提交类型 (Conventional Commits):&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; for i in (seq (count $types))
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; if test $i -lt 10
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34; $i) &amp;#34;$types[$i]
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; else
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34; $i) &amp;#34;$types[$i]
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; end
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; end
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; read -l -P &amp;#34;输入序号 (1-10) [默认 1]: &amp;#34; type_idx
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; if test -z &amp;#34;$type_idx&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; set type_idx 1
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; end
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; set -l prefix
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; switch $type_idx
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 1; set prefix &amp;#34;feat&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 2; set prefix &amp;#34;fix&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 3; set prefix &amp;#34;docs&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 4; set prefix &amp;#34;style&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 5; set prefix &amp;#34;refactor&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 6; set prefix &amp;#34;perf&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 7; set prefix &amp;#34;test&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 8; set prefix &amp;#34;build&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 9; set prefix &amp;#34;chore&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case 10; set prefix &amp;#34;revert&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; case &amp;#39;*&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;无效输入，已取消。&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; return 1
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; end
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; read -l -P &amp;#34;输入提交描述: &amp;#34; commit_msg
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; if test -z &amp;#34;$commit_msg&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;描述不能为空，已取消。&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; return 1
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; end
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;即将执行: git add . &amp;amp;&amp;amp; git commit -m \&amp;#34;$prefix: $commit_msg\&amp;#34; &amp;amp;&amp;amp; git push&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; echo &amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; git add .
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; git commit -m &amp;#34;$prefix: $commit_msg&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; and git push
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; or echo &amp;#34;提交或推送失败，请检查错误信息。&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="s1"&gt; &amp;#39;&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;};&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;};&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;};&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;};&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="在模块调度中心注册"&gt;在模块调度中心注册
+&lt;/h2&gt;&lt;p&gt;在 &lt;code&gt;app_and_modules_list.nix&lt;/code&gt; 中按条件引入（此处对所有机器生效）：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nix" data-lang="nix"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;++&lt;/span&gt; &lt;span class="n"&gt;importIf&lt;/span&gt; &lt;span class="n"&gt;IsAll&lt;/span&gt; &lt;span class="sr"&gt;./modules/apps/git_fiash_fun.nix&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;因为该函数依赖 Fish Shell，而 Fish 已通过 &lt;code&gt;IsAll&lt;/code&gt; 条件全局启用，所以此模块也在 &lt;code&gt;IsAll&lt;/code&gt; 下引入。&lt;/p&gt;
+&lt;h2 id="关键细节"&gt;关键细节
+&lt;/h2&gt;&lt;h3 id="1-如何让-fish-函数被-nix-管理"&gt;1. 如何让 Fish 函数被 Nix 管理
+&lt;/h3&gt;&lt;p&gt;home-manager 提供 &lt;code&gt;programs.fish.functions&lt;/code&gt; 属性集，每个 key 是一个函数名，value 包含 &lt;code&gt;description&lt;/code&gt; 和 &lt;code&gt;body&lt;/code&gt;。rebuild 后函数文件自动生成在 &lt;code&gt;~/.config/fish/functions/gcp.fish&lt;/code&gt;，Fish 启动时自动 source。&lt;/p&gt;
+&lt;h3 id="2-为什么不用-fzf"&gt;2. 为什么不用 fzf
+&lt;/h3&gt;&lt;p&gt;最初考虑过用 &lt;code&gt;fzf&lt;/code&gt; 做模糊搜索选择器，体验更流畅。但为了保持零额外依赖、纯 Fish 内置能力实现，选择了编号菜单——这在 Fish 的任何安装环境下都能工作，无需额外安装 &lt;code&gt;fzf&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id="3-为何是-git-add--而非选择性暂存"&gt;3. 为何是 &lt;code&gt;git add .&lt;/code&gt; 而非选择性暂存
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;gcp&lt;/code&gt; 的设计场景是&amp;quot;我想把当前所有变更一次性提交并推送&amp;quot;，类似一个快捷发布命令。如果需要精细控制暂存哪些文件，应使用 &lt;code&gt;lazygit&lt;/code&gt;、&lt;code&gt;gitui&lt;/code&gt; 或原生 &lt;code&gt;git add -p&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id="4-提交信息语言"&gt;4. 提交信息语言
+&lt;/h3&gt;&lt;p&gt;函数本身不限制提交描述语言——交互提示是中文，但实际 commit message 内容由用户自由输入。建议团队项目中保持英文描述以保持一致性。&lt;/p&gt;
+&lt;h3 id="5-nix-特性字符串路径-vs-nix-path-literal"&gt;5. Nix 特性：字符串路径 vs Nix path literal
+&lt;/h3&gt;&lt;p&gt;注意 &lt;code&gt;body = ''...''&lt;/code&gt; 使用的是 Nix 多行字符串。函数体作为字符串嵌入 Nix 表达式中，最终由 home-manager 写入 Fish 函数文件。这是 Nix 声明式管理配置文件的典型模式——配置内容以字符串形式存在于 Nix 模块中，而非独立的配置文件。&lt;/p&gt;
+&lt;h2 id="使用方式"&gt;使用方式
+&lt;/h2&gt;&lt;p&gt;在任意 Git 仓库中 直接运行 &lt;code&gt;gcp&lt;/code&gt; ,输出示例：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;========== 变更概览 ==========
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; M modules/apps/git_fiash_fun.nix
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;?? modules/apps/git_fiash_fun.nix
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;==============================
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;请选择提交类型 (Conventional Commits):
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 1) feat — 新功能，包含实质性逻辑的新文件
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 2) fix — 修复 bug
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 3) docs — 仅文档变更（README、注释、文档字符串）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 4) style — 格式调整、空白、缺少分号（无代码逻辑变化）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 5) refactor — 代码重构，非新增功能或修复 bug
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 6) perf — 性能改进
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 7) test — 添加或修改测试
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 8) build — 构建系统、依赖、CI 配置
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 9) chore — 维护、工具、配置文件、gitignore
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 10) revert — 回退之前的提交
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;输入序号 (1-10) [默认 1]: 9
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;输入提交描述: 整理配置
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最终执行：&lt;code&gt;git commit -m &amp;quot;chore: 整理配置&amp;quot; &amp;amp;&amp;amp; git push&lt;/code&gt;&lt;/p&gt;
+&lt;h2 id="总结"&gt;总结
+&lt;/h2&gt;&lt;p&gt;这个 &lt;code&gt;gcp&lt;/code&gt; 函数虽然只有几十行，但体现了 NixOS 配置管理的一个核心理念：&lt;strong&gt;一切皆声明&lt;/strong&gt;。工具函数不再是散落在各台机器 &lt;code&gt;~/.config/fish/config.fish&lt;/code&gt; 中的手写片段，而是作为 Nix 模块的一部分，版本化、可复用、按条件加载。&lt;/p&gt;
+&lt;p&gt;配合 Nix Flakes 和 home-manager，新增一个函数 = 写一个 &lt;code&gt;.nix&lt;/code&gt; 文件 → 在调度中心注册 → rebuild，整个过程声明式、可追溯、可复现。&lt;/p&gt;
+&lt;p&gt;扩展：可以集成到 nvim/emacs。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;后续演进：当 Lazygit 也加入同样的前缀选择功能后，两份定义开始分叉。如何用 Nix 将它们收敛回单一数据源？见 &lt;a href="https://dev.leiyanhui.com/nixos/fish-lazygit-git-commit-prefix-nixos/"&gt;Fish + Lazygit 自定义 Git 提交前缀：用 NixOS 统一管理&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;</description></item></channel></rss>
